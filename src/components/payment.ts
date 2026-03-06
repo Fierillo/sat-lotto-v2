@@ -5,32 +5,40 @@ import { requestProvider } from 'webln';
 export async function makePayment(): Promise<void> {
     if (state.selectedNumber === null) return;
 
-    const status = document.getElementById('paymentStatus') as HTMLElement;
-    if (!status) return;
+    const btn = document.querySelector('.pay-btn') as HTMLButtonElement;
+    if (!btn) return;
+
+    const resetBtn = (): void => {
+        btn.classList.remove('success-glow', 'error-glow');
+        btn.innerHTML = 'JUGAR';
+        btn.disabled = false;
+    };
 
     const nwcUrl = import.meta.env.VITE_NWC_URL;
     if (!nwcUrl) {
-        status.style.display = 'block';
-        status.textContent = "Error: Falta configurar VITE_NWC_URL";
+        btn.classList.add('error-glow');
+        btn.innerHTML = `<span style="font-size:0.9rem">NO NWC</span>`;
+        setTimeout(resetBtn, 4000);
         return;
     }
 
-    status.style.display = 'block';
-    status.classList.remove('success');
-    status.textContent = "Generando invoice de 21 sats...";
+    btn.disabled = true;
+    btn.innerHTML = `<span style="font-size:1.1rem;color:#f7931a">21<br>SATS</span>`;
 
     try {
-        const invoice = await createNwcInvoice(nwcUrl, 21, `SatLotto - Bloque ${state.targetBlock} - Número ${state.selectedNumber}`);
-
-        status.textContent = "Esperando pago via WebLN...";
+        const invoice = await createNwcInvoice(nwcUrl, 21, `SatLotto - Bloque ${state.targetBlock} - Num ${state.selectedNumber}`);
+        btn.innerHTML = `<span style="font-size:0.9rem">PAGA<br>WEBLN</span>`;
 
         const webln = await requestProvider();
         const pr = (invoice as any).invoice || (invoice as any).paymentRequest;
-        const response = await webln.sendPayment(pr);
+        await webln.sendPayment(pr);
 
-        status.classList.add('success');
-        status.innerHTML = `✅ Pago exitoso<br>Preimage: <code>${response.preimage.slice(0, 16)}...</code>`;
-    } catch (error: any) {
-        status.textContent = `❌ Error: ${error.message || 'No se pudo completar el pago'}`;
+        btn.classList.add('success-glow');
+        btn.innerHTML = `<span style="font-size:2rem">✅</span>`;
+    } catch {
+        btn.classList.add('error-glow');
+        btn.innerHTML = `<span style="font-size:2rem">❌</span>`;
+    } finally {
+        setTimeout(resetBtn, 4000);
     }
 }
