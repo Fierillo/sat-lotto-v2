@@ -12,7 +12,7 @@ export function renderOuterRing(): void {
         const x = Math.cos(rad) * radius;
         const y = Math.sin(rad) * radius;
 
-        const blockNum = i === 0 ? state.targetBlock : state.currentBlock + i - 1;
+        const blockNum = i === 0 ? state.targetBlock : state.targetBlock - BLOCKS + i;
         const marker = document.createElement('div');
         marker.className = 'block-marker';
         marker.textContent = blockNum.toString();
