@@ -1,8 +1,9 @@
 import { NDKNip07Signer } from '@nostr-dev-kit/ndk';
-import { getNwcInfo } from '../utils/nwc-connect';
+import { nwc } from '@getalby/sdk';
 
 export const authState = {
-    pubkey: null as string | null
+    pubkey: null as string | null,
+    signer: null as NDKNip07Signer | null
 };
 
 export async function loginWithExtension(): Promise<void> {
@@ -11,12 +12,14 @@ export async function loginWithExtension(): Promise<void> {
     await signer.blockUntilReady();
     const user = await signer.user();
     authState.pubkey = user.pubkey;
+    authState.signer = signer;
     updateAuthUI();
 }
 
 export async function loginWithNwc(nwcUrl: string): Promise<void> {
     if (!nwcUrl) throw new Error('NWC URL inválida');
-    const { info } = await getNwcInfo(nwcUrl);
+    const client = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
+    const info = await client.getInfo();
     if (!info.pubkey) throw new Error('La conexión NWC no devolvió un pubkey válido');
     authState.pubkey = info.pubkey;
     updateAuthUI();
@@ -43,7 +46,6 @@ export function updateAuthUI(): void {
     const modal = document.getElementById('loginModal');
 
     if (modal) modal.style.display = 'none';
-
     if (!loginBtn) return;
 
     if (authState.pubkey) {

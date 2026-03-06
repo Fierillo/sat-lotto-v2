@@ -1,7 +1,6 @@
 import { state } from './state';
-import { createNwcInvoice } from '../utils/create-invoice';
 import { requestProvider } from 'webln';
-import { saveBet } from '../utils/ledger';
+import { submitBet } from '../utils/ledger';
 import { authState } from './auth';
 
 export async function makePayment(): Promise<void> {
@@ -25,30 +24,18 @@ export async function makePayment(): Promise<void> {
         return;
     }
 
-    const nwcUrl = import.meta.env.VITE_NWC_URL;
-    if (!nwcUrl) {
-        btn.classList.add('error-glow');
-        document.querySelector('.number-segment.selected')?.classList.add('error-selected');
-        btn.innerHTML = `<span style="font-size:0.9rem">NO NWC</span>`;
-        setTimeout(resetBtn, 4000);
-        return;
-    }
-
     btn.classList.add('success-glow');
-    btn.innerHTML = `<span style="font-size:0.9rem">Cargando...</span>`;
+    btn.innerHTML = `<span style="font-size:0.9rem">Firmando...</span>`;
 
     try {
-        const invoice = await createNwcInvoice(nwcUrl, 21, `SatLotto - Bloque ${state.targetBlock} - Num ${state.selectedNumber}`);
-        btn.innerHTML = `<span style="font-size:0.9rem">Aprobá pago</span>`;
+        const paymentRequest = await submitBet(state.targetBlock, state.selectedNumber);
 
+        btn.innerHTML = `<span style="font-size:0.9rem">Aprobá pago</span>`;
         const webln = await requestProvider();
-        const pr = (invoice as any).invoice || (invoice as any).paymentRequest;
-        await webln.sendPayment(pr);
+        await webln.sendPayment(paymentRequest);
 
         btn.innerHTML = `ÉXITO`;
         document.body.classList.add('flash-green');
-
-        await saveBet(state.targetBlock, state.selectedNumber);
     } catch {
         btn.classList.remove('success-glow');
         btn.classList.add('error-glow');
