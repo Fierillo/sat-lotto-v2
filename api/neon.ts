@@ -21,13 +21,6 @@ export async function queryNeon(query: string, params: any[]) {
     }
     const data: any = await res.json();
 
-    if (!data || !data.rows || !data.fields) return [];
-
-    return data.rows.map((row: any[]) => {
-        const obj: any = {};
-        data.fields.forEach((field: any, i: number) => {
-            obj[field.name] = row[i];
-        });
-        return obj;
-    });
+    if (!data || !data.rows) return [];
+    return data.rows;
 }
