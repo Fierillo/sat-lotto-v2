@@ -1,0 +1,215 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: radial-gradient(circle at top, #151828 0%, #080b12 100%);
+  min-height: 100vh;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 50px 20px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 50px;
+}
+
+h1 {
+  font-size: 3rem;
+  letter-spacing: -1px;
+}
+
+h1 span {
+  color: #f7931a;
+}
+
+.subtitle {
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 300;
+  margin-top: 8px;
+  font-size: 1.1rem;
+}
+
+#clock {
+  position: relative;
+  width: 540px;
+  height: 540px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+}
+
+.block-marker {
+  position: absolute;
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #555;
+  text-align: center;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.block-marker.target {
+  color: #f7931a;
+  text-shadow: 0 0 10px #f7931a;
+  font-size: 1rem;
+}
+
+.block-marker.current {
+  color: #00ff9d;
+  text-shadow: 0 0 10px #00ff9d;
+}
+
+.inner-ring-container {
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+}
+
+.number-segment {
+  position: absolute;
+  width: 50px;
+  height: 160px;
+  left: 50%;
+  top: 0;
+  transform-origin: bottom center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  padding-top: 15px;
+  color: #888;
+  font-size: 1.1rem;
+  font-weight: bold;
+  transition: all 0.2s ease;
+  clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%);
+}
+
+.number-segment:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.number-segment.selected {
+  background: rgba(247, 147, 26, 0.3);
+  color: #f7931a;
+  box-shadow: inset 0 0 20px rgba(247, 147, 26, 0.5);
+  border-top: 3px solid #f7931a;
+  z-index: 10;
+}
+
+.number-text {
+  position: absolute;
+}
+
+#clockInfo {
+  margin-top: 40px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 12px 24px;
+  border-radius: 20px;
+  font-family: monospace;
+  color: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  text-align: center;
+}
+
+#clockInfo strong {
+  color: #fff;
+}
+
+.text-green {
+  color: #00ff9d !important;
+}
+
+.text-orange {
+  color: #f7931a !important;
+}
+
+#paymentStep {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  display: none;
+  z-index: 20;
+}
+
+.pay-btn {
+  background: #2a2d3e;
+  border: 1px solid #444;
+  color: #aaa;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 1px;
+}
+
+.pay-btn:hover {
+  background: #00ff9d;
+  border-color: #00ff9d;
+  color: #000;
+  box-shadow: 0 0 30px rgba(0, 255, 157, 0.5);
+}
+
+#paymentStatus {
+  position: absolute;
+  top: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 15px;
+  border-radius: 12px;
+  font-family: monospace;
+  text-align: left;
+  display: none;
+  font-size: 0.8rem;
+  width: 250px;
+  backdrop-filter: blur(5px);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.success {
+  border-left: 3px solid #00ff9d;
+}
+
+@media (max-width: 600px) {
+  #clock {
+    transform: scale(0.65);
+    margin: -60px auto;
+  }
+
+  #clockInfo {
+    margin-top: -20px;
+  }
+}

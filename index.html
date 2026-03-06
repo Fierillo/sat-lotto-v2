@@ -1,304 +1,33 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>⚡ Lightning Starter Kit</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: linear-gradient(180deg, #0a0f1a 0%, #1a1a2e 100%);
-      min-height: 100vh;
-      color: #fff;
-      padding: 40px 20px;
-    }
-    .container { max-width: 800px; margin: 0 auto; }
-    h1 { 
-      font-size: 2.5rem; 
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 15px;
-    }
-    h1 span { color: #ffc800; }
-    .subtitle { color: rgba(255,255,255,0.6); margin-bottom: 40px; }
-    
-    .card {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 16px;
-      padding: 30px;
-      margin-bottom: 20px;
-    }
-    .card h2 {
-      font-size: 1.3rem;
-      margin-bottom: 15px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .card p { color: rgba(255,255,255,0.7); margin-bottom: 20px; line-height: 1.6; }
-    
-    input, textarea {
-      width: 100%;
-      padding: 12px 16px;
-      border: 1px solid rgba(255,255,255,0.2);
-      border-radius: 8px;
-      background: rgba(255,255,255,0.05);
-      color: #fff;
-      font-size: 1rem;
-      margin-bottom: 15px;
-    }
-    input:focus, textarea:focus {
-      outline: none;
-      border-color: #00ff9d;
-    }
-    input::placeholder { color: rgba(255,255,255,0.4); }
-    
-    button {
-      padding: 12px 24px;
-      background: linear-gradient(135deg, #00ff9d 0%, #00cc7d 100%);
-      color: #000;
-      font-weight: 600;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 1rem;
-      transition: transform 0.2s;
-    }
-    button:hover { transform: scale(1.02); }
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-    
-    .output {
-      background: rgba(0,0,0,0.3);
-      border-radius: 8px;
-      padding: 15px;
-      margin-top: 15px;
-      font-family: monospace;
-      font-size: 0.9rem;
-      word-break: break-all;
-      display: none;
-    }
-    .output.show { display: block; }
-    .output.success { border-left: 3px solid #00ff9d; }
-    .output.error { border-left: 3px solid #ff6b6b; }
-    
-    .status {
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-size: 0.85rem;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 15px;
-    }
-    .status.connected { background: rgba(0,255,157,0.15); color: #00ff9d; }
-    .status.disconnected { background: rgba(255,107,107,0.15); color: #ff6b6b; }
-    
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
-    
-    .footer {
-      margin-top: 60px;
-      text-align: center;
-      color: rgba(255,255,255,0.4);
-      font-size: 0.9rem;
-    }
-    .footer a { color: #ffc800; text-decoration: none; }
-  </style>
+  <title>⚡ SatLotto</title>
+  <link rel="stylesheet" href="/src/css/main.css">
 </head>
+
 <body>
-  <div class="container">
-    <h1>⚡ <span>Lightning</span> Starter Kit</h1>
-    <p class="subtitle">Demo interactivo para Lightning Hackathons 2026</p>
 
-    <!-- WebLN Connection -->
-    <div class="card">
-      <h2>🔌 Conectar Wallet (WebLN)</h2>
-      <p>Conectá tu wallet del navegador (Alby, etc.) para interactuar con Lightning.</p>
-      
-      <div id="walletStatus" class="status disconnected">
-        ⚪ No conectado
-      </div>
-      
-      <button id="connectBtn" onclick="connectWallet()">Conectar Wallet</button>
-      <div id="walletOutput" class="output"></div>
-    </div>
+  <div class="header">
+    <h1>⚡ <span>SatLotto</span></h1>
+    <p class="subtitle">Lotería Bitcoin • 21 bloques • 21 sats</p>
+  </div>
 
-    <div class="grid">
-      <!-- Lightning Address -->
-      <div class="card">
-        <h2>📬 Lightning Address</h2>
-        <p>Resolvé una Lightning Address y generá un invoice.</p>
-        
-        <input type="text" id="lnAddress" placeholder="usuario@dominio.com" value="hello@getalby.com">
-        <input type="number" id="lnAmount" placeholder="Cantidad en sats" value="21">
-        <button onclick="resolveLightningAddress()">Generar Invoice</button>
-        <div id="lnAddressOutput" class="output"></div>
-      </div>
+  <div id="clock">
+    <div id="outerRing" class="ring"></div>
+    <div class="inner-ring-container" id="innerCircle"></div>
 
-      <!-- Create Invoice -->
-      <div class="card">
-        <h2>📝 Crear Invoice</h2>
-        <p>Generá un invoice para recibir pagos.</p>
-        
-        <input type="number" id="invoiceAmount" placeholder="Cantidad en sats" value="100">
-        <input type="text" id="invoiceMemo" placeholder="Descripción" value="Test desde Lightning Starter">
-        <button id="createInvoiceBtn" onclick="createInvoice()" disabled>Crear Invoice</button>
-        <div id="invoiceOutput" class="output"></div>
-      </div>
-    </div>
-
-    <!-- Pay Invoice -->
-    <div class="card">
-      <h2>💸 Pagar Invoice</h2>
-      <p>Pagá un invoice bolt11.</p>
-      
-      <textarea id="payInvoice" rows="3" placeholder="lnbc..."></textarea>
-      <button id="payBtn" onclick="payInvoice()" disabled>Pagar</button>
-      <div id="payOutput" class="output"></div>
-    </div>
-
-    <div class="footer">
-      <p>
-        <a href="https://hackaton.lacrypta.ar" target="_blank">Lightning Hackathons 2026</a> · 
-        <a href="https://lacrypta.ar" target="_blank">La Crypta</a> · 
-        <a href="https://github.com/lacrypta/lightning-starter" target="_blank">GitHub</a>
-      </p>
+    <div id="paymentStep">
+      <button class="pay-btn" onclick="makePayment()">JUGAR</button>
+      <div id="paymentStatus"></div>
     </div>
   </div>
 
-  <script type="module">
-    import { LightningAddress } from "https://esm.sh/@getalby/lightning-tools@5";
-    
-    window.webln = null;
+  <div id="clockInfo"></div>
 
-    // Conectar wallet
-    window.connectWallet = async function() {
-      const status = document.getElementById("walletStatus");
-      const output = document.getElementById("walletOutput");
-      const btn = document.getElementById("connectBtn");
-      
-      try {
-        btn.disabled = true;
-        btn.textContent = "Conectando...";
-        
-        if (typeof window.webln === "undefined" || !window.webln) {
-          // Intentar detectar provider
-          if (window.nostr) {
-            output.textContent = "⚠️ Detecté Nostr pero no WebLN. Instalá Alby para pagos Lightning.";
-            output.className = "output show error";
-            return;
-          }
-          throw new Error("No se detectó wallet. Instalá Alby u otra extensión WebLN.");
-        }
-
-        await window.webln.enable();
-        const info = await window.webln.getInfo();
-        
-        status.className = "status connected";
-        status.innerHTML = `🟢 Conectado: ${info.node?.alias || "Wallet"}`;
-        
-        output.textContent = JSON.stringify(info, null, 2);
-        output.className = "output show success";
-        
-        // Habilitar botones
-        document.getElementById("createInvoiceBtn").disabled = false;
-        document.getElementById("payBtn").disabled = false;
-        
-        btn.textContent = "✓ Conectado";
-        
-      } catch (err) {
-        output.textContent = "❌ " + err.message;
-        output.className = "output show error";
-        btn.disabled = false;
-        btn.textContent = "Conectar Wallet";
-      }
-    };
-
-    // Resolver Lightning Address
-    window.resolveLightningAddress = async function() {
-      const address = document.getElementById("lnAddress").value;
-      const amount = parseInt(document.getElementById("lnAmount").value) || 21;
-      const output = document.getElementById("lnAddressOutput");
-      
-      try {
-        output.textContent = "Resolviendo...";
-        output.className = "output show";
-        
-        const ln = new LightningAddress(address);
-        await ln.fetch();
-        
-        const invoice = await ln.requestInvoice({ satoshi: amount });
-        
-        output.textContent = `✅ Invoice de ${amount} sats:\n\n${invoice.paymentRequest}`;
-        output.className = "output show success";
-        
-      } catch (err) {
-        output.textContent = "❌ " + err.message;
-        output.className = "output show error";
-      }
-    };
-
-    // Crear invoice
-    window.createInvoice = async function() {
-      const amount = parseInt(document.getElementById("invoiceAmount").value);
-      const memo = document.getElementById("invoiceMemo").value;
-      const output = document.getElementById("invoiceOutput");
-      
-      try {
-        output.textContent = "Creando invoice...";
-        output.className = "output show";
-        
-        const invoice = await window.webln.makeInvoice({
-          amount: amount,
-          defaultMemo: memo
-        });
-        
-        output.textContent = `✅ Invoice creado:\n\n${invoice.paymentRequest}`;
-        output.className = "output show success";
-        
-      } catch (err) {
-        output.textContent = "❌ " + err.message;
-        output.className = "output show error";
-      }
-    };
-
-    // Pagar invoice
-    window.payInvoice = async function() {
-      const invoice = document.getElementById("payInvoice").value.trim();
-      const output = document.getElementById("payOutput");
-      
-      if (!invoice) {
-        output.textContent = "⚠️ Pegá un invoice bolt11";
-        output.className = "output show error";
-        return;
-      }
-      
-      try {
-        output.textContent = "Enviando pago...";
-        output.className = "output show";
-        
-        const result = await window.webln.sendPayment(invoice);
-        
-        output.textContent = `✅ Pago exitoso!\n\nPreimage: ${result.preimage}`;
-        output.className = "output show success";
-        
-      } catch (err) {
-        output.textContent = "❌ " + err.message;
-        output.className = "output show error";
-      }
-    };
-
-    // Auto-detect wallet on load
-    if (window.webln) {
-      document.getElementById("walletStatus").innerHTML = "🟡 Wallet detectada - Click para conectar";
-    }
-  </script>
+  <script type="module" src="/src/main.ts"></script>
 </body>
+
 </html>
