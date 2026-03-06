@@ -9,10 +9,9 @@ export function createPool(): HTMLElement {
     return pool;
 }
 
-export function updatePool(betsCount: number): void {
+export function updatePool(balance: number): void {
     const poolEl = document.getElementById('poolSats');
     if (poolEl) {
-        const total = betsCount * 21000;
-        poolEl.textContent = total.toLocaleString('en-US');
+        poolEl.textContent = balance.toLocaleString('en-US');
     }
 }

@@ -50,3 +50,14 @@ export async function fetchResult(targetBlock: number) {
         return null;
     }
 }
+
+export async function fetchPoolBalance(): Promise<number> {
+    try {
+        const resp = await fetch(`${API_BASE}/api/pool`);
+        if (!resp.ok) return 0;
+        const data = await resp.json();
+        return data.balance || 0;
+    } catch {
+        return 0;
+    }
+}

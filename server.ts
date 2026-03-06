@@ -143,6 +143,20 @@ app.get('/api/result', async (req, res) => {
     return;
 });
 
+app.get('/api/pool', async (_req, res) => {
+    try {
+        const nwcUrl = process.env.NWC_URL;
+        if (!nwcUrl) return res.json({ balance: 0 });
+
+        const client = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
+        const balance = await client.getBalance();
+        res.json({ balance: Math.floor(balance.balance / 1000) }); // msats to sats
+    } catch (err: any) {
+        res.json({ balance: 0, error: err.message });
+    }
+    return;
+});
+
 createViteServer({ server: { middlewareMode: true }, appType: 'spa' })
     .then(async (vite) => {
         await setupDb();
