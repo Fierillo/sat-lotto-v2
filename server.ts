@@ -36,6 +36,12 @@ app.post('/api/bet', async (req, res) => {
         const pr = invoice.paymentRequest || invoice.invoice;
 
         if (!process.env.NEON_URL?.includes('user:password')) {
+            const checkQuery = `SELECT id FROM lotto_bets WHERE pubkey = $1 AND target_block = $2 LIMIT 1`;
+            const existing = await queryNeon(checkQuery, [signedEvent.pubkey, bet.bloque]);
+            if (existing && existing.length > 0) {
+                return res.status(400).json({ error: 'Ya tienes una apuesta en este bloque' });
+            }
+
             const tableQuery = `
                 CREATE TABLE IF NOT EXISTS lotto_bets (
                     id SERIAL PRIMARY KEY,

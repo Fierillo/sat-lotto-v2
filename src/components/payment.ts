@@ -38,7 +38,7 @@ export async function makePayment(): Promise<void> {
         const webln = await requestProvider();
         await webln.sendPayment(paymentRequest);
 
-        btn.innerHTML = `PAGO APROBADO`;
+        btn.innerHTML = `<span style="font-size:1rem">PAGO APROBADO</span>`;
         document.body.classList.add('flash-green');
     } catch {
         btn.classList.remove('success-glow');
