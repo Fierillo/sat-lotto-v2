@@ -1,130 +1,260 @@
-# CLAUDE.md — Instrucciones para Claude Code
+# ESTE ARCHIVO NO SE COMITEA
 
-## Contexto
+# Convenciones del Proyecto
 
-Este es el **Lightning Starter Kit** para las Lightning Hackathons 2026 de La Crypta.
-https://hackaton.lacrypta.ar/hackathons/foundations.html
+## Commits
 
-El usuario que clonó este repo quiere construir un proyecto con Lightning Network para participar en la hackathon.
+Los mensajes de commit deben seguir las convenciones de [Conventional Commits](https://www.conventionalcommits.org/) y estar **en inglés**.
 
-## Tu tarea
+### Tipos de commit
 
-1. **Saludar** y presentarte como asistente de la hackathon
-2. **Preguntar** si tiene una idea de proyecto
-3. Si **no tiene idea**, ofrecer 5 opciones concretas
-4. **Guiar** la construcción paso a paso
-5. **Explicar** mientras codeas
+- `feat`: Nueva funcionalidad
+- `fix`: Corrección de bug
+- `docs`: Cambios en documentación
+- `style`: Cambios de formato (espacios, comas, etc. sin cambiar código)
+- `refactor`: Refactorización del código
+- `test`: Agregar o modificar tests
+- `chore`: Tareas de mantenimiento (actualizar dependencias, caches, etc.)
 
-## Primera interacción
-
-Empezá con algo así:
-
-```
-¡Hola! ⚡ Soy tu asistente para la Lightning Hackathon de La Crypta.
-
-Estás en el Starter Kit oficial con todas las herramientas listas:
-• NWC (Nostr Wallet Connect)
-• Lightning Address
-• LNURL
-• WebLN
-
-¿Ya tenés una idea de lo que querés construir?
-
-Si no, puedo proponerte 5 ideas según tu nivel:
-1. 🟢 Básico — Tip Jar, QR Generator, Paywall
-2. 🟡 Intermedio — POS, Split Payments, Donations
-3. 🔴 Avanzado — Streaming Payments, Escrow, API Monetization
-
-Contame qué te gustaría hacer (o decime tu nivel y te propongo opciones).
-```
-
-## Herramientas instaladas
-
-Ya están en `package.json`:
-- `@getalby/sdk` — SDK completo de Alby (NWC, etc)
-- `@getalby/lightning-tools` — Lightning Address, LNURL
-- `@nostr-dev-kit/ndk` — SDK de Nostr
-- `webln` — Standard para wallets en browser
-
-## Ejemplos disponibles
-
-En `src/examples/`:
-- `create-invoice.js` — Crear invoice con NWC
-- `pay-invoice.js` — Pagar invoice
-- `nwc-connect.js` — Conectar wallet
-- `lnurl-pay.js` — Resolver Lightning Address
-
-## Flujo de trabajo sugerido
+### Formato
 
 ```
-1. Definir idea → "¿Qué querés construir?"
-2. MVP features → "¿Cuáles son las 3 cosas esenciales?"
-3. Crear estructura → Archivos y carpetas
-4. Implementar core → La lógica principal
-5. Agregar UI → Frontend básico
-6. Testing → Probar con wallet real
-7. Polish → README, demo, presentación
+<type>: <descripción corta en imperativo>
+
+[Cuerpo opcional con más detalles]
 ```
 
-## Código de ejemplo rápido
+### Ejemplos
 
-### Crear invoice
-```javascript
-import { nwc } from "@getalby/sdk";
+```bash
+feat: add EMAE indicator with three series
 
-const client = new nwc.NWCClient({ 
-  nostrWalletConnectUrl: "nostr+walletconnect://..." 
-});
+fix: normalize black salary to base 100
 
-const invoice = await client.makeInvoice({
-  amount: 1000, // sats
-  description: "Mi pago"
-});
-
-console.log(invoice.paymentRequest);
+chore: update BMA cache with latest data
 ```
 
-### Lightning Address
-```javascript
-import { LightningAddress } from "@getalby/lightning-tools";
+## Separación de commits
 
-const ln = new LightningAddress("user@getalby.com");
-await ln.fetch();
+- Cada funcionalidad/cambio lógico debe ir en un commit separado
+- No agrupar cambios no relacionados
+- Separar commits de features, fixes y tareas de mantenimiento
 
-const invoice = await ln.requestInvoice({ satoshi: 100 });
+## Principio de commits atómicos
+
+Los commits deben ser **cortos y enfocados**. Si necesitas escribir un mensaje de commit extenso para explicar todo lo que hace, probablemente deberías haber hecho commits más pequeños y específicos.
+
+**Regla general**: Un commit = Una funcionalidad/cambio lógico
+
+**Mal ejemplo**:
+```
+feat: add EMAE, update BMA cache, fix bug in chart, add new button
 ```
 
-### WebLN (browser)
-```javascript
-const webln = await window.webln.enable();
-await webln.sendPayment("lnbc...");
+**Buenos ejemplos** (commits separados):
+```
+feat: add EMAE indicator with three series
+
+chore: update BMA cache with recent data
+
+fix: correct chart axis calculation
+
+feat: add download button to chart view
 ```
 
-## Reglas importantes
+## Idioma
 
-1. **Preguntá antes de asumir** — No empieces a codear sin entender qué quiere
-2. **Explicá mientras hacés** — El usuario está aprendiendo
-3. **Código funcional** — Mejor poco y funcionando que mucho y roto
-4. **Testea** — Siempre verificá que compile y corra
-5. **Sé práctico** — Menos teoría, más ejemplos
+- Commits: Inglés
+- Código: Inglés
+- Documentación: Español (para este proyecto)
 
-## Info de la Hackathon
+## Reglas de trabajo
 
-- **Nombre**: FOUNDATIONS
-- **Tema**: Lightning Payments Basics
-- **Fechas**: Marzo 2026 (martes 3, 10, 17, 24, 31)
-- **Premio**: 1,000,000 sats
-- **Landing**: https://hackaton.lacrypta.ar
+- **NO hacer commits sin orden expresa del usuario**
+- Esperar siempre la orden "commit" o "hacer commit" antes de ejecutar git commit
 
-## Cuando terminen
+## Código
 
-Ayudá al usuario a:
-1. Escribir un buen README
-2. Grabar un demo (video o screenshots)
-3. Preparar el pitch de 3 minutos
-4. Subir el proyecto a GitHub
-5. Hacer PR agregando su proyecto a `data/projects/foundations.json` en el repo de la hackathon
+### Principios
 
-6. # Mi propósito como agente
+**Código minimalista**: La mejor pieza de código es la que no existe. Menos código = menos bugs = más fácil de mantener.
 
-Mi propósito es hacerte ganar a vos como usuario. Quiero ayudarte a idear y construir un excelente proyecto, lo suficientemente bueno para ganar la Hackaton.
+```typescript
+// Malo - código innecesario
+function isAdult(age: number): boolean {
+    if (age >= 18) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+// Bueno - minimalista
+const isAdult = (age: number) => age >= 18;
+```
+
+**Sin comentarios**: El código debe ser autoexplicativo. Si necesitás comentarios, el código no está bien escrito.
+
+```typescript
+// Malo - necesita comentario para entender
+let x = 1000; // convert to seconds
+const y = x / 60;
+
+// Bueno - nombre claro elimina necesidad de comentario
+const MINUTES_TO_SECONDS = 60;
+const totalSeconds = minutes * MINUTES_TO_SECONDS;
+```
+
+**Mensajes de error claros**: Siempre que lances un error, explicá qué pasó y cómo arreglarlo.
+
+```typescript
+// Malo - error vago
+throw new Error('Error');
+
+// Bueno - error claro con contexto
+throw new Error(`Failed to fetch user ${userId}. User not found in database. Verify the user exists.`);
+```
+
+**Nombres claros**: Usá nombres descriptivos para variables, funciones y clases. Evitá abreviaciones confusas.
+
+```typescript
+// Malo - abreviaciones confusas
+const dt = users.filter(u => u.a > 18);
+const calc = (p, r, t) => p * (1 + r * t);
+
+// Buenos - nombres descriptivos
+const adults = users.filter(user => user.age > 18);
+const calculateSimpleInterest = (principal, rate, time) => principal * (1 + rate * time);
+```
+
+**Funciones pequeñas**: Cada función debe hacer una sola cosa y hacerlo bien.
+
+```typescript
+// Malo - función que hace muchas cosas
+function saveUserAndSendEmail(user) {
+    // Validar usuario
+    if (!user.email.includes('@')) {
+        return { error: 'Invalid email' };
+    }
+    if (user.name.length < 2) {
+        return { error: 'Name too short' };
+    }
+    
+    // Guardar en base de datos
+    database.save(user);
+    
+    // Enviar email de bienvenida
+    sendEmail(user.email, 'Welcome!');
+    
+    // Actualizar estadísticas
+    stats.increment('new_users');
+    
+    // Loggear actividad
+    logger.log('new_user', user.id);
+    
+    return { success: true };
+}
+
+// Bueno - cada función hace una sola cosa
+function saveUser(user) {
+    if (!isValidUser(user)) throw new Error('Invalid user');
+    return database.save(user);
+}
+
+function isValidUser(user) {
+    return user.email.includes('@') && user.name.length >= 2;
+}
+
+async function registerUser(user) {
+    await saveUser(user);
+    await sendWelcomeEmail(user.email);
+    await updateUserStats();
+}
+```
+
+**Máximo 3 niveles de indentación**: Si necesitás más, refactorizá tu código.
+
+```typescript
+// Malo - más de 3 niveles de indentación
+function processData(data) {
+    if (data) {
+        if (data.items) {
+            if (data.items.length > 0) {
+                for (let i = 0; i < data.items.length; i++) {
+                    if (data.items[i].valid) {
+                        processItem(data.items[i]);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Bueno - returns tempranos y menos niveles
+function processData(data) {
+    if (!data) return;
+    if (!data.items?.length) return;
+    
+    for (const item of data.items) {
+        if (item.valid) processItem(item);
+    }
+}
+```
+
+**Returns tempranos**: Evitan procesar código innecesario.
+
+```typescript
+// Malo - indentación innecesaria
+function getUser(id) {
+    if (id) {
+        const user = database.find(id);
+        if (user) {
+            return user;
+        } else {
+            return null;
+        }
+    } else {
+        return null;
+    }
+}
+
+// Bueno - return temprano
+function getUser(id) {
+    if (!id) return null;
+    const user = database.find(id);
+    return user ?? null;
+}
+```
+
+**Async/await**: Priorizá el uso de async/await sobre callbacks.
+
+```typescript
+// Malo - callback hell
+function getUserData(userId, callback) {
+    if (userId) {
+        database.query('SELECT * FROM users WHERE id = ?', [userId], function(err, user) {
+            if (err) {
+                callback(err);
+            } else {
+                if (user) {
+                    callback(null, user);
+                } else {
+                    callback(new Error('User not found'));
+                }
+            }
+        });
+    } else {
+        callback(new Error('Invalid userId'));
+    }
+}
+
+// Bueno - async/await limpio
+async function getUserData(userId: string): Promise<User> {
+    if (!userId) throw new Error('Invalid userId');
+    
+    const user = await database.query('SELECT * FROM users WHERE id = ?', [userId]);
+    if (!user) throw new Error('User not found');
+    
+    return user;
+}
+```
