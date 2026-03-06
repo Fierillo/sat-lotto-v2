@@ -4,7 +4,7 @@ import { makePayment } from './components/payment';
 import { createLoginButton, createLoginModal } from './components/auth';
 import { createDashboard, renderBetsTable, renderResult } from './components/tables';
 import { createPool, updatePool } from './components/pool';
-import { fetchBets, fetchResult } from './utils/ledger';
+import { fetchBets, fetchResult, fetchPoolBalance } from './utils/ledger';
 
 function createHeader(): HTMLElement {
     const header = document.createElement('div');
@@ -20,7 +20,9 @@ export async function updateUI(): Promise<void> {
 
     const bets = await fetchBets(state.targetBlock);
     renderBetsTable(bets);
-    updatePool(bets.length);
+
+    const balance = await fetchPoolBalance();
+    updatePool(balance);
 
     const prevTarget = state.targetBlock - BLOCKS;
     const result = await fetchResult(prevTarget);
@@ -50,8 +52,13 @@ async function init(): Promise<void> {
     app.appendChild(createLoginModal());
     app.appendChild(createHeader());
     app.appendChild(createPool());
-    app.appendChild(createClock());
-    app.appendChild(createDashboard());
+
+    const gameContainer = document.createElement('div');
+    gameContainer.className = 'game-container';
+    gameContainer.appendChild(createClock());
+    gameContainer.appendChild(createDashboard());
+
+    app.appendChild(gameContainer);
 
     document.body.prepend(app);
 
