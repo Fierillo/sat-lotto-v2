@@ -4,5 +4,4 @@ dist/
 .env.local
 .vercel
 
-vite.config.ts
 src/vite-env.d.ts
