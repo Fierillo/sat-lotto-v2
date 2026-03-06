@@ -1,60 +1,51 @@
 import { authState } from '../components/auth';
-import NDK, { NDKEvent, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
-import { neon } from '@neondatabase/serverless';
 
-const DEFAULT_RELAYS = ['wss://relay.damus.io', 'wss://nos.lol'];
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
-const casinoSigner = import.meta.env.VITE_APP_NOSTR_PRIVKEY
-    ? new NDKPrivateKeySigner(import.meta.env.VITE_APP_NOSTR_PRIVKEY)
-    : NDKPrivateKeySigner.generate();
+export async function submitBet(targetBlock: number, selectedNumber: number): Promise<string> {
+    if (!authState.pubkey) throw new Error('No estás logueado');
 
-const casinoNdk = new NDK({
-    explicitRelayUrls: DEFAULT_RELAYS,
-    signer: casinoSigner
-});
-casinoNdk.connect();
+    const eventTemplate = {
+        kind: 1,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [['t', 'satlotto']],
+        content: JSON.stringify({ bloque: targetBlock, numero: selectedNumber }),
+        pubkey: authState.pubkey
+    };
 
-export async function saveBet(targetBlock: number, selectedNumber: number): Promise<void> {
-    if (!authState.pubkey) return;
+    const nostr = (window as any).nostr;
+    if (!nostr) throw new Error('Se necesita extensión Nostr para firmar la apuesta');
 
-    const dbUrl = import.meta.env.VITE_NEON_URL;
-    if (dbUrl) {
-        try {
-            const sql = neon(dbUrl);
-            await sql`
-                CREATE TABLE IF NOT EXISTS lotto_bets (
-                    id SERIAL PRIMARY KEY,
-                    pubkey VARCHAR(64) NOT NULL,
-                    target_block INT NOT NULL,
-                    selected_number INT NOT NULL,
-                    created_at TIMESTAMP DEFAULT NOW()
-                )
-            `;
-            await sql`
-                INSERT INTO lotto_bets (pubkey, target_block, selected_number)
-                VALUES (${authState.pubkey}, ${targetBlock}, ${selectedNumber})
-            `;
-        } catch (e: any) {
-            console.error('Error Neon DB:', e.message);
-        }
-    }
+    const signedEvent = await nostr.signEvent(eventTemplate);
 
+    const resp = await fetch(`${API_BASE}/api/bet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ signedEvent })
+    });
+
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Error del servidor');
+
+    return data.paymentRequest;
+}
+
+export async function fetchBets(targetBlock: number): Promise<Array<{ pubkey: string; selected_number: number }>> {
     try {
-        const event = new NDKEvent(casinoNdk);
-        event.kind = 1;
-        event.content = JSON.stringify({
-            juego: "SatLotto",
-            bloque: targetBlock,
-            numero: selectedNumber
-        });
-        event.tags = [
-            ['e', 'satlotto_bet_v1'],
-            ['p', authState.pubkey]
-        ];
+        const resp = await fetch(`${API_BASE}/api/bets?block=${targetBlock}`);
+        if (!resp.ok) return [];
+        return resp.json();
+    } catch {
+        return [];
+    }
+}
 
-        await event.sign();
-        await event.publish();
-    } catch (e: any) {
-        console.error('Error Nostr Cast:', e.message);
+export async function fetchResult(targetBlock: number) {
+    try {
+        const resp = await fetch(`${API_BASE}/api/result?block=${targetBlock}`);
+        if (!resp.ok) return null;
+        return resp.json();
+    } catch {
+        return null;
     }
 }
