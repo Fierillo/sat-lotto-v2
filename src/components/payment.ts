@@ -2,6 +2,7 @@ import { state } from './state';
 import { createNwcInvoice } from '../utils/create-invoice';
 import { requestProvider } from 'webln';
 import { saveBet } from '../utils/ledger';
+import { authState } from './auth';
 
 export async function makePayment(): Promise<void> {
     if (state.selectedNumber === null) return;
@@ -14,6 +15,13 @@ export async function makePayment(): Promise<void> {
         document.body.classList.remove('flash-green');
         btn.innerHTML = 'JUGAR';
     };
+
+    if (!authState.pubkey) {
+        btn.classList.add('error-glow');
+        btn.innerHTML = `<span style="font-size:0.9rem">Login<br>Antes</span>`;
+        setTimeout(resetBtn, 4000);
+        return;
+    }
 
     const nwcUrl = import.meta.env.VITE_NWC_URL;
     if (!nwcUrl) {
