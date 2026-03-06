@@ -13,7 +13,7 @@ body {
   flex-direction: column;
   align-items: center;
   padding: 50px 20px;
-  transition: all 0.5s ease;
+  transition: all 1.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .header {
@@ -115,10 +115,10 @@ h1 span {
 }
 
 .number-segment.selected {
-  background: rgba(247, 147, 26, 0.3);
-  color: #f7931a;
-  box-shadow: inset 0 0 20px rgba(247, 147, 26, 0.5);
-  border-top: 3px solid #f7931a;
+  background: rgba(0, 255, 157, 0.3);
+  color: #00ff9d;
+  box-shadow: inset 0 0 20px rgba(0, 255, 157, 0.5);
+  border-top: 3px solid #00ff9d;
   z-index: 10;
 }
 
