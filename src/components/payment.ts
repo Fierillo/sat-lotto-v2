@@ -45,13 +45,19 @@ export async function makePayment(): Promise<void> {
         document.body.classList.remove('flash-green');
         document.querySelector('.number-segment.selected')?.classList.remove('error-selected');
         btn.innerHTML = 'JUGAR';
+        document.getElementById('loginBtn')?.classList.remove('blink-purple');
     };
 
     if (!authState.pubkey) {
         btn.classList.add('error-glow');
         document.querySelector('.number-segment.selected')?.classList.add('error-selected');
         btn.innerHTML = `<span style="font-size:0.9rem">Login<br>Antes</span>`;
-        setTimeout(resetBtn, 4000);
+
+        setTimeout(() => {
+            document.getElementById('loginBtn')?.classList.add('blink-purple');
+        }, 1100);
+
+        setTimeout(resetBtn, 5000);
         return;
     }
 
