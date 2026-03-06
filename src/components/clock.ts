@@ -32,15 +32,16 @@ export function renderInnerRing(): void {
 
     for (let i = 0; i < BLOCKS; i++) {
         const deg = (i * 360 / BLOCKS);
+        const displayNum = i === 0 ? 21 : i;
 
         const segment = document.createElement('div');
         segment.className = 'number-segment';
         segment.style.transform = `translateX(-50%) rotate(${deg}deg)`;
-        segment.onclick = () => selectNumber(i);
+        segment.onclick = () => selectNumber(displayNum);
 
         const text = document.createElement('div');
         text.className = 'number-text';
-        text.textContent = i.toString();
+        text.textContent = displayNum.toString();
         text.style.transform = `rotate(${-deg}deg)`;
 
         segment.appendChild(text);
