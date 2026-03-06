@@ -12,6 +12,41 @@ import { queryNeon } from './api/neon.ts';
 const app = express();
 app.use(express.json());
 
+async function setupDb() {
+    if (process.env.NEON_URL?.includes('user:password')) return;
+    try {
+        await queryNeon(`
+            CREATE TABLE IF NOT EXISTS lotto_bets (
+                id SERIAL PRIMARY KEY,
+                pubkey VARCHAR(64) NOT NULL,
+                target_block INT NOT NULL,
+                selected_number INT NOT NULL,
+                payment_request TEXT,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        `, []);
+
+        // Clean duplicates if any, keeping the latest ID
+        await queryNeon(`
+            DELETE FROM lotto_bets a USING lotto_bets b
+            WHERE a.id < b.id AND a.pubkey = b.pubkey AND a.target_block = b.target_block
+        `, []);
+
+        // Try adding the constraint if it doesn't exist
+        await queryNeon(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'unique_pubkey_block') THEN
+                    ALTER TABLE lotto_bets ADD CONSTRAINT unique_pubkey_block UNIQUE (pubkey, target_block);
+                END IF;
+            END $$;
+        `, []);
+        console.log("[DB] Database setup complete");
+    } catch (e) {
+        console.error("[DB] Setup error (might be expected if already configured):", e);
+    }
+}
+
 app.post('/api/bet', async (req, res) => {
     try {
         const { signedEvent } = req.body;
@@ -36,19 +71,6 @@ app.post('/api/bet', async (req, res) => {
         const pr = invoice.paymentRequest || invoice.invoice;
 
         if (!process.env.NEON_URL?.includes('user:password')) {
-            const tableQuery = `
-                CREATE TABLE IF NOT EXISTS lotto_bets (
-                    id SERIAL PRIMARY KEY,
-                    pubkey VARCHAR(64) NOT NULL,
-                    target_block INT NOT NULL,
-                    selected_number INT NOT NULL,
-                    payment_request TEXT,
-                    created_at TIMESTAMP DEFAULT NOW(),
-                    UNIQUE(pubkey, target_block)
-                )
-            `;
-            await queryNeon(tableQuery, []);
-
             const upsertQuery = `
                 INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request)
                 VALUES ($1, $2, $3, $4)
@@ -122,7 +144,8 @@ app.get('/api/result', async (req, res) => {
 });
 
 createViteServer({ server: { middlewareMode: true }, appType: 'spa' })
-    .then(vite => {
+    .then(async (vite) => {
+        await setupDb();
         app.use(vite.middlewares);
         app.listen(5173, '0.0.0.0', () => console.log(`\n  ➜  Local:   http://localhost:5173/`));
     })
