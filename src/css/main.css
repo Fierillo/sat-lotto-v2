@@ -215,6 +215,125 @@ body.flash-green .block-marker:not(.target) {
   text-shadow: 0 0 10px #00ff9d;
 }
 
+.top-login-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #aaa;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 100;
+}
+
+.top-login-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.top-login-btn.logged-in {
+  background: rgba(247, 147, 26, 0.2);
+  border-color: #f7931a;
+  color: #f7931a;
+}
+
+.modal-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(5px);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: #111422;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 30px;
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+}
+
+.modal h2 {
+  margin-bottom: 25px;
+  font-size: 1.5rem;
+  color: #f7931a;
+}
+
+.auth-btn {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  padding: 12px;
+  margin-bottom: 15px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.auth-btn:hover {
+  background: rgba(247, 147, 26, 0.2);
+  border-color: #f7931a;
+  color: #f7931a;
+}
+
+.nwc-section {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+.nwc-section input {
+  width: 100%;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  font-size: 0.9rem;
+}
+
+.nwc-section .auth-btn {
+  margin-bottom: 0;
+  padding: 10px;
+  font-size: 1rem;
+}
+
+.auth-error {
+  color: #ff3333;
+  min-height: 20px;
+  margin-bottom: 15px;
+  font-size: 0.9rem;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.close-btn:hover {
+  color: #aaa;
+}
+
 @media (max-width: 600px) {
   #clock {
     transform: scale(0.65);

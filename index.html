@@ -10,6 +10,24 @@
 
 <body>
 
+  <button id="loginBtn" class="top-login-btn" onclick="showLoginModal()">ENTRAR</button>
+
+  <div id="loginModal" class="modal-bg">
+    <div class="modal">
+      <h2>Conectá tu Wallet</h2>
+      <button class="auth-btn" onclick="handleExtensionLogin()">🦊 Alby / Nos2x</button>
+      <button class="auth-btn" onclick="handleMobileLogin()">📱 Amber / Firmador Móvil</button>
+
+      <div class="nwc-section">
+        <input type="password" id="nwcInput" placeholder="nostr+walletconnect://..." />
+        <button class="auth-btn" onclick="handleNwcLogin()">⚡ Conectar NWC</button>
+      </div>
+
+      <p id="authError" class="auth-error"></p>
+      <button class="close-btn" onclick="hideLoginModal()">Cerrar</button>
+    </div>
+  </div>
+
   <div class="header">
     <h1>⚡ <span>SatLotto</span></h1>
     <p class="subtitle">Lotería Bitcoin • 21 bloques • 21 sats</p>
