@@ -2,11 +2,14 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import { verifyEvent } from 'nostr-tools';
 import { nwc } from '@getalby/sdk';
+import { neonConfig } from '@neondatabase/serverless';
+import WebSocket from 'ws';
+
+neonConfig.webSocketConstructor = WebSocket;
+import { queryNeon } from './api/neon.ts';
 
 const app = express();
 app.use(express.json());
-
-const bets: any[] = [];
 
 app.post('/api/bet', async (req, res) => {
     try {
@@ -31,13 +34,25 @@ app.post('/api/bet', async (req, res) => {
 
         const pr = invoice.paymentRequest || invoice.invoice;
 
-        bets.push({
-            pubkey: signedEvent.pubkey,
-            target_block: bet.bloque,
-            selected_number: bet.numero,
-            payment_request: pr,
-            created_at: new Date()
-        });
+        if (!process.env.NEON_URL?.includes('user:password')) {
+            const tableQuery = `
+                CREATE TABLE IF NOT EXISTS lotto_bets (
+                    id SERIAL PRIMARY KEY,
+                    pubkey VARCHAR(64) NOT NULL,
+                    target_block INT NOT NULL,
+                    selected_number INT NOT NULL,
+                    payment_request TEXT,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            `;
+            await queryNeon(tableQuery, []);
+
+            const insertQuery = `
+                INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request)
+                VALUES ($1, $2, $3, $4)
+            `;
+            await queryNeon(insertQuery, [signedEvent.pubkey, bet.bloque, bet.numero, pr]);
+        }
 
         res.json({ paymentRequest: pr });
     } catch (err: any) {
@@ -45,15 +60,26 @@ app.post('/api/bet', async (req, res) => {
     }
 });
 
-app.get('/api/bets', (req, res) => {
+app.get('/api/bets', async (req, res) => {
     const block = parseInt(req.query.block as string);
     if (!block) return res.status(400).json({ error: 'Missing block' });
 
-    const activeBets = bets
-        .filter(b => b.target_block === block)
-        .sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
-
-    res.json({ bets: activeBets });
+    try {
+        const query = `
+            SELECT pubkey, selected_number, created_at
+            FROM lotto_bets
+            WHERE target_block = $1
+            ORDER BY created_at DESC
+        `;
+        let bets = [];
+        if (!process.env.NEON_URL?.includes('user:password')) {
+            bets = await queryNeon(query, [block]);
+        }
+        res.json({ bets });
+    } catch (e: any) {
+        if (e.message.includes('42P01')) return res.json({ bets: [] });
+        res.status(500).json({ error: e.message });
+    }
 });
 
 app.get('/api/result', async (req, res) => {
@@ -67,10 +93,21 @@ app.get('/api/result', async (req, res) => {
         const hash = await resp.text();
         const winningNumber = (parseInt(hash.slice(-4), 16) % 21) + 1;
 
-        const winners = bets.filter(b => b.target_block === block && b.selected_number === winningNumber);
+        const query = `
+            SELECT pubkey, selected_number
+            FROM lotto_bets
+            WHERE target_block = $1 AND selected_number = $2
+        `;
+        let winners = [];
+        if (!process.env.NEON_URL?.includes('user:password')) {
+            winners = await queryNeon(query, [block, winningNumber]);
+        }
 
         res.json({ resolved: true, blockHash: hash, winningNumber, winners });
     } catch (err: any) {
+        if (err.message.includes('42P01')) {
+            return res.json({ resolved: true, blockHash: '', winningNumber: 0, winners: [] });
+        }
         res.json({ resolved: true, winners: [], error: err.message });
     }
 });
