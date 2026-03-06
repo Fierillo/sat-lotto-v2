@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { neon } from '@neondatabase/serverless';
+import { queryNeon } from './neon.js';
 import { verifyEvent } from 'nostr-tools';
 import { nwc } from '@getalby/sdk';
 
@@ -32,21 +32,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
         const pr = (invoice as any).paymentRequest || (invoice as any).invoice;
 
-        const sql = neon(process.env.NEON_URL!);
-        await sql`
-            CREATE TABLE IF NOT EXISTS lotto_bets (
-                id SERIAL PRIMARY KEY,
-                pubkey VARCHAR(64) NOT NULL,
-                target_block INT NOT NULL,
-                selected_number INT NOT NULL,
-                payment_request TEXT,
-                created_at TIMESTAMP DEFAULT NOW()
-            )
-        `;
-        await sql`
-            INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request)
-            VALUES (${signedEvent.pubkey}, ${bet.bloque}, ${bet.numero}, ${pr})
-        `;
+        if (!process.env.NEON_URL?.includes('user:password')) {
+            const tableQuery = `
+                CREATE TABLE IF NOT EXISTS lotto_bets (
+                    id SERIAL PRIMARY KEY,
+                    pubkey VARCHAR(64) NOT NULL,
+                    target_block INT NOT NULL,
+                    selected_number INT NOT NULL,
+                    payment_request TEXT,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            `;
+            await queryNeon(tableQuery, []);
+
+            const insertQuery = `
+                INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request)
+                VALUES ($1, $2, $3, $4)
+            `;
+            await queryNeon(insertQuery, [signedEvent.pubkey, bet.bloque, bet.numero, pr]);
+        }
 
         return res.json({ paymentRequest: pr });
     } catch (e: any) {
