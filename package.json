@@ -1,10 +1,10 @@
 {
-  "name": "lightning-starter",
+  "name": "sat-lotto-v2",
   "version": "1.0.0",
-  "description": "Starter kit para Lightning Hackathons 2026 - La Crypta",
+  "description": "Lottery game that works with NWC and LN",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
     "example:invoice": "node src/examples/create-invoice.js",
@@ -12,8 +12,18 @@
     "example:nwc": "node src/examples/nwc-connect.js",
     "example:lnurl": "node src/examples/lnurl-pay.js"
   },
-  "keywords": ["lightning", "bitcoin", "nostr", "nwc", "hackathon", "lacrypta"],
-  "author": "La Crypta",
+  "keywords": [
+    "lightning",
+    "bitcoin",
+    "nostr",
+    "nwc",
+    "hackathon",
+    "lacrypta",
+    "lottery",
+    "game",
+    "earn-sats"
+  ],
+  "author": "Fierillo",
   "license": "MIT",
   "dependencies": {
     "@getalby/lightning-tools": "^5.0.0",
