@@ -23,7 +23,7 @@ function updateUI(): void {
     }
 }
 
-import { authState, loginWithExtension, loginWithMobileApp, loginWithNwc, updateAuthUI } from './components/auth';
+import { authState, loginWithExtension, autoLogin, loginWithNwc, updateAuthUI } from './components/auth';
 
 function showLoginModal(): void {
     const el = document.getElementById('loginModal');
@@ -40,15 +40,6 @@ function setAuthError(msg: string): void {
     if (err) err.textContent = msg;
 }
 
-async function handleExtensionLogin(): Promise<void> {
-    try {
-        setAuthError('');
-        await loginWithExtension();
-    } catch (e: any) {
-        setAuthError(e.message);
-    }
-}
-
 async function handleNwcLogin(): Promise<void> {
     try {
         setAuthError('');
@@ -59,10 +50,10 @@ async function handleNwcLogin(): Promise<void> {
     }
 }
 
-function handleMobileLogin(): void {
+function handleAutoLogin(): void {
     try {
         setAuthError('');
-        loginWithMobileApp();
+        autoLogin();
     } catch (e: any) {
         setAuthError(e.message);
     }
@@ -72,9 +63,8 @@ async function init(): Promise<void> {
     (window as any).makePayment = makePayment;
     (window as any).showLoginModal = showLoginModal;
     (window as any).hideLoginModal = hideLoginModal;
-    (window as any).handleExtensionLogin = handleExtensionLogin;
     (window as any).handleNwcLogin = handleNwcLogin;
-    (window as any).handleMobileLogin = handleMobileLogin;
+    (window as any).handleAutoLogin = handleAutoLogin;
 
     const update = async () => {
         await fetchCurrentBlock();

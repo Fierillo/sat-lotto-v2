@@ -22,7 +22,7 @@ export async function loginWithNwc(nwcUrl: string): Promise<void> {
     updateAuthUI();
 }
 
-export function loginWithMobileApp(): void {
+export function autoLogin(): void {
     // Mobile signers commonly intercept standard intent links for nip46 or we try extension fallback
     if ((window as any).nostr) {
         loginWithExtension().catch(e => {
