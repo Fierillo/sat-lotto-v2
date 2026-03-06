@@ -341,6 +341,57 @@ body.flash-green .block-marker:not(.target) {
   color: #aaa;
 }
 
+.result-panel,
+.bets-panel {
+  width: 100%;
+  max-width: 500px;
+  margin-top: 30px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+}
+
+.result-panel h3,
+.bets-panel h3 {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 12px;
+  font-weight: 400;
+}
+
+.result-panel p {
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 6px;
+}
+
+.bets-panel table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.bets-panel th {
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 400;
+  font-size: 0.85rem;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bets-panel td {
+  color: rgba(255, 255, 255, 0.7);
+  padding: 8px 0;
+  font-family: monospace;
+  font-size: 0.9rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.empty-bets {
+  color: rgba(255, 255, 255, 0.3);
+  font-style: italic;
+}
+
 @media (max-width: 600px) {
   #clock {
     transform: scale(0.65);
