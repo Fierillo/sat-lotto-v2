@@ -6,7 +6,40 @@ export const authState = {
     signer: null as NDKNip07Signer | null
 };
 
-export async function loginWithExtension(): Promise<void> {
+export function createLoginModal(): HTMLElement {
+    const modal = document.createElement('div');
+    modal.id = 'loginModal';
+    modal.className = 'modal-bg';
+    modal.innerHTML = `
+        <div class="modal">
+            <h2>Conectá tu Wallet</h2>
+            <button class="auth-btn" id="extensionLogin">Login con extensión</button>
+            <div class="nwc-section">
+                <input type="password" id="nwcInput" placeholder="nostr+walletconnect://..." />
+                <button class="auth-btn" id="nwcLogin">Conectar NWC</button>
+            </div>
+            <p id="authError" class="auth-error"></p>
+            <button class="close-btn" id="closeModal">Cerrar</button>
+        </div>
+    `;
+
+    modal.querySelector('#extensionLogin')?.addEventListener('click', () => handleAutoLogin());
+    modal.querySelector('#nwcLogin')?.addEventListener('click', () => handleNwcLogin());
+    modal.querySelector('#closeModal')?.addEventListener('click', () => hideLoginModal());
+
+    return modal;
+}
+
+export function createLoginButton(): HTMLElement {
+    const btn = document.createElement('button');
+    btn.id = 'loginBtn';
+    btn.className = 'top-login-btn';
+    btn.textContent = 'ENTRAR';
+    btn.onclick = showLoginModal;
+    return btn;
+}
+
+async function loginWithExtension(): Promise<void> {
     if (!(window as any).nostr) throw new Error('No se detectó extensión Nostr (Alby/Nos2x)');
     const signer = new NDKNip07Signer();
     await signer.blockUntilReady();
@@ -25,27 +58,46 @@ export async function loginWithNwc(nwcUrl: string): Promise<void> {
     updateAuthUI();
 }
 
-export function autoLogin(onError?: (msg: string) => void): void {
-    const showError = (msg: string) => {
-        if (onError) onError(msg);
-    };
-
+function handleAutoLogin(): void {
+    setAuthError('');
     if ((window as any).nostr) {
-        loginWithExtension().catch(e => showError(e.message));
+        loginWithExtension().catch(e => setAuthError(e.message));
         return;
     }
-
     window.location.href = 'nostrsigner:';
     setTimeout(() => {
-        if (!authState.pubkey) showError('No se detectó extensión ni app móvil. Usá el login con NWC.');
+        if (!authState.pubkey) setAuthError('No se detectó extensión ni app móvil. Usá el login con NWC.');
     }, 2500);
+}
+
+async function handleNwcLogin(): Promise<void> {
+    try {
+        setAuthError('');
+        const input = document.getElementById('nwcInput') as HTMLInputElement;
+        await loginWithNwc(input?.value || '');
+    } catch (e: any) {
+        setAuthError(e.message);
+    }
+}
+
+function setAuthError(msg: string): void {
+    const err = document.getElementById('authError');
+    if (err) err.textContent = msg;
+}
+
+export function showLoginModal(): void {
+    const el = document.getElementById('loginModal');
+    if (el) el.style.display = 'flex';
+}
+
+export function hideLoginModal(): void {
+    const el = document.getElementById('loginModal');
+    if (el) el.style.display = 'none';
 }
 
 export function updateAuthUI(): void {
     const loginBtn = document.getElementById('loginBtn');
-    const modal = document.getElementById('loginModal');
-
-    if (modal) modal.style.display = 'none';
+    hideLoginModal();
     if (!loginBtn) return;
 
     if (authState.pubkey) {

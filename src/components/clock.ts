@@ -1,11 +1,39 @@
 import { BLOCKS, state } from './state';
 
-export function renderOuterRing(): void {
-    const ring = document.getElementById('outerRing') as HTMLElement;
-    if (!ring) return;
+export function createClock(): HTMLElement {
+    const clock = document.createElement('div');
+    clock.id = 'clock';
+
+    const outerRing = document.createElement('div');
+    outerRing.id = 'outerRing';
+    outerRing.className = 'ring';
+
+    const innerCircle = document.createElement('div');
+    innerCircle.id = 'innerCircle';
+    innerCircle.className = 'inner-ring-container';
+
+    const paymentStep = document.createElement('div');
+    paymentStep.id = 'paymentStep';
+    paymentStep.style.display = 'none';
+    paymentStep.innerHTML = `<button class="pay-btn" onclick="makePayment()">JUGAR</button>`;
+
+    clock.appendChild(outerRing);
+    clock.appendChild(innerCircle);
+    clock.appendChild(paymentStep);
+
+    updateClockRings(outerRing, innerCircle);
+
+    return clock;
+}
+
+export function updateClockRings(outer?: HTMLElement, inner?: HTMLElement): void {
+    const ring = outer || document.getElementById('outerRing');
+    const container = inner || document.getElementById('innerCircle');
+    if (!ring || !container) return;
+
+    // Outer Ring
     ring.innerHTML = '';
     const radius = 230;
-
     for (let i = 0; i < BLOCKS; i++) {
         const deg = (i * 360 / BLOCKS) - 90;
         const rad = deg * Math.PI / 180;
@@ -23,29 +51,26 @@ export function renderOuterRing(): void {
         marker.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
         ring.appendChild(marker);
     }
-}
 
-export function renderInnerRing(): void {
-    const container = document.getElementById('innerCircle') as HTMLElement;
-    if (!container) return;
-    container.innerHTML = '';
+    // Inner Ring (only if empty)
+    if (container.children.length === 0) {
+        for (let i = 0; i < BLOCKS; i++) {
+            const deg = (i * 360 / BLOCKS);
+            const displayNum = i === 0 ? 21 : i;
 
-    for (let i = 0; i < BLOCKS; i++) {
-        const deg = (i * 360 / BLOCKS);
-        const displayNum = i === 0 ? 21 : i;
+            const segment = document.createElement('div');
+            segment.className = 'number-segment';
+            segment.style.transform = `translateX(-50%) rotate(${deg}deg)`;
+            segment.onclick = () => selectNumber(displayNum);
 
-        const segment = document.createElement('div');
-        segment.className = 'number-segment';
-        segment.style.transform = `translateX(-50%) rotate(${deg}deg)`;
-        segment.onclick = () => selectNumber(displayNum);
+            const text = document.createElement('div');
+            text.className = 'number-text';
+            text.textContent = displayNum.toString();
+            text.style.transform = `rotate(${-deg}deg)`;
 
-        const text = document.createElement('div');
-        text.className = 'number-text';
-        text.textContent = displayNum.toString();
-        text.style.transform = `rotate(${-deg}deg)`;
-
-        segment.appendChild(text);
-        container.appendChild(segment);
+            segment.appendChild(text);
+            container.appendChild(segment);
+        }
     }
 }
 
@@ -60,6 +85,6 @@ export function selectNumber(num: number): void {
         }
     });
 
-    const step = document.getElementById('paymentStep') as HTMLElement;
+    const step = document.getElementById('paymentStep');
     if (step) step.style.display = 'block';
 }
