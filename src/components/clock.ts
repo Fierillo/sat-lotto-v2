@@ -1,4 +1,4 @@
-import { BLOCKS, currentBlock, targetBlock, state } from './state';
+import { BLOCKS, state } from './state';
 
 export function renderOuterRing(): void {
     const ring = document.getElementById('outerRing') as HTMLElement;
@@ -12,13 +12,13 @@ export function renderOuterRing(): void {
         const x = Math.cos(rad) * radius;
         const y = Math.sin(rad) * radius;
 
-        const blockNum = i === 0 ? targetBlock : currentBlock + i - 1;
+        const blockNum = i === 0 ? state.targetBlock : state.currentBlock + i - 1;
         const marker = document.createElement('div');
         marker.className = 'block-marker';
         marker.textContent = blockNum.toString();
 
         if (i === 0) marker.classList.add('target');
-        if (blockNum === currentBlock) marker.classList.add('current');
+        if (blockNum === state.currentBlock) marker.classList.add('current');
 
         marker.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
         ring.appendChild(marker);
