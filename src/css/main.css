@@ -13,6 +13,7 @@ body {
   flex-direction: column;
   align-items: center;
   padding: 50px 20px;
+  transition: all 0.5s ease;
 }
 
 .header {
@@ -198,6 +199,20 @@ h1 span {
 
 .pay-btn:disabled {
   cursor: not-allowed;
+}
+
+body.flash-green {
+  background: radial-gradient(circle at top, #001a0f 0%, #000 100%);
+}
+
+body.flash-green #clock {
+  border-color: #00ff9d;
+  box-shadow: 0 0 100px rgba(0, 255, 157, 0.4);
+}
+
+body.flash-green .block-marker:not(.target) {
+  color: #00ff9d;
+  text-shadow: 0 0 10px #00ff9d;
 }
 
 @media (max-width: 600px) {

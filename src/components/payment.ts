@@ -10,8 +10,8 @@ export async function makePayment(): Promise<void> {
 
     const resetBtn = (): void => {
         btn.classList.remove('success-glow', 'error-glow');
+        document.body.classList.remove('flash-green');
         btn.innerHTML = 'JUGAR';
-        btn.disabled = false;
     };
 
     const nwcUrl = import.meta.env.VITE_NWC_URL;
@@ -22,22 +22,24 @@ export async function makePayment(): Promise<void> {
         return;
     }
 
-    btn.disabled = true;
-    btn.innerHTML = `<span style="font-size:1.1rem;color:#f7931a">21<br>SATS</span>`;
+    btn.classList.add('success-glow');
+    btn.innerHTML = `<span style="font-size:0.9rem">Cargando...</span>`;
 
     try {
         const invoice = await createNwcInvoice(nwcUrl, 21, `SatLotto - Bloque ${state.targetBlock} - Num ${state.selectedNumber}`);
-        btn.innerHTML = `<span style="font-size:0.9rem">PAGA<br>WEBLN</span>`;
+        btn.innerHTML = `<span style="font-size:0.9rem">Aprobá pago</span>`;
 
         const webln = await requestProvider();
         const pr = (invoice as any).invoice || (invoice as any).paymentRequest;
         await webln.sendPayment(pr);
 
-        btn.classList.add('success-glow');
-        btn.innerHTML = `<span style="font-size:2rem">✅</span>`;
+        btn.innerHTML = `ÉXITO`;
+        document.body.classList.add('flash-green');
     } catch {
+        btn.classList.remove('success-glow');
         btn.classList.add('error-glow');
         btn.innerHTML = `<span style="font-size:2rem">❌</span>`;
+        document.body.classList.remove('flash-green');
     } finally {
         setTimeout(resetBtn, 4000);
     }
