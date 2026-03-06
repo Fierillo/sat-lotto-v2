@@ -34,7 +34,8 @@ export async function fetchBets(targetBlock: number): Promise<Array<{ pubkey: st
     try {
         const resp = await fetch(`${API_BASE}/api/bets?block=${targetBlock}`);
         if (!resp.ok) return [];
-        return resp.json();
+        const data = await resp.json();
+        return data.bets || [];
     } catch {
         return [];
     }
