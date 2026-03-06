@@ -52,7 +52,7 @@ function renderResult(result: any): void {
     `;
 }
 
-async function updateUI(): Promise<void> {
+export async function updateUI(): Promise<void> {
     renderOuterRing();
 
     const info = document.getElementById('clockInfo');
