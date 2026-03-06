@@ -28,6 +28,7 @@
   "dependencies": {
     "@getalby/lightning-tools": "^5.0.0",
     "@getalby/sdk": "^3.0.0",
+    "@neondatabase/serverless": "^1.0.2",
     "@nostr-dev-kit/ndk": "^2.0.0",
     "webln": "^0.3.0"
   },

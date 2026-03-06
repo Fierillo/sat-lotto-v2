@@ -1,6 +1,7 @@
 import { state } from './state';
 import { createNwcInvoice } from '../utils/create-invoice';
 import { requestProvider } from 'webln';
+import { saveBet } from '../utils/ledger';
 
 export async function makePayment(): Promise<void> {
     if (state.selectedNumber === null) return;
@@ -35,6 +36,8 @@ export async function makePayment(): Promise<void> {
 
         btn.innerHTML = `ÉXITO`;
         document.body.classList.add('flash-green');
+
+        await saveBet(state.targetBlock, state.selectedNumber);
     } catch {
         btn.classList.remove('success-glow');
         btn.classList.add('error-glow');
