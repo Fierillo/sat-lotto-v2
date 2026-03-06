@@ -16,7 +16,6 @@ async function fetchCurrentBlock(): Promise<void> {
 
 function updateUI(): void {
     renderOuterRing();
-    renderInnerRing();
 
     const info = document.getElementById('clockInfo');
     if (info) {
@@ -82,6 +81,7 @@ async function init(): Promise<void> {
         updateUI();
     };
 
+    renderInnerRing();
     await update();
     setInterval(update, 21000);
 }
