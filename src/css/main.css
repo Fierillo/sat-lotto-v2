@@ -122,6 +122,13 @@ h1 span {
   z-index: 10;
 }
 
+.number-segment.selected.error-selected {
+  background: rgba(255, 51, 51, 0.3);
+  color: #ff3333;
+  box-shadow: inset 0 0 20px rgba(255, 51, 51, 0.5);
+  border-top: 3px solid #ff3333;
+}
+
 .number-text {
   position: absolute;
 }

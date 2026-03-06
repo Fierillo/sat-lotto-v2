@@ -13,11 +13,13 @@ export async function makePayment(): Promise<void> {
     const resetBtn = (): void => {
         btn.classList.remove('success-glow', 'error-glow');
         document.body.classList.remove('flash-green');
+        document.querySelector('.number-segment.selected')?.classList.remove('error-selected');
         btn.innerHTML = 'JUGAR';
     };
 
     if (!authState.pubkey) {
         btn.classList.add('error-glow');
+        document.querySelector('.number-segment.selected')?.classList.add('error-selected');
         btn.innerHTML = `<span style="font-size:0.9rem">Login<br>Antes</span>`;
         setTimeout(resetBtn, 4000);
         return;
@@ -26,6 +28,7 @@ export async function makePayment(): Promise<void> {
     const nwcUrl = import.meta.env.VITE_NWC_URL;
     if (!nwcUrl) {
         btn.classList.add('error-glow');
+        document.querySelector('.number-segment.selected')?.classList.add('error-selected');
         btn.innerHTML = `<span style="font-size:0.9rem">NO NWC</span>`;
         setTimeout(resetBtn, 4000);
         return;
@@ -49,6 +52,7 @@ export async function makePayment(): Promise<void> {
     } catch {
         btn.classList.remove('success-glow');
         btn.classList.add('error-glow');
+        document.querySelector('.number-segment.selected')?.classList.add('error-selected');
         btn.innerHTML = `<span style="font-size:2rem">❌</span>`;
         document.body.classList.remove('flash-green');
     } finally {
