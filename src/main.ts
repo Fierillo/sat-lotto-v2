@@ -98,7 +98,44 @@ function handleAutoLogin(): void {
     autoLogin(setAuthError);
 }
 
+function injectUI(): void {
+    const app = document.createElement('div');
+    app.id = 'app';
+    app.innerHTML = `
+        <button id="loginBtn" class="top-login-btn" onclick="showLoginModal()">ENTRAR</button>
+        <div id="loginModal" class="modal-bg">
+            <div class="modal">
+                <h2>Conectá tu Wallet</h2>
+                <button class="auth-btn" onclick="handleAutoLogin()">Login con extensión</button>
+                <div class="nwc-section">
+                    <input type="password" id="nwcInput" placeholder="nostr+walletconnect://..." />
+                    <button class="auth-btn" onclick="handleNwcLogin()">Conectar NWC</button>
+                </div>
+                <p id="authError" class="auth-error"></p>
+                <button class="close-btn" onclick="hideLoginModal()">Cerrar</button>
+            </div>
+        </div>
+        <div class="header">
+            <h1><span>SatLotto</span></h1>
+            <p class="subtitle">Proba tu suerte, cada 21 bloques</p>
+        </div>
+        <div id="clock">
+            <div id="outerRing" class="ring"></div>
+            <div class="inner-ring-container" id="innerCircle"></div>
+            <div id="paymentStep">
+                <button class="pay-btn" onclick="makePayment()">JUGAR</button>
+            </div>
+        </div>
+        <div id="clockInfo"></div>
+        <div id="lastResult" class="result-panel"></div>
+        <div id="betsTable" class="bets-panel"></div>
+    `;
+    document.body.prepend(app);
+}
+
 async function init(): Promise<void> {
+    injectUI();
+
     (window as any).makePayment = makePayment;
     (window as any).showLoginModal = showLoginModal;
     (window as any).hideLoginModal = hideLoginModal;
@@ -106,8 +143,12 @@ async function init(): Promise<void> {
     (window as any).handleAutoLogin = handleAutoLogin;
 
     renderInnerRing();
+    await fetchCurrentBlock();
     await updateUI();
-    setInterval(updateUI, 21000);
+    setInterval(async () => {
+        await fetchCurrentBlock();
+        await updateUI();
+    }, 21000);
 }
 
 init();
