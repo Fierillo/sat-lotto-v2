@@ -23,7 +23,7 @@ function updateUI(): void {
     }
 }
 
-import { authState, loginWithExtension, autoLogin, loginWithNwc, updateAuthUI } from './components/auth';
+import { autoLogin, loginWithNwc } from './components/auth';
 
 function showLoginModal(): void {
     const el = document.getElementById('loginModal');
@@ -51,12 +51,8 @@ async function handleNwcLogin(): Promise<void> {
 }
 
 function handleAutoLogin(): void {
-    try {
-        setAuthError('');
-        autoLogin();
-    } catch (e: any) {
-        setAuthError(e.message);
-    }
+    setAuthError('');
+    autoLogin(setAuthError);
 }
 
 async function init(): Promise<void> {

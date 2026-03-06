@@ -22,23 +22,19 @@ export async function loginWithNwc(nwcUrl: string): Promise<void> {
     updateAuthUI();
 }
 
-export function autoLogin(): void {
-    // Mobile signers commonly intercept standard intent links for nip46 or we try extension fallback
+export function autoLogin(onError?: (msg: string) => void): void {
+    const showError = (msg: string) => {
+        if (onError) onError(msg);
+    };
+
     if ((window as any).nostr) {
-        loginWithExtension().catch(e => {
-            alert(`Error con la app móvil: ${e.message}`);
-        });
+        loginWithExtension().catch(e => showError(e.message));
         return;
     }
 
-    // Fallback: If no extension, we can try to trigger a nostr login intent
-    // Simple redirect to nostrsigner intent to check if an app handles it
-    const intentUrl = 'nostrsigner:';
-    window.location.href = intentUrl;
+    window.location.href = 'nostrsigner:';
     setTimeout(() => {
-        if (!authState.pubkey) {
-            alert('Si tenés Amber u otra wallet móvil, asegurate de darle permisos. O copiá tu NWC.');
-        }
+        if (!authState.pubkey) showError('No se detectó extensión ni app móvil. Usá el login con NWC.');
     }, 2500);
 }
 
