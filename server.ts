@@ -36,12 +36,6 @@ app.post('/api/bet', async (req, res) => {
         const pr = invoice.paymentRequest || invoice.invoice;
 
         if (!process.env.NEON_URL?.includes('user:password')) {
-            const checkQuery = `SELECT id FROM lotto_bets WHERE pubkey = $1 AND target_block = $2 LIMIT 1`;
-            const existing = await queryNeon(checkQuery, [signedEvent.pubkey, bet.bloque]);
-            if (existing && existing.length > 0) {
-                return res.status(400).json({ error: 'Ya tienes una apuesta en este bloque' });
-            }
-
             const tableQuery = `
                 CREATE TABLE IF NOT EXISTS lotto_bets (
                     id SERIAL PRIMARY KEY,
@@ -49,22 +43,28 @@ app.post('/api/bet', async (req, res) => {
                     target_block INT NOT NULL,
                     selected_number INT NOT NULL,
                     payment_request TEXT,
-                    created_at TIMESTAMP DEFAULT NOW()
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    UNIQUE(pubkey, target_block)
                 )
             `;
             await queryNeon(tableQuery, []);
 
-            const insertQuery = `
+            const upsertQuery = `
                 INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request)
                 VALUES ($1, $2, $3, $4)
+                ON CONFLICT (pubkey, target_block) 
+                DO UPDATE SET selected_number = EXCLUDED.selected_number, 
+                             payment_request = EXCLUDED.payment_request,
+                             created_at = NOW()
             `;
-            await queryNeon(insertQuery, [signedEvent.pubkey, bet.bloque, bet.numero, pr]);
+            await queryNeon(upsertQuery, [signedEvent.pubkey, bet.bloque, bet.numero, pr]);
         }
 
         res.json({ paymentRequest: pr });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
     }
+    return;
 });
 
 app.get('/api/bets', async (req, res) => {
@@ -87,6 +87,7 @@ app.get('/api/bets', async (req, res) => {
         if (e.message.includes('42P01')) return res.json({ bets: [] });
         res.status(500).json({ error: e.message });
     }
+    return;
 });
 
 app.get('/api/result', async (req, res) => {
@@ -117,6 +118,7 @@ app.get('/api/result', async (req, res) => {
         }
         res.json({ resolved: true, winners: [], error: err.message });
     }
+    return;
 });
 
 createViteServer({ server: { middlewareMode: true }, appType: 'spa' })
