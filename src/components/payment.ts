@@ -1,5 +1,6 @@
 import { state } from './state';
 import { requestProvider } from 'webln';
+import { updateUI } from '../main';
 import { submitBet } from '../utils/ledger';
 import { authState } from './auth';
 
@@ -30,11 +31,14 @@ export async function makePayment(): Promise<void> {
     try {
         const paymentRequest = await submitBet(state.targetBlock, state.selectedNumber);
 
+        // At this point, the bet is already in Neon DB
+        await updateUI();
+
         btn.innerHTML = `<span style="font-size:0.9rem">Aprobá pago</span>`;
         const webln = await requestProvider();
         await webln.sendPayment(paymentRequest);
 
-        btn.innerHTML = `ÉXITO`;
+        btn.innerHTML = `PAGO APROBADO`;
         document.body.classList.add('flash-green');
     } catch {
         btn.classList.remove('success-glow');
