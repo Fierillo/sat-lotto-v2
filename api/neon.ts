@@ -3,7 +3,6 @@ export async function queryNeon(query: string, params: any[]) {
     url.pathname = '/';
     const host = url.hostname;
 
-    console.log(`[Neon] Execute: ${query.replace(/\s+/g, ' ').substring(0, 50)}...`);
     const res = await fetch(`https://${host}/sql`, {
         method: 'POST',
         headers: {

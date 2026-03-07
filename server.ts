@@ -1,4 +1,20 @@
 import 'dotenv/config';
+
+// Hijack console ONLY for specific recurrent noise
+const originalWarn = console.warn;
+const originalLog = console.log;
+console.warn = (...args) => {
+    const msg = String(args[0] || '');
+    if (msg.includes('NIP-04 encryption is about to be deprecated')) return;
+    originalWarn(...args);
+};
+console.log = (...args) => {
+    const msg = String(args[0] || '');
+    // Only silence the periodic Neon SQL logs, keep other useful logs
+    if (msg.includes('[Neon] Execute')) return;
+    originalLog(...args);
+};
+
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import { verifyEvent } from 'nostr-tools';
@@ -12,7 +28,7 @@ import { queryNeon } from './api/neon.ts';
 const app = express();
 app.use(express.json());
 
-let cachedBlock = { height: 890000, target: 890000 + 21 };
+let cachedBlock = { height: 890000, target: 890021, lastResult: 890000 };
 
 async function syncBlockHeight() {
     try {
@@ -20,8 +36,8 @@ async function syncBlockHeight() {
         const height = parseInt(await resp.text(), 10);
         if (height > 0) {
             cachedBlock.height = height;
-            const remainder = height % 21;
-            cachedBlock.target = height + (remainder === 0 ? 0 : 21 - remainder);
+            cachedBlock.lastResult = height - (height % 21);
+            cachedBlock.target = cachedBlock.lastResult + 21;
         }
     } catch (e) {
         console.error("[BlockSync] Error:", e);
@@ -54,20 +70,13 @@ async function setupDb() {
             )
         `, []);
 
-        // Migration: Add payment_hash, is_paid, betting_block if they don't exist
-        await queryNeon(`
-            DO $$ 
-            BEGIN 
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lotto_bets' AND column_name='payment_hash') THEN
-                    ALTER TABLE lotto_bets ADD COLUMN payment_hash VARCHAR(64);
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lotto_bets' AND column_name='is_paid') THEN
-                    ALTER TABLE lotto_bets ADD COLUMN is_paid BOOLEAN DEFAULT FALSE;
-                END IF;
-            END $$;
-        `, []);
+        // Migration: Add columns individually
+        await queryNeon("ALTER TABLE lotto_bets ADD COLUMN IF NOT EXISTS payment_hash VARCHAR(64)", []);
+        await queryNeon("ALTER TABLE lotto_bets ADD COLUMN IF NOT EXISTS is_paid BOOLEAN DEFAULT FALSE", []);
+        await queryNeon("ALTER TABLE lotto_bets ADD COLUMN IF NOT EXISTS betting_block INT", []);
+        await queryNeon("ALTER TABLE lotto_bets ADD COLUMN IF NOT EXISTS alias VARCHAR(255)", []);
 
-        // Migration: identities/users table
+        // Migration: identities table
         await queryNeon(`
             CREATE TABLE IF NOT EXISTS lotto_identities (
                 pubkey VARCHAR(64) PRIMARY KEY,
@@ -76,16 +85,7 @@ async function setupDb() {
             )
         `, []);
 
-        // Migration: add alias column to lotto_bets for historical record (optional, but let's keep it for compatibility or remove it)
-        // We'll prioritize the lotto_identities table for current names.
-
-        // Clean duplicates if any, keeping the latest ID
-        await queryNeon(`
-            DELETE FROM lotto_bets a USING lotto_bets b
-            WHERE a.id < b.id AND a.pubkey = b.pubkey AND a.target_block = b.target_block
-        `, []);
-
-        // Try adding the constraint if it doesn't exist
+        // Ensure unique constraint
         await queryNeon(`
             DO $$ 
             BEGIN 
@@ -96,7 +96,7 @@ async function setupDb() {
         `, []);
         console.log("[DB] Database setup complete");
     } catch (e) {
-        console.error("[DB] Setup error (might be expected if already configured):", e);
+        console.error("[DB] Setup error:", e);
     }
 }
 
@@ -152,11 +152,10 @@ app.post('/api/bet', async (req, res) => {
             }
         }
 
-        res.json({ paymentRequest: pr, paymentHash });
+        return res.json({ paymentRequest: pr, paymentHash });
     } catch (err: any) {
-        res.status(500).json({ error: err.message });
+        return res.status(500).json({ error: err.message });
     }
-    return;
 });
 
 app.get('/api/bets', async (req, res) => {
@@ -177,12 +176,11 @@ app.get('/api/bets', async (req, res) => {
         if (!process.env.NEON_URL?.includes('user:password')) {
             bets = await queryNeon(query, [block]);
         }
-        res.json({ bets });
+        return res.json({ bets });
     } catch (e: any) {
-        if (e.message.includes('42P01')) return res.json({ bets: [] });
-        res.status(500).json({ error: e.message });
+        if (e.message.includes('42P01') || e.message.includes('42703')) return res.json({ bets: [] });
+        return res.status(500).json({ error: e.message });
     }
-    return;
 });
 
 app.get('/api/result', async (req, res) => {
@@ -194,7 +192,13 @@ app.get('/api/result', async (req, res) => {
         if (!resp.ok) return res.json({ resolved: false, message: 'Not mined yet' });
 
         const hash = await resp.text();
-        const winningNumber = (parseInt(hash.slice(-4), 16) % 21) + 1;
+
+        /* 
+           DETERMINISTIC WINNING NUMBER:
+           Used BigInt to process the ENTIRE block hash (256-bit entropy).
+           This makes the lottery provably fair and deterministic based on the miner's effort.
+        */
+        const winningNumber = Number(BigInt('0x' + hash) % 21n) + 1;
 
         const query = `
             SELECT b.pubkey, b.selected_number, i.alias
@@ -210,14 +214,13 @@ app.get('/api/result', async (req, res) => {
             winners = await queryNeon(query, [block, winningNumber]);
         }
 
-        res.json({ resolved: true, blockHash: hash, winningNumber, winners });
+        return res.json({ resolved: true, blockHash: hash, winningNumber, winners });
     } catch (err: any) {
-        if (err.message.includes('42P01')) {
+        if (err.message.includes('42P01') || err.message.includes('42703')) {
             return res.json({ resolved: true, blockHash: '', winningNumber: 0, winners: [] });
         }
-        res.json({ resolved: true, winners: [], error: err.message });
+        return res.json({ resolved: true, winners: [], error: err.message });
     }
-    return;
 });
 
 app.get('/api/identity/:pubkey', async (req, res) => {
@@ -248,22 +251,26 @@ app.post('/api/confirm', async (req, res) => {
             return res.json({ confirmed: true });
         }
 
-        res.status(400).json({ error: 'Invoice not settled yet' });
+        return res.status(400).json({ error: 'Invoice not settled yet' });
     } catch (err: any) {
-        res.status(500).json({ error: err.message });
+        return res.status(500).json({ error: err.message });
     }
 });
 
 app.get('/api/pool', async (_req, res) => {
+    let client;
     try {
         const nwcUrl = process.env.NWC_URL;
         if (!nwcUrl) return res.json({ balance: 0 });
 
-        const client = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
-        const balance = await client.getBalance();
-        res.json({ balance: Math.floor(balance.balance / 1000) }); // msats to sats
-    } catch (err: any) {
-        res.json({ balance: 0, error: err.message });
+        client = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
+        const balanceData = await client.getBalance();
+        res.json({ balance: Math.floor(balanceData.balance / 1000) }); // msats to sats
+    } catch {
+        // Fail silently to the UI but don't flood the server terminal 
+        return res.json({ balance: 0 });
+    } finally {
+        if (client) client.close();
     }
     return;
 });
