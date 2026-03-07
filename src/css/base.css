@@ -1,0 +1,117 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background: radial-gradient(circle at top, #151828 0%, #080b12 100%);
+    min-height: 100vh;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 50px 20px;
+    transition: background 1s ease, box-shadow 1s ease;
+}
+
+body.logged-out {
+    background: radial-gradient(circle at top, #0c0e17 0%, #030408 100%);
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 50px;
+}
+
+h1 {
+    font-size: 3rem;
+    letter-spacing: -1px;
+}
+
+h1 span {
+    color: #f7931a;
+}
+
+.subtitle {
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 300;
+    margin-top: 8px;
+    font-size: 1.1rem;
+}
+
+.text-green {
+    color: #00ff9d !important;
+}
+
+.text-orange {
+    color: #f7931a !important;
+}
+
+body.flash-green {
+    background: radial-gradient(circle at top, #001a0f 0%, #000 100%);
+}
+
+body.flash-green #clock {
+    border-color: #00ff9d;
+    box-shadow: 0 0 100px rgba(0, 255, 157, 0.4);
+}
+
+body.flash-green .block-marker:not(.target) {
+    color: #00ff9d;
+    text-shadow: 0 0 10px #00ff9d;
+}
+
+@keyframes fluorescentFlicker {
+    0% {
+        opacity: 0.1;
+    }
+
+    10% {
+        opacity: 1;
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+    }
+
+    20% {
+        opacity: 0.2;
+    }
+
+    30% {
+        opacity: 0.8;
+    }
+
+    40% {
+        opacity: 0.3;
+    }
+
+    50% {
+        opacity: 1;
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+    }
+
+    60% {
+        opacity: 0.5;
+    }
+
+    70% {
+        opacity: 0.9;
+    }
+
+    80% {
+        opacity: 0.4;
+        text-shadow: none;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+body:not(.logged-out) .number-segment,
+body:not(.logged-out) .block-marker:not(.target):not(.current),
+body:not(.logged-out) .pool-panel,
+body:not(.logged-out) .result-panel,
+body:not(.logged-out) .bets-panel {
+    animation: fluorescentFlicker 2.1s ease-in-out forwards;
+}

@@ -1,0 +1,42 @@
+.game-container {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: start;
+    gap: 50px;
+    width: 100%;
+    max-width: 1400px;
+}
+
+#clock {
+    grid-column: 2;
+}
+
+#dashboard {
+    grid-column: 3;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 380px;
+}
+
+#dashboard .result-panel {
+    margin-top: 20px;
+}
+
+@media (max-width: 800px) {
+    .game-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+    }
+
+    #clock {
+        transform: scale(0.65);
+        margin: -60px auto;
+    }
+
+    #clockInfo {
+        margin-top: 10px;
+    }
+}

@@ -1,0 +1,181 @@
+#clock {
+    position: relative;
+    width: 540px;
+    height: 540px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 0 60px rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+}
+
+.block-marker {
+    position: absolute;
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: #555;
+    text-align: center;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+body:not(.logged-out) .block-marker:not(.target):not(.current) {
+    color: #fff;
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.3);
+}
+
+.block-marker.target {
+    color: #f7931a;
+    text-shadow: 0 0 10px #f7931a;
+    font-size: 1rem;
+}
+
+.block-marker.current {
+    color: #00ff9d;
+    text-shadow: 0 0 10px #00ff9d;
+}
+
+.inner-ring-container {
+    position: absolute;
+    width: 320px;
+    height: 320px;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    overflow: hidden;
+}
+
+.number-segment {
+    position: absolute;
+    width: 50px;
+    height: 160px;
+    left: 50%;
+    top: 0;
+    transform-origin: bottom center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.02);
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    padding-top: 15px;
+    color: #888;
+    font-size: 1.1rem;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%);
+}
+
+body.logged-out .number-segment {
+    opacity: 0.1;
+    pointer-events: none;
+}
+
+body.logged-out .block-marker:not(.target):not(.current) {
+    opacity: 0.2;
+}
+
+.number-segment:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.number-segment.selected {
+    background: rgba(0, 255, 157, 0.3);
+    color: #00ff9d;
+    box-shadow: inset 0 0 20px rgba(0, 255, 157, 0.5);
+    border-top: 3px solid #00ff9d;
+    z-index: 10;
+}
+
+.number-segment.selected.error-selected {
+    background: rgba(255, 51, 51, 0.3);
+    color: #ff3333;
+    box-shadow: inset 0 0 20px rgba(255, 51, 51, 0.5);
+    border-top: 3px solid #ff3333;
+}
+
+.number-text {
+    position: absolute;
+}
+
+#paymentStep {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    display: none;
+    z-index: 20;
+}
+
+.pay-btn {
+    background: #070a17;
+    border: 1px solid #444;
+    color: #aaa;
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: 1px;
+}
+
+.pay-btn:hover {
+    background: #00ff9d;
+    border-color: #00ff9d;
+    color: #000;
+    box-shadow: 0 0 30px rgba(0, 255, 157, 0.5);
+}
+
+.pay-btn.success-glow {
+    background: #00ff9d;
+    border-color: #00ff9d;
+    color: #000;
+    box-shadow: 0 0 40px rgba(0, 255, 157, 0.8);
+}
+
+.pay-btn.error-glow {
+    background: #ff3333;
+    border-color: #ff3333;
+    color: #fff;
+    box-shadow: 0 0 40px rgba(255, 51, 51, 0.8);
+}
+
+.pay-btn:disabled {
+    cursor: not-allowed;
+}
+
+@keyframes blinkPurple {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 transparent;
+    }
+
+    50% {
+        background: rgba(176, 38, 255, 0.3);
+        border-color: #b026ff;
+        color: #fff;
+        box-shadow: 0 0 40px rgba(176, 38, 255, 0.8);
+    }
+}
+
+.pay-btn.blink-purple {
+    animation: blinkPurple 0.6s ease-in-out infinite;
+}
