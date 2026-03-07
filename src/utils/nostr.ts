@@ -9,26 +9,38 @@ const ndk = new NDK({
 });
 
 ndk.connect();
+// @ts-ignore - Enable NIP-44 support to silence deprecation warnings
+ndk.enableNip44 = true;
 
-const nameCache: Record<string, string> = {};
+const aliasCache: Record<string, string> = {};
 const pendingRequests = new Set<string>();
 
-export function resolveName(pubkey: string, callback?: () => void): string {
-    if (nameCache[pubkey]) return nameCache[pubkey];
-    if (pendingRequests.has(pubkey)) return `${pubkey.slice(0, 8)}…`;
+export function resolveName(pubkey: string): string {
+    if (aliasCache[pubkey]) return aliasCache[pubkey];
+
+    const fallback = `${pubkey.slice(0, 8)}…`;
+    if (pendingRequests.has(pubkey)) return fallback;
 
     pendingRequests.add(pubkey);
     const user = ndk.getUser({ pubkey });
     user.fetchProfile().then(() => {
-        nameCache[pubkey] = user.profile?.nip05 || `${pubkey.slice(0, 8)}…`;
+        if (user.profile?.nip05) {
+            aliasCache[pubkey] = user.profile.nip05;
+        } else {
+            aliasCache[pubkey] = fallback;
+        }
         pendingRequests.delete(pubkey);
-        if (callback) callback();
     }).catch(() => {
-        nameCache[pubkey] = `${pubkey.slice(0, 8)}…`;
+        aliasCache[pubkey] = fallback;
         pendingRequests.delete(pubkey);
     });
 
-    return `${pubkey.slice(0, 8)}…`;
+    return fallback;
+}
+
+export function getAlias(pubkey: string): string | null {
+    const name = aliasCache[pubkey];
+    return (name && !name.includes('…')) ? name : null;
 }
 
 export default ndk;

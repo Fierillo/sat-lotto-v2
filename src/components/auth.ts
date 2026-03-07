@@ -1,7 +1,8 @@
 import { NDKNip07Signer, NDKNip46Signer } from '@nostr-dev-kit/ndk';
 import { getNwcInfo } from '../utils/nwc-connect';
 import { getPublicKey } from 'nostr-tools';
-import ndk from '../utils/nostr';
+import ndk, { resolveName } from '../utils/nostr';
+import { fetchIdentity } from '../utils/ledger';
 
 export const authState = {
     pubkey: null as string | null,
@@ -109,9 +110,17 @@ async function handleBunkerLogin(): Promise<void> {
 
 async function finishLogin(): Promise<void> {
     if (authState.pubkey) {
-        const user = ndk.getUser({ pubkey: authState.pubkey });
-        await user.fetchProfile();
-        authState.nip05 = user.profile?.nip05 || null;
+        // 1. Check Neon
+        let alias = await fetchIdentity(authState.pubkey);
+
+        // 2. Fallback to Nostr profile
+        if (!alias) {
+            const user = ndk.getUser({ pubkey: authState.pubkey });
+            await user.fetchProfile();
+            alias = user.profile?.nip05 || null;
+        }
+
+        authState.nip05 = alias;
     }
     updateAuthUI();
 }
@@ -159,7 +168,7 @@ export function updateAuthUI(): void {
 
     if (authState.pubkey) {
         if (profile) {
-            profile.textContent = authState.nip05 || `${authState.pubkey.slice(0, 6)}...${authState.pubkey.slice(-4)}`;
+            profile.textContent = resolveName(authState.pubkey);
             profile.style.display = 'block';
         }
         document.body.classList.remove('logged-out');

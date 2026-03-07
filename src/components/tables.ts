@@ -25,7 +25,7 @@ export function renderBetsTable(bets: Array<{ pubkey: string; selected_number: n
     if (!bets.length) { el.innerHTML = '<p class="empty-bets">Sin apuestas en este ciclo</p>'; return; }
 
     const rows = bets.map(b => {
-        const name = b.alias || resolveName(b.pubkey, () => renderBetsTable(bets));
+        const name = b.alias || resolveName(b.pubkey);
         return `<tr><td>${name}</td><td>${b.selected_number}</td></tr>`;
     }).join('');
     el.innerHTML = `<h3>Apuestas Activas</h3><table><thead><tr><th>Jugador</th><th>Número</th></tr></thead><tbody>${rows}</tbody></table>`;
@@ -37,7 +37,7 @@ export function renderResult(result: any): void {
     if (!result || !result.resolved) { el.innerHTML = ''; return; }
 
     const winnersText = result.winners?.length
-        ? result.winners.map((w: any) => w.alias || resolveName(w.pubkey, () => renderResult(result))).join(', ')
+        ? result.winners.map((w: any) => w.alias || resolveName(w.pubkey)).join(', ')
         : 'Nadie';
 
     el.innerHTML = `<h3>Último Sorteo</h3><p>Número ganador: <strong class="text-orange">${result.winningNumber}</strong></p><p>Ganadores: <strong>${winnersText}</strong></p>`;
