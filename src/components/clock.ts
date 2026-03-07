@@ -36,24 +36,30 @@ export function updateClockRings(outer?: HTMLElement, inner?: HTMLElement): void
     if (!ring || !container) return;
 
     // Outer Ring
-    ring.innerHTML = '';
     const radius = 230;
-    for (let i = 0; i < BLOCKS; i++) {
-        const deg = (i * 360 / BLOCKS) - 90;
-        const rad = deg * Math.PI / 180;
-        const x = Math.cos(rad) * radius;
-        const y = Math.sin(rad) * radius;
+    const isNew = ring.children.length === 0;
 
+    for (let i = 0; i < BLOCKS; i++) {
         const blockNum = i === 0 ? state.targetBlock : state.targetBlock - BLOCKS + i;
-        const marker = document.createElement('div');
+        let marker: HTMLElement;
+
+        if (isNew) {
+            marker = document.createElement('div');
+            const deg = (i * 360 / BLOCKS) - 90;
+            const rad = deg * Math.PI / 180;
+            const x = Math.cos(rad) * radius;
+            const y = Math.sin(rad) * radius;
+            marker.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+            ring.appendChild(marker);
+        } else {
+            marker = ring.children[i] as HTMLElement;
+        }
+
         marker.className = 'block-marker';
         marker.textContent = blockNum.toString();
 
         if (i === 0) marker.classList.add('target');
         if (blockNum === state.currentBlock) marker.classList.add('current');
-
-        marker.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
-        ring.appendChild(marker);
     }
 
     // Inner Ring (only if empty)
