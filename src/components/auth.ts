@@ -1,9 +1,11 @@
 import { NDKNip07Signer } from '@nostr-dev-kit/ndk';
-import { nwc } from '@getalby/sdk';
+import { getNwcInfo } from '../utils/nwc-connect';
+import { getPublicKey } from 'nostr-tools';
 
 export const authState = {
     pubkey: null as string | null,
-    signer: null as NDKNip07Signer | null
+    signer: null as NDKNip07Signer | null,
+    nwcUrl: null as string | null
 };
 
 export function createLoginModal(): HTMLElement {
@@ -50,10 +52,21 @@ async function loginWithExtension(): Promise<void> {
 
 export async function loginWithNwc(nwcUrl: string): Promise<void> {
     if (!nwcUrl) throw new Error('NWC URL inválida');
-    const client = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
-    const info = await client.getInfo();
-    if (!info.pubkey) throw new Error('La conexión NWC no devolvió un pubkey válido');
-    authState.pubkey = info.pubkey;
+    const { info } = await getNwcInfo(nwcUrl);
+
+    // Use the pubkey from the connection secret as the identity, not the wallet info pubkey
+    const url = new URL(nwcUrl.replace('nostr+walletconnect:', 'http:'));
+    const secret = url.searchParams.get('secret');
+
+    if (secret) {
+        const privkey = Uint8Array.from(secret.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+        authState.pubkey = getPublicKey(privkey);
+    } else {
+        if (!info.pubkey) throw new Error('La conexión NWC no devolvió un pubkey válido');
+        authState.pubkey = info.pubkey;
+    }
+
+    authState.nwcUrl = nwcUrl;
     updateAuthUI();
 }
 

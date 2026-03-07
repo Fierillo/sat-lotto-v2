@@ -1,5 +1,6 @@
 import { state } from './state';
 import { requestProvider } from 'webln';
+import { nwc } from '@getalby/sdk';
 import { updateUI } from '../main';
 import { submitBet, fetchBets } from '../utils/ledger';
 import { authState } from './auth';
@@ -42,7 +43,7 @@ export async function makePayment(): Promise<void> {
 
     const resetBtn = (): void => {
         btn.classList.remove('success-glow', 'error-glow', 'blink-purple');
-        document.body.classList.remove('flash-green');
+        document.body.classList.remove('flash-green', 'processing');
         document.querySelector('.number-segment.selected')?.classList.remove('error-selected');
         // Let updateCenterButton decide the button text
         if (typeof (window as any).updateCenterButton === 'function') {
@@ -65,13 +66,15 @@ export async function makePayment(): Promise<void> {
 
     // Check if user already has a bet
     const bets = await fetchBets(state.targetBlock);
-    const existingBet = bets.find(b => b.pubkey === authState.pubkey);
+    const myPubkey = authState.pubkey?.toLowerCase();
+    const existingBet = bets.find(b => b.pubkey.toLowerCase() === myPubkey);
 
-    if (existingBet && existingBet.selected_number !== state.selectedNumber) {
+    if (existingBet && Number(existingBet.selected_number) !== state.selectedNumber) {
         const confirmed = await showConfirmModal(existingBet.selected_number, state.selectedNumber);
         if (!confirmed) return;
     }
 
+    document.body.classList.add('processing');
     btn.classList.add('success-glow');
     btn.innerHTML = `<span style="font-size:0.9rem">Firmando...</span>`;
 
@@ -80,8 +83,15 @@ export async function makePayment(): Promise<void> {
         await updateUI();
 
         btn.innerHTML = `<span style="font-size:0.9rem">Aprobá pago</span>`;
-        const webln = await requestProvider();
-        await webln.sendPayment(paymentRequest);
+
+        if (authState.nwcUrl) {
+            const client = new nwc.NWCClient({ nostrWalletConnectUrl: authState.nwcUrl });
+            await client.payInvoice({ invoice: paymentRequest });
+            client.close();
+        } else {
+            const webln = await requestProvider();
+            await webln.sendPayment(paymentRequest);
+        }
 
         btn.innerHTML = `<span style="font-size:1rem">PAGO APROBADO</span>`;
         document.body.classList.add('flash-green');
