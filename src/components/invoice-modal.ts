@@ -23,7 +23,7 @@ export function showInvoiceModal(paymentRequest: string, onPaid: () => void, onC
                 <label style="font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase;">Bolt11 Invoice:</label>
                 <div id="copyPr" style="background: rgba(0,0,0,0.4); padding: 12px; border-radius: 8px; font-family: monospace; font-size: 0.72rem; word-break: break-all; margin-top: 5px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); color: var(--neon-green); position: relative;">
                     ${paymentRequest.slice(0, 50)}...${paymentRequest.slice(-20)}
-                    <div id="prStatus" style="position: absolute; right: 10px; bottom: -20px; font-size: 0.6rem; color: var(--neon-green); opacity: 0; transition: opacity 0.3s;">¡Copiado!</div>
+                    <div id="prStatus" style="position: absolute; left: 50%; transform: translateX(-50%); bottom: -22px; font-size: 0.65rem; color: var(--neon-green); opacity: 0; transition: opacity 0.3s; white-space: nowrap;">¡Invoice Copiado! ⚡</div>
                 </div>
             </div>
 
@@ -42,13 +42,37 @@ export function showInvoiceModal(paymentRequest: string, onPaid: () => void, onC
 
     document.body.appendChild(modal);
 
-    modal.querySelector('#copyPr')?.addEventListener('click', () => {
-        navigator.clipboard.writeText(paymentRequest);
-        const status = document.getElementById('prStatus');
-        if (status) {
-            status.style.opacity = '1';
-            setTimeout(() => status.style.opacity = '0', 2000);
+    const copyElem = modal.querySelector('#copyPr');
+    const handleCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(paymentRequest);
+            const status = document.getElementById('prStatus');
+            if (status) {
+                status.style.opacity = '1';
+                setTimeout(() => { if (status) status.style.opacity = '0'; }, 2000);
+            }
+        } catch (err) {
+            // Fallback for older browsers
+            const textArea = document.createElement("textarea");
+            textArea.value = paymentRequest;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                const status = document.getElementById('prStatus');
+                if (status) {
+                    status.style.opacity = '1';
+                    setTimeout(() => { if (status) status.style.opacity = '0'; }, 2000);
+                }
+            } catch (e) { }
+            document.body.removeChild(textArea);
         }
+    };
+
+    copyElem?.addEventListener('click', handleCopy);
+    copyElem?.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        handleCopy();
     });
 
     modal.querySelector('#closeInvoice')?.addEventListener('click', () => {

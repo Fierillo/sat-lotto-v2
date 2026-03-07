@@ -59,11 +59,30 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.03);
 }
 
-.invoice-modal .qr-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-bottom: 25px;
+.invoice-modal .qr-container div {
+    animation: pulse-orange 2s infinite ease-in-out;
+}
+
+#copyPr {
+    transition: all 0.2s;
+    user-select: all;
+    -webkit-tap-highlight-color: transparent;
+}
+
+#copyPr:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-color: var(--neon-green) !important;
+}
+
+#copyPr:active {
+    transform: scale(0.98);
+    background: rgba(0, 255, 157, 0.1) !important;
+}
+
+#prStatus {
+    font-weight: bold;
+    text-shadow: 0 0 10px var(--neon-green);
+    pointer-events: none;
 }
 
 .status-dot {
