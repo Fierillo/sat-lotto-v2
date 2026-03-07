@@ -33,7 +33,23 @@ body {
     align-items: center;
     padding: 50px 20px;
     transition: background 1s ease, box-shadow 1s ease;
+    overflow-x: hidden;
 }
+
+@media (max-width: 800px) {
+    body {
+        padding: 60px 10px 20px 10px;
+        /* More top padding for fixed bar */
+    }
+}
+
+#app {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
 
 body.logged-out {
     background: radial-gradient(circle at top, var(--bg-dim-top) 0%, var(--bg-dim-bottom) 100%);
@@ -59,6 +75,17 @@ h1 span {
     margin-top: 8px;
     font-size: 1.1rem;
 }
+
+@media (max-width: 800px) {
+    h1 {
+        font-size: 2.2rem;
+    }
+
+    .header {
+        margin-bottom: 20px;
+    }
+}
+
 
 .text-green {
     color: var(--neon-green) !important;

@@ -37,12 +37,24 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 0;
+        gap: 10px;
+    }
+
+    #leftDashboard,
+    #rightDashboard {
+        width: 100%;
+        max-width: 100%;
+        order: 2;
     }
 
     #clock {
-        transform: scale(0.65);
-        margin: -60px auto;
+        grid-column: auto;
+        order: 1;
+        transform: scale(0.6);
+        /* Scale 0.6 of 540px is 324px. Difference is 216px. 
+           Negative margin of 108px on each side makes it center properly. */
+        margin: -80px -108px;
+        flex-shrink: 0;
     }
 
     #clockInfo {

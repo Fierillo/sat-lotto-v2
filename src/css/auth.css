@@ -12,6 +12,28 @@
     z-index: 100;
 }
 
+@media (max-width: 800px) {
+    .top-user-profile {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        max-width: 100%;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        border-top: none;
+        background: rgba(247, 147, 26, 0.2);
+        backdrop-filter: blur(10px);
+        margin-bottom: 0;
+        font-size: 0.85rem;
+        padding: 10px;
+        text-align: center;
+        z-index: 1000;
+    }
+}
+
+
 .modal-bg {
     position: fixed;
     top: 0;
