@@ -50,12 +50,16 @@ export function createUserProfile(): HTMLElement {
 
 async function loginWithExtension(): Promise<void> {
     if (!(window as any).nostr) throw new Error('No se detectó extensión Nostr (Alby/Nos2x)');
-    const signer = new NDKNip07Signer();
-    await signer.blockUntilReady();
-    const user = await signer.user();
-    authState.pubkey = user.pubkey;
-    authState.signer = signer;
-    updateAuthUI();
+    try {
+        const signer = new NDKNip07Signer();
+        await signer.blockUntilReady();
+        const user = await signer.user();
+        authState.pubkey = user.pubkey;
+        authState.signer = signer;
+        await finishLogin();
+    } catch (e: any) {
+        throw new Error(`Error de extensión: ${e.message}`);
+    }
 }
 
 export async function loginWithNwc(nwcUrl: string): Promise<void> {
@@ -131,10 +135,13 @@ function handleAutoLogin(): void {
         loginWithExtension().catch(e => setAuthError(e.message));
         return;
     }
-    window.location.href = 'nostrsigner:';
-    setTimeout(() => {
-        if (!authState.pubkey) setAuthError('No se detectó extensión ni app móvil. Usá los otros métodos.');
-    }, 2500);
+
+    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        window.location.href = 'nostrsigner:';
+        return;
+    }
+
+    setAuthError('No se detectó extensión Nostr. Asegurate de que esté activa y permitida.');
 }
 
 async function handleNwcLogin(): Promise<void> {
