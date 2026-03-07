@@ -2,7 +2,7 @@ import { state } from './state';
 import { requestProvider } from 'webln';
 import { nwc } from '@getalby/sdk';
 import { updateUI } from '../main';
-import { submitBet, fetchBets } from '../utils/ledger';
+import { submitBet, fetchBets, confirmBet } from '../utils/ledger';
 import { authState } from './auth';
 
 async function showConfirmModal(oldNum: number, newNum: number): Promise<boolean> {
@@ -79,7 +79,7 @@ export async function makePayment(): Promise<void> {
     btn.innerHTML = `<span style="font-size:0.9rem">Firmando...</span>`;
 
     try {
-        const paymentRequest = await submitBet(state.targetBlock, state.selectedNumber);
+        const { paymentRequest, paymentHash } = await submitBet(state.targetBlock, state.selectedNumber);
         await updateUI();
 
         btn.innerHTML = `<span style="font-size:0.9rem">Aprobá pago</span>`;
@@ -92,6 +92,9 @@ export async function makePayment(): Promise<void> {
             const webln = await requestProvider();
             await webln.sendPayment(paymentRequest);
         }
+
+        btn.innerHTML = `<span style="font-size:0.9rem">Confirmando...</span>`;
+        await confirmBet(paymentHash);
 
         btn.innerHTML = `<span style="font-size:1rem">PAGO APROBADO</span>`;
         document.body.classList.add('flash-green');

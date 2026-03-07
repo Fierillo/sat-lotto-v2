@@ -1,9 +1,11 @@
 import { authState } from '../components/auth';
 import { finalizeEvent } from 'nostr-tools';
+import ndk, { getAlias } from './nostr';
+import { NDKEvent } from '@nostr-dev-kit/ndk';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
-export async function submitBet(targetBlock: number, selectedNumber: number): Promise<string> {
+export async function submitBet(targetBlock: number, selectedNumber: number): Promise<{ paymentRequest: string; paymentHash: string }> {
     if (!authState.pubkey) throw new Error('No estás logueado');
 
     const eventTemplate = {
@@ -13,7 +15,7 @@ export async function submitBet(targetBlock: number, selectedNumber: number): Pr
         content: JSON.stringify({
             bloque: targetBlock,
             numero: selectedNumber,
-            alias: authState.nip05
+            alias: getAlias(authState.pubkey)
         }),
         pubkey: authState.pubkey
     };
@@ -22,8 +24,9 @@ export async function submitBet(targetBlock: number, selectedNumber: number): Pr
     const nostr = (window as any).nostr;
 
     if (authState.signer) {
-        // NDK Signers expect NDKEvent or similar, but many have simple signEvent
-        signedEvent = await authState.signer.sign(eventTemplate);
+        const e = new NDKEvent(ndk, eventTemplate);
+        await e.sign(authState.signer);
+        signedEvent = e.rawEvent();
     } else if (nostr) {
         signedEvent = await nostr.signEvent(eventTemplate);
     } else if (authState.nwcUrl) {
@@ -45,7 +48,19 @@ export async function submitBet(targetBlock: number, selectedNumber: number): Pr
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || 'Error del servidor');
 
-    return data.paymentRequest;
+    return { paymentRequest: data.paymentRequest, paymentHash: data.paymentHash };
+}
+
+export async function confirmBet(paymentHash: string): Promise<void> {
+    const resp = await fetch(`${API_BASE}/api/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentHash })
+    });
+    if (!resp.ok) {
+        const data = await resp.json();
+        throw new Error(data.error || 'No se pudo confirmar el pago');
+    }
 }
 
 export async function fetchBets(targetBlock: number): Promise<Array<{ pubkey: string; selected_number: number; alias?: string }>> {
@@ -77,5 +92,15 @@ export async function fetchPoolBalance(): Promise<number> {
         return data.balance || 0;
     } catch {
         return 0;
+    }
+}
+export async function fetchIdentity(pubkey: string): Promise<string | null> {
+    try {
+        const resp = await fetch(`${API_BASE}/api/identity/${pubkey}`);
+        if (!resp.ok) return null;
+        const data = await resp.json();
+        return data.alias || null;
+    } catch {
+        return null;
     }
 }

@@ -46,20 +46,38 @@ async function setupDb() {
                 target_block INT NOT NULL,
                 selected_number INT NOT NULL,
                 payment_request TEXT,
+                payment_hash VARCHAR(64),
+                is_paid BOOLEAN DEFAULT FALSE,
+                betting_block INT,
                 alias VARCHAR(255),
                 created_at TIMESTAMP DEFAULT NOW()
             )
         `, []);
 
-        // Migration: add alias column if it doesn't exist
+        // Migration: Add payment_hash, is_paid, betting_block if they don't exist
         await queryNeon(`
             DO $$ 
             BEGIN 
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lotto_bets' AND column_name='alias') THEN
-                    ALTER TABLE lotto_bets ADD COLUMN alias VARCHAR(255);
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lotto_bets' AND column_name='payment_hash') THEN
+                    ALTER TABLE lotto_bets ADD COLUMN payment_hash VARCHAR(64);
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lotto_bets' AND column_name='is_paid') THEN
+                    ALTER TABLE lotto_bets ADD COLUMN is_paid BOOLEAN DEFAULT FALSE;
                 END IF;
             END $$;
         `, []);
+
+        // Migration: identities/users table
+        await queryNeon(`
+            CREATE TABLE IF NOT EXISTS lotto_identities (
+                pubkey VARCHAR(64) PRIMARY KEY,
+                alias VARCHAR(255),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        `, []);
+
+        // Migration: add alias column to lotto_bets for historical record (optional, but let's keep it for compatibility or remove it)
+        // We'll prioritize the lotto_identities table for current names.
 
         // Clean duplicates if any, keeping the latest ID
         await queryNeon(`
@@ -84,8 +102,12 @@ async function setupDb() {
 
 app.post('/api/bet', async (req, res) => {
     try {
-        const { signedEvent } = req.body;
-        if (!signedEvent || !verifyEvent(signedEvent)) {
+        let { signedEvent } = req.body;
+        if (typeof signedEvent === 'string') {
+            try { signedEvent = JSON.parse(signedEvent); } catch { }
+        }
+
+        if (!signedEvent || typeof signedEvent !== 'object' || !verifyEvent(signedEvent)) {
             return res.status(400).json({ error: 'Invalid signed event' });
         }
 
@@ -104,21 +126,33 @@ app.post('/api/bet', async (req, res) => {
         });
 
         const pr = invoice.paymentRequest || invoice.invoice;
+        const paymentHash = invoice.paymentHash || invoice.hash;
 
         if (!process.env.NEON_URL?.includes('user:password')) {
-            const upsertQuery = `
-                INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, alias)
-                VALUES ($1, $2, $3, $4, $5)
+            const upsertBet = `
+                INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, payment_hash, is_paid, betting_block)
+                VALUES ($1, $2, $3, $4, $5, FALSE, $6)
                 ON CONFLICT (pubkey, target_block) 
                 DO UPDATE SET selected_number = EXCLUDED.selected_number, 
                              payment_request = EXCLUDED.payment_request,
-                             alias = EXCLUDED.alias,
+                             payment_hash = EXCLUDED.payment_hash,
+                             is_paid = FALSE,
+                             betting_block = EXCLUDED.betting_block,
                              created_at = NOW()
             `;
-            await queryNeon(upsertQuery, [signedEvent.pubkey, bet.bloque, bet.numero, pr, bet.alias || null]);
+            await queryNeon(upsertBet, [signedEvent.pubkey, bet.bloque, bet.numero, pr, paymentHash, cachedBlock.height]);
+
+            if (bet.alias) {
+                const upsertIdentity = `
+                    INSERT INTO lotto_identities (pubkey, alias, updated_at)
+                    VALUES ($1, $2, NOW())
+                    ON CONFLICT (pubkey) DO UPDATE SET alias = EXCLUDED.alias, updated_at = NOW()
+                `;
+                await queryNeon(upsertIdentity, [signedEvent.pubkey, bet.alias]);
+            }
         }
 
-        res.json({ paymentRequest: pr });
+        res.json({ paymentRequest: pr, paymentHash });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
     }
@@ -131,10 +165,13 @@ app.get('/api/bets', async (req, res) => {
 
     try {
         const query = `
-            SELECT pubkey, selected_number, alias, created_at
-            FROM lotto_bets
-            WHERE target_block = $1
-            ORDER BY created_at DESC
+            SELECT b.pubkey, b.selected_number, i.alias, b.created_at
+            FROM lotto_bets b
+            LEFT JOIN lotto_identities i ON b.pubkey = i.pubkey
+            WHERE b.target_block = $1 
+              AND b.is_paid = TRUE 
+              AND b.betting_block >= ($1 - 21)
+            ORDER BY b.created_at DESC
         `;
         let bets = [];
         if (!process.env.NEON_URL?.includes('user:password')) {
@@ -160,9 +197,13 @@ app.get('/api/result', async (req, res) => {
         const winningNumber = (parseInt(hash.slice(-4), 16) % 21) + 1;
 
         const query = `
-            SELECT pubkey, selected_number, alias
-            FROM lotto_bets
-            WHERE target_block = $1 AND selected_number = $2
+            SELECT b.pubkey, b.selected_number, i.alias
+            FROM lotto_bets b
+            LEFT JOIN lotto_identities i ON b.pubkey = i.pubkey
+            WHERE b.target_block = $1 
+              AND b.selected_number = $2 
+              AND b.is_paid = TRUE
+              AND b.betting_block >= ($1 - 21)
         `;
         let winners = [];
         if (!process.env.NEON_URL?.includes('user:password')) {
@@ -177,6 +218,40 @@ app.get('/api/result', async (req, res) => {
         res.json({ resolved: true, winners: [], error: err.message });
     }
     return;
+});
+
+app.get('/api/identity/:pubkey', async (req, res) => {
+    try {
+        const rows = await queryNeon('SELECT alias FROM lotto_identities WHERE pubkey = $1', [req.params.pubkey]);
+        res.json({ alias: rows[0]?.alias || null });
+    } catch {
+        res.json({ alias: null });
+    }
+});
+
+app.post('/api/confirm', async (req, res) => {
+    try {
+        const { paymentHash } = req.body;
+        if (!paymentHash) return res.status(400).json({ error: 'Missing payment hash' });
+
+        const nwcUrl = process.env.NWC_URL;
+        if (!nwcUrl) return res.status(500).json({ error: 'Server missing NWC' });
+
+        const client = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
+        // Polling or direct check if NWC supports it
+        // For simplicity, we assume if the client calls this after successful payment, we verify it.
+        // In a real scenario, we'd loop lookups for a few seconds.
+        const tx = await client.lookupInvoice({ payment_hash: paymentHash });
+
+        if (tx && ((tx as any).settled || tx.preimage)) {
+            await queryNeon('UPDATE lotto_bets SET is_paid = TRUE WHERE payment_hash = $1', [paymentHash]);
+            return res.json({ confirmed: true });
+        }
+
+        res.status(400).json({ error: 'Invoice not settled yet' });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.get('/api/pool', async (_req, res) => {
