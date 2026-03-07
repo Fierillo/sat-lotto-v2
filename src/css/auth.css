@@ -3,8 +3,8 @@
     top: 20px;
     right: 20px;
     background: rgba(247, 147, 26, 0.2);
-    border: 1px solid #f7931a;
-    color: #f7931a;
+    border: 1px solid var(--neon-orange);
+    color: var(--neon-orange);
     padding: 8px 16px;
     border-radius: 8px;
     font-weight: bold;
@@ -27,8 +27,8 @@
 }
 
 .modal {
-    background: #111422;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-top);
+    border: 1px solid var(--glass-border-light);
     border-radius: 16px;
     padding: 30px;
     width: 90%;
@@ -40,13 +40,13 @@
 .modal h2 {
     margin-bottom: 25px;
     font-size: 1.5rem;
-    color: #f7931a;
+    color: var(--neon-orange);
 }
 
 .auth-btn {
     width: 100%;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border-light);
     color: #fff;
     padding: 12px;
     margin-bottom: 15px;
@@ -58,8 +58,8 @@
 
 .auth-btn:hover {
     background: rgba(247, 147, 26, 0.2);
-    border-color: #f7931a;
-    color: #f7931a;
+    border-color: var(--neon-orange);
+    color: var(--neon-orange);
 }
 
 .nwc-section {
@@ -72,8 +72,8 @@
 .nwc-section input {
     width: 100%;
     padding: 10px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border-light);
     color: #fff;
     border-radius: 6px;
     margin-bottom: 10px;
@@ -87,7 +87,7 @@
 }
 
 .auth-error {
-    color: #ff3333;
+    color: var(--neon-red);
     min-height: 20px;
     margin-bottom: 15px;
     font-size: 0.9rem;
@@ -102,5 +102,5 @@
 }
 
 .close-btn:hover {
-    color: #aaa;
+    color: var(--text-dim);
 }

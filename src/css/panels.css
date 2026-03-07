@@ -5,7 +5,7 @@
     border-radius: 20px;
     font-family: monospace;
     color: rgba(255, 255, 255, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
     text-align: center;
 }
 
@@ -18,8 +18,8 @@
     width: 100%;
     max-width: 500px;
     margin-top: 30px;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--bg-panel);
+    border: 1px solid var(--glass-border);
     border-radius: 12px;
     padding: 20px;
     text-align: center;
@@ -28,7 +28,7 @@
 .result-panel h3,
 .bets-panel h3 {
     font-size: 1rem;
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--text-dim);
     margin-bottom: 12px;
     font-weight: 400;
 }
@@ -75,7 +75,7 @@
 }
 
 .pool-title {
-    color: #f7931a;
+    color: var(--neon-orange);
     font-size: 0.9rem;
     letter-spacing: 2px;
     margin-bottom: 5px;
@@ -91,6 +91,6 @@
 
 .sats-label {
     font-size: 1rem;
-    color: #f7931a;
+    color: var(--neon-orange);
     font-weight: 400;
 }

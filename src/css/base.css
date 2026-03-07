@@ -1,3 +1,22 @@
+:root {
+    --neon-orange: #f7931a;
+    --neon-green: #00ff9d;
+    --neon-red: #ff3333;
+    --neon-purple: #b026ff;
+    --bg-top: #151828;
+    --bg-bottom: #080b12;
+    --bg-dim-top: #0c0e17;
+    --bg-dim-bottom: #030408;
+    --bg-flash-top: #001a0f;
+    --bg-flash-bottom: #000;
+    --text-dim: rgba(255, 255, 255, 0.5);
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.05);
+    --glass-border-light: rgba(255, 255, 255, 0.1);
+    --glass-hover: rgba(255, 255, 255, 0.1);
+    --bg-panel: rgba(255, 255, 255, 0.02);
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -6,7 +25,7 @@
 
 body {
     font-family: system-ui, -apple-system, sans-serif;
-    background: radial-gradient(circle at top, #151828 0%, #080b12 100%);
+    background: radial-gradient(circle at top, var(--bg-top) 0%, var(--bg-bottom) 100%);
     min-height: 100vh;
     color: #fff;
     display: flex;
@@ -17,7 +36,7 @@ body {
 }
 
 body.logged-out {
-    background: radial-gradient(circle at top, #0c0e17 0%, #030408 100%);
+    background: radial-gradient(circle at top, var(--bg-dim-top) 0%, var(--bg-dim-bottom) 100%);
 }
 
 .header {
@@ -31,36 +50,36 @@ h1 {
 }
 
 h1 span {
-    color: #f7931a;
+    color: var(--neon-orange);
 }
 
 .subtitle {
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--text-dim);
     font-weight: 300;
     margin-top: 8px;
     font-size: 1.1rem;
 }
 
 .text-green {
-    color: #00ff9d !important;
+    color: var(--neon-green) !important;
 }
 
 .text-orange {
-    color: #f7931a !important;
+    color: var(--neon-orange) !important;
 }
 
 body.flash-green {
-    background: radial-gradient(circle at top, #001a0f 0%, #000 100%);
+    background: radial-gradient(circle at top, var(--bg-flash-top) 0%, var(--bg-flash-bottom) 100%);
 }
 
 body.flash-green #clock {
-    border-color: #00ff9d;
+    border-color: var(--neon-green);
     box-shadow: 0 0 100px rgba(0, 255, 157, 0.4);
 }
 
 body.flash-green .block-marker:not(.target) {
-    color: #00ff9d;
-    text-shadow: 0 0 10px #00ff9d;
+    color: var(--neon-green);
+    text-shadow: 0 0 10px var(--neon-green);
 }
 
 @keyframes fluorescentFlicker {
@@ -109,9 +128,8 @@ body.flash-green .block-marker:not(.target) {
 }
 
 body:not(.logged-out) .number-segment,
-body:not(.logged-out) .block-marker:not(.target):not(.current),
 body:not(.logged-out) .pool-panel,
 body:not(.logged-out) .result-panel,
 body:not(.logged-out) .bets-panel {
-    animation: fluorescentFlicker 2.1s ease-in-out forwards;
+    animation: fluorescentFlicker 1s ease-in-out forwards;
 }

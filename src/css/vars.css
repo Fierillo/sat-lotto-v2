@@ -1,0 +1,20 @@
+:root {
+  --neon-orange: #f7931a;
+  --neon-green: #00ff9d;
+  --neon-red: #ff3333;
+  --neon-purple: #b026ff;
+
+  --bg-color-top: #151828;
+  --bg-color-bottom: #080b12;
+  --bg-logged-out-top: #0c0e17;
+  --bg-logged-out-bottom: #030408;
+
+  --text-light: #fff;
+  --text-dim: #aaa;
+  --text-muted: #888;
+  --text-dark: #555;
+
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-bg-hover: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.05);
+}

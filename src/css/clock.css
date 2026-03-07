@@ -4,8 +4,8 @@
     height: 540px;
     flex-shrink: 0;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--bg-panel);
+    border: 1px solid var(--glass-border);
     backdrop-filter: blur(10px);
     box-shadow: 0 0 60px rgba(0, 0, 0, 0.6);
     display: flex;
@@ -35,14 +35,14 @@ body:not(.logged-out) .block-marker:not(.target):not(.current) {
 }
 
 .block-marker.target {
-    color: #f7931a;
-    text-shadow: 0 0 10px #f7931a;
+    color: var(--neon-orange);
+    text-shadow: 0 0 10px var(--neon-orange);
     font-size: 1rem;
 }
 
 .block-marker.current {
-    color: #00ff9d;
-    text-shadow: 0 0 10px #00ff9d;
+    color: var(--neon-green);
+    text-shadow: 0 0 10px var(--neon-green);
 }
 
 .inner-ring-container {
@@ -63,7 +63,7 @@ body:not(.logged-out) .block-marker:not(.target):not(.current) {
     left: 50%;
     top: 0;
     transform-origin: bottom center;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--glass-bg);
     border: 1px solid rgba(255, 255, 255, 0.02);
     cursor: pointer;
     display: flex;
@@ -86,23 +86,23 @@ body.logged-out .block-marker:not(.target):not(.current) {
 }
 
 .number-segment:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--glass-hover);
     color: #fff;
 }
 
 .number-segment.selected {
     background: rgba(0, 255, 157, 0.3);
-    color: #00ff9d;
+    color: var(--neon-green);
     box-shadow: inset 0 0 20px rgba(0, 255, 157, 0.5);
-    border-top: 3px solid #00ff9d;
+    border-top: 3px solid var(--neon-green);
     z-index: 10;
 }
 
 .number-segment.selected.error-selected {
     background: rgba(255, 51, 51, 0.3);
-    color: #ff3333;
+    color: var(--neon-red);
     box-shadow: inset 0 0 20px rgba(255, 51, 51, 0.5);
-    border-top: 3px solid #ff3333;
+    border-top: 3px solid var(--neon-red);
 }
 
 .number-text {
@@ -137,22 +137,22 @@ body.logged-out .block-marker:not(.target):not(.current) {
 }
 
 .pay-btn:hover {
-    background: #00ff9d;
-    border-color: #00ff9d;
+    background: var(--neon-green);
+    border-color: var(--neon-green);
     color: #000;
     box-shadow: 0 0 30px rgba(0, 255, 157, 0.5);
 }
 
 .pay-btn.success-glow {
-    background: #00ff9d;
-    border-color: #00ff9d;
+    background: var(--neon-green);
+    border-color: var(--neon-green);
     color: #000;
     box-shadow: 0 0 40px rgba(0, 255, 157, 0.8);
 }
 
 .pay-btn.error-glow {
-    background: #ff3333;
-    border-color: #ff3333;
+    background: var(--neon-red);
+    border-color: var(--neon-red);
     color: #fff;
     box-shadow: 0 0 40px rgba(255, 51, 51, 0.8);
 }
@@ -170,7 +170,7 @@ body.logged-out .block-marker:not(.target):not(.current) {
 
     50% {
         background: rgba(176, 38, 255, 0.3);
-        border-color: #b026ff;
+        border-color: var(--neon-purple);
         color: #fff;
         box-shadow: 0 0 40px rgba(176, 38, 255, 0.8);
     }
