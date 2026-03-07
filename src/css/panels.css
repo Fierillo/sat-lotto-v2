@@ -11,24 +11,6 @@
 
 #clockInfo strong {
     color: #fff;
-    max-height: 90vh;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--neon-orange) transparent;
-}
-
-.modal::-webkit-scrollbar {
-    width: 6px;
-}
-
-.modal::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.modal::-webkit-scrollbar-thumb {
-    background: var(--neon-orange);
-    border-radius: 10px;
-    border: 2px solid var(--bg-top);
 }
 
 .result-panel,
@@ -82,6 +64,33 @@
     justify-content: center;
     align-items: center;
     margin-bottom: 25px;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--neon-orange);
+    border-radius: 50%;
+    display: inline-block;
+    box-shadow: 0 0 10px var(--neon-orange);
+    animation: dot-pulse 1.5s infinite;
+}
+
+@keyframes dot-pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.5);
+        opacity: 0.5;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
 @keyframes pulse-orange {

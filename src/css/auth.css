@@ -59,6 +59,12 @@
     box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
     max-height: 90vh;
     overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.modal::-webkit-scrollbar {
+    display: none;
 }
 
 .modal h2 {

@@ -97,7 +97,7 @@ export async function makePayment(): Promise<void> {
                 await onPaid();
             } catch (weblnErr) {
                 // Extension login with nos2x or WebLN unavailable: Show QR
-                showInvoiceModal(paymentRequest, onPaid);
+                showInvoiceModal(paymentRequest, onPaid, resetBtn);
             }
         }
     } catch (e: any) {
