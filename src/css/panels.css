@@ -94,3 +94,41 @@
     color: var(--neon-orange);
     font-weight: 400;
 }
+
+.help-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: rgba(247, 147, 26, 0.1);
+    color: var(--neon-orange);
+    border: 1px solid var(--neon-orange);
+    border-radius: 50%;
+    font-size: 0.82rem;
+    cursor: pointer;
+    margin-left: 8px;
+    vertical-align: middle;
+    transition: all 0.2s;
+    font-family: serif;
+    font-weight: bold;
+}
+
+.help-icon:hover {
+    background: var(--neon-orange);
+    color: #000;
+}
+
+.verify-command {
+    background: #000;
+    padding: 12px;
+    border-radius: 8px;
+    color: var(--neon-green);
+    font-family: monospace;
+    font-size: 0.82rem;
+    display: block;
+    margin: 15px 0;
+    word-break: break-all;
+    border: 1px solid rgba(0, 255, 157, 0.2);
+    text-align: left;
+}
