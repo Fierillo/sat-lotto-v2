@@ -31,14 +31,16 @@ export async function updateUI(): Promise<void> {
 
 async function fetchCurrentBlock(): Promise<void> {
     try {
-        const response = await fetch('https://mempool.space/api/blocks/tip/height');
-        const height = await response.text();
-        state.currentBlock = parseInt(height, 10);
+        const response = await fetch('/api/blocks/tip');
+        const data = await response.json();
+        if (data.height) {
+            state.currentBlock = data.height;
+            state.targetBlock = data.target;
+            localStorage.setItem('satlotto_blocks', JSON.stringify({ height: data.height, target: data.target }));
+        }
     } catch {
-        state.currentBlock = 899990;
+        // Fallback or use existing state
     }
-    const remainder = state.currentBlock % BLOCKS;
-    state.targetBlock = state.currentBlock + (remainder === 0 ? 0 : BLOCKS - remainder);
 }
 
 async function init(): Promise<void> {

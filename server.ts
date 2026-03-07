@@ -12,6 +12,30 @@ import { queryNeon } from './api/neon.ts';
 const app = express();
 app.use(express.json());
 
+let cachedBlock = { height: 890000, target: 890000 + 21 };
+
+async function syncBlockHeight() {
+    try {
+        const resp = await fetch('https://mempool.space/api/blocks/tip/height');
+        const height = parseInt(await resp.text(), 10);
+        if (height > 0) {
+            cachedBlock.height = height;
+            const remainder = height % 21;
+            cachedBlock.target = height + (remainder === 0 ? 0 : 21 - remainder);
+        }
+    } catch (e) {
+        console.error("[BlockSync] Error:", e);
+    }
+}
+
+// Initial sync and then every 21s
+syncBlockHeight();
+setInterval(syncBlockHeight, 21000);
+
+app.get('/api/blocks/tip', (_req, res) => {
+    res.json(cachedBlock);
+});
+
 async function setupDb() {
     if (process.env.NEON_URL?.includes('user:password')) return;
     try {
@@ -22,8 +46,19 @@ async function setupDb() {
                 target_block INT NOT NULL,
                 selected_number INT NOT NULL,
                 payment_request TEXT,
+                alias VARCHAR(255),
                 created_at TIMESTAMP DEFAULT NOW()
             )
+        `, []);
+
+        // Migration: add alias column if it doesn't exist
+        await queryNeon(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='lotto_bets' AND column_name='alias') THEN
+                    ALTER TABLE lotto_bets ADD COLUMN alias VARCHAR(255);
+                END IF;
+            END $$;
         `, []);
 
         // Clean duplicates if any, keeping the latest ID
@@ -72,14 +107,15 @@ app.post('/api/bet', async (req, res) => {
 
         if (!process.env.NEON_URL?.includes('user:password')) {
             const upsertQuery = `
-                INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request)
-                VALUES ($1, $2, $3, $4)
+                INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, alias)
+                VALUES ($1, $2, $3, $4, $5)
                 ON CONFLICT (pubkey, target_block) 
                 DO UPDATE SET selected_number = EXCLUDED.selected_number, 
                              payment_request = EXCLUDED.payment_request,
+                             alias = EXCLUDED.alias,
                              created_at = NOW()
             `;
-            await queryNeon(upsertQuery, [signedEvent.pubkey, bet.bloque, bet.numero, pr]);
+            await queryNeon(upsertQuery, [signedEvent.pubkey, bet.bloque, bet.numero, pr, bet.alias || null]);
         }
 
         res.json({ paymentRequest: pr });
@@ -95,7 +131,7 @@ app.get('/api/bets', async (req, res) => {
 
     try {
         const query = `
-            SELECT pubkey, selected_number, created_at
+            SELECT pubkey, selected_number, alias, created_at
             FROM lotto_bets
             WHERE target_block = $1
             ORDER BY created_at DESC
@@ -124,7 +160,7 @@ app.get('/api/result', async (req, res) => {
         const winningNumber = (parseInt(hash.slice(-4), 16) % 21) + 1;
 
         const query = `
-            SELECT pubkey, selected_number
+            SELECT pubkey, selected_number, alias
             FROM lotto_bets
             WHERE target_block = $1 AND selected_number = $2
         `;
