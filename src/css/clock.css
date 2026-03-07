@@ -30,7 +30,7 @@
 }
 
 body:not(.logged-out) .block-marker:not(.target):not(.current) {
-    color: #fff;
+    color: #ffffffc8;
     text-shadow: 0 0 5px rgba(255, 255, 255, 0.3);
 }
 
@@ -178,4 +178,9 @@ body.logged-out .block-marker:not(.target):not(.current) {
 
 .pay-btn.blink-purple {
     animation: blinkPurple 0.6s ease-in-out infinite;
+}
+
+body.processing #clock {
+    pointer-events: none;
+    opacity: 0.8;
 }

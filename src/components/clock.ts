@@ -96,7 +96,10 @@ export function updateCenterButton(): void {
     } else {
         if (state.selectedNumber !== null) {
             step.style.display = 'block';
+
             btn.textContent = 'APOSTAR';
+            btn.style.fontSize = '1em';
+
             btn.onclick = () => (window as any).makePayment();
         } else {
             step.style.display = 'none';
@@ -105,8 +108,8 @@ export function updateCenterButton(): void {
 }
 
 export function selectNumber(num: number): void {
-    if (!authState.pubkey) {
-        showLoginModal();
+    if (!authState.pubkey || document.body.classList.contains('processing')) {
+        if (!authState.pubkey) showLoginModal();
         return;
     }
 
