@@ -120,7 +120,7 @@ body.logged-out .block-marker:not(.target):not(.current) {
 }
 
 .pay-btn {
-    background: #070a17;
+    background: #5d5f65;
     border: 1px solid #444;
     color: #aaa;
     width: 130px;

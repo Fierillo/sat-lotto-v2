@@ -76,14 +76,14 @@
 
 .pool-title {
     color: var(--neon-orange);
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     letter-spacing: 2px;
-    margin-bottom: 5px;
+    margin-bottom: 2px;
     font-weight: 600;
 }
 
 .pool-amount {
-    font-size: 2.5rem;
+    font-size: 1.5rem;
     font-weight: 800;
     color: #fff;
     text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
