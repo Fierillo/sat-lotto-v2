@@ -10,14 +10,21 @@ export async function submitBet(targetBlock: number, selectedNumber: number): Pr
         kind: 1,
         created_at: Math.floor(Date.now() / 1000),
         tags: [['t', 'satlotto']],
-        content: JSON.stringify({ bloque: targetBlock, numero: selectedNumber }),
+        content: JSON.stringify({
+            bloque: targetBlock,
+            numero: selectedNumber,
+            alias: authState.nip05
+        }),
         pubkey: authState.pubkey
     };
 
     let signedEvent;
     const nostr = (window as any).nostr;
 
-    if (nostr) {
+    if (authState.signer) {
+        // NDK Signers expect NDKEvent or similar, but many have simple signEvent
+        signedEvent = await authState.signer.sign(eventTemplate);
+    } else if (nostr) {
         signedEvent = await nostr.signEvent(eventTemplate);
     } else if (authState.nwcUrl) {
         const url = new URL(authState.nwcUrl.replace('nostr+walletconnect:', 'http:'));
@@ -26,7 +33,7 @@ export async function submitBet(targetBlock: number, selectedNumber: number): Pr
         const privkey = Uint8Array.from(secret.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
         signedEvent = finalizeEvent(eventTemplate, privkey);
     } else {
-        throw new Error('Se necesita extensión Nostr o NWC para firmar la apuesta');
+        throw new Error('Se necesita extensión Nostr, Bunker o NWC para firmar la apuesta');
     }
 
     const resp = await fetch(`${API_BASE}/api/bet`, {
@@ -41,7 +48,7 @@ export async function submitBet(targetBlock: number, selectedNumber: number): Pr
     return data.paymentRequest;
 }
 
-export async function fetchBets(targetBlock: number): Promise<Array<{ pubkey: string; selected_number: number }>> {
+export async function fetchBets(targetBlock: number): Promise<Array<{ pubkey: string; selected_number: number; alias?: string }>> {
     try {
         const resp = await fetch(`${API_BASE}/api/bets?block=${targetBlock}`);
         if (!resp.ok) return [];

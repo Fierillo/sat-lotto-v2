@@ -1,11 +1,13 @@
-import { NDKNip07Signer } from '@nostr-dev-kit/ndk';
+import { NDKNip07Signer, NDKNip46Signer } from '@nostr-dev-kit/ndk';
 import { getNwcInfo } from '../utils/nwc-connect';
 import { getPublicKey } from 'nostr-tools';
+import ndk from '../utils/nostr';
 
 export const authState = {
     pubkey: null as string | null,
-    signer: null as NDKNip07Signer | null,
-    nwcUrl: null as string | null
+    signer: null as any | null,
+    nwcUrl: null as string | null,
+    nip05: null as string | null
 };
 
 export function createLoginModal(): HTMLElement {
@@ -20,6 +22,10 @@ export function createLoginModal(): HTMLElement {
                 <input type="password" id="nwcInput" placeholder="nostr+walletconnect://..." />
                 <button class="auth-btn" id="nwcLogin">Conectar NWC</button>
             </div>
+            <div class="nwc-section">
+                <input type="text" id="bunkerInput" placeholder="bunker://... o handle@domain" />
+                <button class="auth-btn" id="bunkerLogin">Conectar Bunker (NIP-46)</button>
+            </div>
             <p id="authError" class="auth-error"></p>
             <button class="close-btn" id="closeModal">Cerrar</button>
         </div>
@@ -27,6 +33,7 @@ export function createLoginModal(): HTMLElement {
 
     modal.querySelector('#extensionLogin')?.addEventListener('click', () => handleAutoLogin());
     modal.querySelector('#nwcLogin')?.addEventListener('click', () => handleNwcLogin());
+    modal.querySelector('#bunkerLogin')?.addEventListener('click', () => handleBunkerLogin());
     modal.querySelector('#closeModal')?.addEventListener('click', () => hideLoginModal());
 
     return modal;
@@ -54,7 +61,6 @@ export async function loginWithNwc(nwcUrl: string): Promise<void> {
     if (!nwcUrl) throw new Error('NWC URL inválida');
     const { info } = await getNwcInfo(nwcUrl);
 
-    // Use the pubkey from the connection secret as the identity, not the wallet info pubkey
     const url = new URL(nwcUrl.replace('nostr+walletconnect:', 'http:'));
     const secret = url.searchParams.get('secret');
 
@@ -67,6 +73,46 @@ export async function loginWithNwc(nwcUrl: string): Promise<void> {
     }
 
     authState.nwcUrl = nwcUrl;
+    finishLogin();
+}
+
+async function handleBunkerLogin(): Promise<void> {
+    try {
+        setAuthError('');
+        const btn = document.getElementById('bunkerLogin') as HTMLButtonElement;
+        const input = document.getElementById('bunkerInput') as HTMLInputElement;
+        const target = input?.value || '';
+        if (!target) throw new Error('Bunker URL o NIP-05 requerido');
+
+        btn.textContent = 'Conectando...';
+        btn.disabled = true;
+
+        const signer = new NDKNip46Signer(ndk, target);
+
+        // This might prompt for OTP or authorization in the bunker app
+        await signer.blockUntilReady();
+        const user = await signer.user();
+
+        authState.pubkey = user.pubkey;
+        authState.signer = signer;
+        finishLogin();
+    } catch (e: any) {
+        setAuthError(e.message);
+    } finally {
+        const btn = document.getElementById('bunkerLogin') as HTMLButtonElement;
+        if (btn) {
+            btn.textContent = 'Conectar Bunker (NIP-46)';
+            btn.disabled = false;
+        }
+    }
+}
+
+async function finishLogin(): Promise<void> {
+    if (authState.pubkey) {
+        const user = ndk.getUser({ pubkey: authState.pubkey });
+        await user.fetchProfile();
+        authState.nip05 = user.profile?.nip05 || null;
+    }
     updateAuthUI();
 }
 
@@ -78,7 +124,7 @@ function handleAutoLogin(): void {
     }
     window.location.href = 'nostrsigner:';
     setTimeout(() => {
-        if (!authState.pubkey) setAuthError('No se detectó extensión ni app móvil. Usá el login con NWC.');
+        if (!authState.pubkey) setAuthError('No se detectó extensión ni app móvil. Usá los otros métodos.');
     }, 2500);
 }
 
@@ -113,7 +159,7 @@ export function updateAuthUI(): void {
 
     if (authState.pubkey) {
         if (profile) {
-            profile.textContent = `${authState.pubkey.slice(0, 6)}...${authState.pubkey.slice(-4)}`;
+            profile.textContent = authState.nip05 || `${authState.pubkey.slice(0, 6)}...${authState.pubkey.slice(-4)}`;
             profile.style.display = 'block';
         }
         document.body.classList.remove('logged-out');
