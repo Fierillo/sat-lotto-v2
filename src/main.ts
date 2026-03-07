@@ -2,7 +2,7 @@ import { state, BLOCKS } from './components/state';
 import { createClock, updateClockRings, selectNumber, updateCenterButton } from './components/clock';
 import { makePayment } from './components/payment';
 import { createUserProfile, createLoginModal, updateAuthUI } from './components/auth';
-import { createDashboard, renderBetsTable, renderResult } from './components/tables';
+import { createLeftDashboard, createRightDashboard, renderBetsTable, renderResult } from './components/tables';
 import { createPool, updatePool } from './components/pool';
 import { fetchBets, fetchResult, fetchPoolBalance } from './utils/ledger';
 
@@ -56,8 +56,9 @@ async function init(): Promise<void> {
 
     const gameContainer = document.createElement('div');
     gameContainer.className = 'game-container';
+    gameContainer.appendChild(createLeftDashboard());
     gameContainer.appendChild(createClock());
-    gameContainer.appendChild(createDashboard());
+    gameContainer.appendChild(createRightDashboard());
 
     app.appendChild(gameContainer);
 

@@ -7,11 +7,20 @@
     max-width: 1400px;
 }
 
+#leftDashboard {
+    grid-column: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 380px;
+    justify-self: end;
+}
+
 #clock {
     grid-column: 2;
 }
 
-#dashboard {
+#rightDashboard {
     grid-column: 3;
     display: flex;
     flex-direction: column;
@@ -19,7 +28,7 @@
     max-width: 380px;
 }
 
-#dashboard .result-panel {
+#rightDashboard .result-panel {
     margin-top: 20px;
 }
 

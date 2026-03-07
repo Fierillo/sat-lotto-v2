@@ -1,10 +1,18 @@
-export function createDashboard(): HTMLElement {
+export function createLeftDashboard(): HTMLElement {
     const db = document.createElement('div');
-    db.id = 'dashboard';
+    db.id = 'leftDashboard';
+    db.innerHTML = `
+        <div id="betsTable" class="bets-panel" style="margin-top: 0;"></div>
+    `;
+    return db;
+}
+
+export function createRightDashboard(): HTMLElement {
+    const db = document.createElement('div');
+    db.id = 'rightDashboard';
     db.innerHTML = `
         <div id="clockInfo"></div>
         <div id="lastResult" class="result-panel"></div>
-        <div id="betsTable" class="bets-panel"></div>
     `;
     return db;
 }
