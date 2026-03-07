@@ -1,18 +1,28 @@
 import 'dotenv/config';
 
-// Hijack console ONLY for specific recurrent noise
 const originalWarn = console.warn;
 const originalLog = console.log;
+const originalError = console.error;
+
 console.warn = (...args) => {
     const msg = String(args[0] || '');
     if (msg.includes('NIP-04 encryption is about to be deprecated')) return;
     originalWarn(...args);
 };
+
 console.log = (...args) => {
     const msg = String(args[0] || '');
-    // Only silence the periodic Neon SQL logs, keep other useful logs
     if (msg.includes('[Neon] Execute')) return;
     originalLog(...args);
+};
+
+console.error = (...args) => {
+    const msg = String(args[0] || '');
+    if (msg.includes('relay.getalby.com') || msg.includes('Failed to connect') || msg.includes('Failed to request')) {
+        originalLog('[NWC] Error de conexión con Alby');
+        return;
+    }
+    originalError(...args);
 };
 
 import express from 'express';
@@ -28,7 +38,7 @@ import { queryNeon } from './api/neon.ts';
 const app = express();
 app.use(express.json());
 
-let cachedBlock = { height: 890000, target: 890021, lastResult: 890000 };
+let cachedBlock = { height: 890000, target: 890021 };
 
 async function syncBlockHeight() {
     try {
@@ -36,12 +46,9 @@ async function syncBlockHeight() {
         const height = parseInt(await resp.text(), 10);
         if (height > 0) {
             cachedBlock.height = height;
-            cachedBlock.lastResult = height - (height % 21);
-            cachedBlock.target = cachedBlock.lastResult + 21;
+            cachedBlock.target = (Math.floor(height / 21) + 1) * 21;
         }
-    } catch (e) {
-        console.error("[BlockSync] Error:", e);
-    }
+    } catch { }
 }
 
 // Initial sync and then every 21s
@@ -189,16 +196,11 @@ app.get('/api/result', async (req, res) => {
 
     try {
         const resp = await fetch(`https://mempool.space/api/block-height/${block}`);
-        if (!resp.ok) return res.json({ resolved: false, message: 'Not mined yet' });
+        if (!resp.ok) return res.json({ resolved: false });
+        const hash = (await resp.text()).trim();
 
-        const hash = await resp.text();
-
-        /* 
-           DETERMINISTIC WINNING NUMBER:
-           Used BigInt to process the ENTIRE block hash (256-bit entropy).
-           This makes the lottery provably fair and deterministic based on the miner's effort.
-        */
-        const winningNumber = Number(BigInt('0x' + hash) % 21n) + 1;
+        // 100% Deterministic Winner: BigInt handles 256 bits precisely. Result is always 1-21.
+        const winningNumber = Number((BigInt('0x' + hash) % 21n) + 1n);
 
         const query = `
             SELECT b.pubkey, b.selected_number, i.alias
@@ -214,12 +216,12 @@ app.get('/api/result', async (req, res) => {
             winners = await queryNeon(query, [block, winningNumber]);
         }
 
-        return res.json({ resolved: true, blockHash: hash, winningNumber, winners });
+        return res.json({ resolved: true, blockHash: hash, winningNumber, winners, targetBlock: block });
     } catch (err: any) {
         if (err.message.includes('42P01') || err.message.includes('42703')) {
-            return res.json({ resolved: true, blockHash: '', winningNumber: 0, winners: [] });
+            return res.json({ resolved: true, blockHash: '', winningNumber: 0, winners: [], targetBlock: block });
         }
-        return res.json({ resolved: true, winners: [], error: err.message });
+        return res.json({ resolved: true, winners: [], error: err.message, targetBlock: block });
     }
 });
 
@@ -266,9 +268,11 @@ app.get('/api/pool', async (_req, res) => {
         client = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
         const balanceData = await client.getBalance();
         res.json({ balance: Math.floor(balanceData.balance / 1000) }); // msats to sats
-    } catch {
-        // Fail silently to the UI but don't flood the server terminal 
-        return res.json({ balance: 0 });
+    } catch (err: any) {
+        // Silencio en la UI pero log corto en el terminal si no es spam
+        const msg = err.message || '';
+        if (!msg.includes('getalby')) originalLog('[NWC] Fetch balance failed');
+        return res.json({ balance: 0, error: 'Connection issues' });
     } finally {
         if (client) client.close();
     }
