@@ -14,11 +14,13 @@ export function showInvoiceModal(paymentRequest: string, onPaid: () => void): vo
                 Escaneá con tu wallet para confirmar tu apuesta.
             </p>
             
-            <div class="qr-container">
-                <img src="${qrUrl}" alt="QR Invoice" style="width: 220px; height: 220px; display: block;" />
+            <div class="qr-container" style="display: flex; justify-content: center; margin-bottom: 20px;">
+                <div style="background: white; padding: 12px; border-radius: 12px; box-shadow: 0 0 30px rgba(247, 147, 26, 0.3);">
+                    <img src="${qrUrl}" alt="QR Invoice" style="width: 220px; height: 220px; display: block;" />
+                </div>
             </div>
 
-            <div style="margin-bottom: 20px; text-align: left;">
+            <div style="text-align: left; margin-bottom: 25px;">
                 <label style="font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px;">Bolt11 Invoice:</label>
                 <div id="copyPr" style="background: rgba(0,0,0,0.4); padding: 12px; border-radius: 8px; font-family: monospace; font-size: 0.72rem; word-break: break-all; margin-top: 5px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); color: var(--neon-green); position: relative;">
                     ${paymentRequest.slice(0, 50)}...${paymentRequest.slice(-20)}
@@ -26,9 +28,9 @@ export function showInvoiceModal(paymentRequest: string, onPaid: () => void): vo
                 </div>
             </div>
 
-            <div style="display: flex; gap: 12px;">
-                <button class="auth-btn" id="checkPayment" style="flex: 1.2; font-size: 0.8rem;">Verificar Pago</button>
-                <button class="close-btn" id="closeInvoice" style="flex: 0.8; font-size: 0.8rem;">Cancelar</button>
+            <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;">
+                <button class="auth-btn" id="checkPayment" style="margin-bottom: 0; font-size: 0.95rem;">Verificar Pago</button>
+                <button class="close-btn" id="closeInvoice">Cancelar</button>
             </div>
             
             <p style="font-size: 0.65rem; color: var(--text-dim); margin-top: 15px; font-style: italic; opacity: 0.7;">

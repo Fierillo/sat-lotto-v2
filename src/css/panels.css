@@ -11,6 +11,24 @@
 
 #clockInfo strong {
     color: #fff;
+    max-height: 90vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--neon-orange) transparent;
+}
+
+.modal::-webkit-scrollbar {
+    width: 6px;
+}
+
+.modal::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.modal::-webkit-scrollbar-thumb {
+    background: var(--neon-orange);
+    border-radius: 10px;
+    border: 2px solid var(--bg-top);
 }
 
 .result-panel,
@@ -57,6 +75,30 @@
     font-family: monospace;
     font-size: 0.9rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.invoice-modal .qr-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+@keyframes pulse-orange {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 15px rgba(247, 147, 26, 0.2);
+    }
+
+    50% {
+        transform: scale(1.02);
+        box-shadow: 0 0 35px rgba(247, 147, 26, 0.4);
+    }
+
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 15px rgba(247, 147, 26, 0.2);
+    }
 }
 
 .empty-bets {

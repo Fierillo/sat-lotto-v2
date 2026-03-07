@@ -34,6 +34,7 @@ import WebSocket from 'ws';
 
 neonConfig.webSocketConstructor = WebSocket;
 import { queryNeon } from './api/neon.ts';
+import { createNwcInvoice } from './src/utils/create-invoice.ts';
 
 const app = express();
 app.use(express.json());
@@ -126,12 +127,7 @@ app.post('/api/bet', async (req, res) => {
         const nwcUrl = process.env.NWC_URL;
         if (!nwcUrl) return res.status(500).json({ error: 'Server missing NWC' });
 
-        const client = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
-        const invoice: any = await client.makeInvoice({
-            amount: 21000,
-            description: `SatLotto Block ${bet.bloque} - Num ${bet.numero}`
-        });
-
+        const invoice: any = await createNwcInvoice(nwcUrl, 21, `SatLotto Block ${bet.bloque} - Num ${bet.numero}`);
         const pr = invoice.paymentRequest || invoice.invoice;
         const paymentHash = invoice.paymentHash || invoice.hash;
 
