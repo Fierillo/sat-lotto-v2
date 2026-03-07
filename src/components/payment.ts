@@ -1,9 +1,10 @@
 import { state } from './state';
 import { requestProvider } from 'webln';
-import { nwc } from '@getalby/sdk';
 import { updateUI } from '../main';
 import { submitBet, fetchBets, confirmBet } from '../utils/ledger';
 import { authState } from './auth';
+import { payNwcInvoice } from '../utils/pay-invoice';
+import { showInvoiceModal } from './invoice-modal';
 
 async function showConfirmModal(oldNum: number, newNum: number): Promise<boolean> {
     return new Promise((resolve) => {
@@ -45,7 +46,6 @@ export async function makePayment(): Promise<void> {
         btn.classList.remove('success-glow', 'error-glow', 'blink-purple');
         document.body.classList.remove('flash-green', 'processing');
         document.querySelector('.number-segment.selected')?.classList.remove('error-selected');
-        // Let updateCenterButton decide the button text
         if (typeof (window as any).updateCenterButton === 'function') {
             (window as any).updateCenterButton();
         }
@@ -55,16 +55,11 @@ export async function makePayment(): Promise<void> {
         btn.classList.add('error-glow');
         document.querySelector('.number-segment.selected')?.classList.add('error-selected');
         btn.innerHTML = `<span style="font-size:0.9rem">Login<br>Antes</span>`;
-
-        setTimeout(() => {
-            btn.classList.add('blink-purple');
-        }, 1100);
-
+        setTimeout(() => btn.classList.add('blink-purple'), 1100);
         setTimeout(resetBtn, 5000);
         return;
     }
 
-    // Check if user already has a bet
     const bets = await fetchBets(state.targetBlock);
     const myPubkey = authState.pubkey?.toLowerCase();
     const existingBet = bets.find(b => b.pubkey.toLowerCase() === myPubkey);
@@ -82,29 +77,35 @@ export async function makePayment(): Promise<void> {
         const { paymentRequest, paymentHash } = await submitBet(state.targetBlock, state.selectedNumber);
         await updateUI();
 
-        btn.innerHTML = `<span style="font-size:0.9rem">Aprobá pago</span>`;
+        const onPaid = async () => {
+            await confirmBet(paymentHash);
+            await updateUI();
+            btn.innerHTML = `<span style="font-size:1rem">PAGO APROBADO</span>`;
+            document.body.classList.add('flash-green');
+            setTimeout(resetBtn, 4000);
+        };
 
         if (authState.nwcUrl) {
-            const client = new nwc.NWCClient({ nostrWalletConnectUrl: authState.nwcUrl });
-            await client.payInvoice({ invoice: paymentRequest });
-            client.close();
+            btn.innerHTML = `<span style="font-size:0.9rem">Pagando NWC...</span>`;
+            await payNwcInvoice(authState.nwcUrl, paymentRequest);
+            await onPaid();
         } else {
-            const webln = await requestProvider();
-            await webln.sendPayment(paymentRequest);
+            try {
+                const webln = await requestProvider();
+                btn.innerHTML = `<span style="font-size:0.9rem">Pagando WebLN...</span>`;
+                await webln.sendPayment(paymentRequest);
+                await onPaid();
+            } catch (weblnErr) {
+                // Extension login with nos2x or WebLN unavailable: Show QR
+                showInvoiceModal(paymentRequest, onPaid);
+            }
         }
-
-        btn.innerHTML = `<span style="font-size:0.9rem">Confirmando...</span>`;
-        await confirmBet(paymentHash);
-
-        btn.innerHTML = `<span style="font-size:1rem">PAGO APROBADO</span>`;
-        document.body.classList.add('flash-green');
     } catch (e: any) {
         btn.classList.remove('success-glow');
         btn.classList.add('error-glow');
         document.querySelector('.number-segment.selected')?.classList.add('error-selected');
         btn.innerHTML = `<span style="font-size:0.8rem">${e.message || '❌'}</span>`;
         document.body.classList.remove('flash-green');
-    } finally {
         setTimeout(resetBtn, 4000);
     }
 }
