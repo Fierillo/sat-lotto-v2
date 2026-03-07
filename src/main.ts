@@ -12,7 +12,6 @@ function createHeader(): HTMLElement {
     header.innerHTML = `<h1><span>SatLotto</span></h1><p class="subtitle">Proba tu suerte, cada 21 bloques</p>`;
     return header;
 }
-
 export async function updateUI(): Promise<void> {
     updateClockRings();
     const info = document.getElementById('clockInfo');
@@ -24,8 +23,9 @@ export async function updateUI(): Promise<void> {
     const balance = await fetchPoolBalance();
     updatePool(balance);
 
-    const result = await fetchResult(state.lastResultBlock);
-    renderResult(result);
+    const resultTarget = Math.floor(state.currentBlock / 21) * 21;
+    const result = await fetchResult(resultTarget);
+    renderResult(result, resultTarget);
 }
 
 async function fetchCurrentBlock(): Promise<void> {
@@ -35,11 +35,9 @@ async function fetchCurrentBlock(): Promise<void> {
         if (data.height) {
             state.currentBlock = data.height;
             state.targetBlock = data.target;
-            state.lastResultBlock = data.lastResult;
             localStorage.setItem('satlotto_blocks', JSON.stringify({
                 height: data.height,
-                target: data.target,
-                lastResult: data.lastResult
+                target: data.target
             }));
         }
     } catch {
