@@ -1,4 +1,4 @@
-import { state, BLOCKS } from './components/state';
+import { state } from './components/state';
 import { createClock, updateClockRings, selectNumber, updateCenterButton } from './components/clock';
 import { makePayment } from './components/payment';
 import { createUserProfile, createLoginModal, updateAuthUI } from './components/auth';
@@ -24,8 +24,7 @@ export async function updateUI(): Promise<void> {
     const balance = await fetchPoolBalance();
     updatePool(balance);
 
-    const prevTarget = state.targetBlock - BLOCKS;
-    const result = await fetchResult(prevTarget);
+    const result = await fetchResult(state.lastResultBlock);
     renderResult(result);
 }
 
@@ -36,7 +35,12 @@ async function fetchCurrentBlock(): Promise<void> {
         if (data.height) {
             state.currentBlock = data.height;
             state.targetBlock = data.target;
-            localStorage.setItem('satlotto_blocks', JSON.stringify({ height: data.height, target: data.target }));
+            state.lastResultBlock = data.lastResult;
+            localStorage.setItem('satlotto_blocks', JSON.stringify({
+                height: data.height,
+                target: data.target,
+                lastResult: data.lastResult
+            }));
         }
     } catch {
         // Fallback or use existing state
