@@ -35,6 +35,7 @@ import WebSocket from 'ws';
 neonConfig.webSocketConstructor = WebSocket;
 import { queryNeon } from './api/neon.ts';
 import { createNwcInvoice } from './src/utils/create-invoice.ts';
+import { lookupNwcInvoice } from './src/utils/lookup-invoice.ts';
 
 const app = express();
 app.use(express.json());
@@ -238,11 +239,7 @@ app.post('/api/confirm', async (req, res) => {
         const nwcUrl = process.env.NWC_URL;
         if (!nwcUrl) return res.status(500).json({ error: 'Server missing NWC' });
 
-        const client = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
-        // Polling or direct check if NWC supports it
-        // For simplicity, we assume if the client calls this after successful payment, we verify it.
-        // In a real scenario, we'd loop lookups for a few seconds.
-        const tx = await client.lookupInvoice({ payment_hash: paymentHash });
+        const tx = await lookupNwcInvoice(nwcUrl, paymentHash);
 
         if (tx && ((tx as any).settled || tx.preimage)) {
             await queryNeon('UPDATE lotto_bets SET is_paid = TRUE WHERE payment_hash = $1', [paymentHash]);

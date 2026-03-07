@@ -114,17 +114,14 @@
 
 @keyframes pulse-orange {
     0% {
-        transform: scale(1);
         box-shadow: 0 0 15px rgba(247, 147, 26, 0.2);
     }
 
     50% {
-        transform: scale(1.02);
         box-shadow: 0 0 35px rgba(247, 147, 26, 0.4);
     }
 
     100% {
-        transform: scale(1);
         box-shadow: 0 0 15px rgba(247, 147, 26, 0.2);
     }
 }
