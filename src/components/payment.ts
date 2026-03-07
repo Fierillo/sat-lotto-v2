@@ -41,11 +41,13 @@ export async function makePayment(): Promise<void> {
     if (!btn) return;
 
     const resetBtn = (): void => {
-        btn.classList.remove('success-glow', 'error-glow');
+        btn.classList.remove('success-glow', 'error-glow', 'blink-purple');
         document.body.classList.remove('flash-green');
         document.querySelector('.number-segment.selected')?.classList.remove('error-selected');
-        btn.innerHTML = 'JUGAR';
-        document.getElementById('loginBtn')?.classList.remove('blink-purple');
+        // Let updateCenterButton decide the button text
+        if (typeof (window as any).updateCenterButton === 'function') {
+            (window as any).updateCenterButton();
+        }
     };
 
     if (!authState.pubkey) {
@@ -54,7 +56,7 @@ export async function makePayment(): Promise<void> {
         btn.innerHTML = `<span style="font-size:0.9rem">Login<br>Antes</span>`;
 
         setTimeout(() => {
-            document.getElementById('loginBtn')?.classList.add('blink-purple');
+            btn.classList.add('blink-purple');
         }, 1100);
 
         setTimeout(resetBtn, 5000);

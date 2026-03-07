@@ -1,4 +1,5 @@
 import { BLOCKS, state } from './state';
+import { authState, showLoginModal } from './auth';
 
 export function createClock(): HTMLElement {
     const clock = document.createElement('div');
@@ -14,8 +15,11 @@ export function createClock(): HTMLElement {
 
     const paymentStep = document.createElement('div');
     paymentStep.id = 'paymentStep';
-    paymentStep.style.display = 'none';
-    paymentStep.innerHTML = `<button class="pay-btn" onclick="makePayment()">JUGAR</button>`;
+
+    const btn = document.createElement('button');
+    btn.id = 'centerBtn';
+    btn.className = 'pay-btn';
+    paymentStep.appendChild(btn);
 
     clock.appendChild(outerRing);
     clock.appendChild(innerCircle);
@@ -74,7 +78,32 @@ export function updateClockRings(outer?: HTMLElement, inner?: HTMLElement): void
     }
 }
 
+export function updateCenterButton(): void {
+    const step = document.getElementById('paymentStep');
+    const btn = document.getElementById('centerBtn') as HTMLButtonElement;
+    if (!step || !btn) return;
+
+    if (!authState.pubkey) {
+        step.style.display = 'block';
+        btn.textContent = 'JUGAR';
+        btn.onclick = () => showLoginModal();
+    } else {
+        if (state.selectedNumber !== null) {
+            step.style.display = 'block';
+            btn.textContent = 'APOSTAR';
+            btn.onclick = () => (window as any).makePayment();
+        } else {
+            step.style.display = 'none';
+        }
+    }
+}
+
 export function selectNumber(num: number): void {
+    if (!authState.pubkey) {
+        showLoginModal();
+        return;
+    }
+
     if (state.selectedNumber === num) return;
     state.selectedNumber = num;
 
@@ -85,6 +114,5 @@ export function selectNumber(num: number): void {
         }
     });
 
-    const step = document.getElementById('paymentStep');
-    if (step) step.style.display = 'block';
+    updateCenterButton();
 }

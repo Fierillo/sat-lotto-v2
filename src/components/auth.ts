@@ -30,13 +30,12 @@ export function createLoginModal(): HTMLElement {
     return modal;
 }
 
-export function createLoginButton(): HTMLElement {
-    const btn = document.createElement('button');
-    btn.id = 'loginBtn';
-    btn.className = 'top-login-btn';
-    btn.textContent = 'ENTRAR';
-    btn.onclick = showLoginModal;
-    return btn;
+export function createUserProfile(): HTMLElement {
+    const profile = document.createElement('div');
+    profile.id = 'userProfile';
+    profile.className = 'top-user-profile';
+    profile.style.display = 'none';
+    return profile;
 }
 
 async function loginWithExtension(): Promise<void> {
@@ -96,15 +95,22 @@ export function hideLoginModal(): void {
 }
 
 export function updateAuthUI(): void {
-    const loginBtn = document.getElementById('loginBtn');
     hideLoginModal();
-    if (!loginBtn) return;
+    const profile = document.getElementById('userProfile');
 
     if (authState.pubkey) {
-        loginBtn.textContent = `${authState.pubkey.slice(0, 6)}...${authState.pubkey.slice(-4)}`;
-        loginBtn.classList.add('logged-in');
+        if (profile) {
+            profile.textContent = `${authState.pubkey.slice(0, 6)}...${authState.pubkey.slice(-4)}`;
+            profile.style.display = 'block';
+        }
+        document.body.classList.remove('logged-out');
     } else {
-        loginBtn.textContent = 'ENTRAR';
-        loginBtn.classList.remove('logged-in');
+        if (profile) profile.style.display = 'none';
+        document.body.classList.add('logged-out');
+    }
+
+    // Call clock update center button explicitly if available globally or loosely coupled
+    if (typeof (window as any).updateCenterButton === 'function') {
+        (window as any).updateCenterButton();
     }
 }

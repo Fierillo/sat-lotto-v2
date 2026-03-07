@@ -13,7 +13,11 @@ body {
   flex-direction: column;
   align-items: center;
   padding: 50px 20px;
-  transition: all 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background 1s ease, box-shadow 1s ease;
+}
+
+body.logged-out {
+  background: radial-gradient(circle at top, #0c0e17 0%, #030408 100%);
 }
 
 .header {
@@ -68,6 +72,11 @@ h1 span {
   white-space: nowrap;
 }
 
+body:not(.logged-out) .block-marker:not(.target):not(.current) {
+  color: #fff;
+  text-shadow: 0 0 5px rgba(255, 255, 255, 0.3);
+}
+
 .block-marker.target {
   color: #f7931a;
   text-shadow: 0 0 10px #f7931a;
@@ -106,8 +115,76 @@ h1 span {
   color: #888;
   font-size: 1.1rem;
   font-weight: bold;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
   clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%);
+}
+
+body.logged-out .number-segment {
+  opacity: 0.1;
+  pointer-events: none;
+}
+
+body.logged-out .block-marker:not(.target):not(.current) {
+  opacity: 0.2;
+}
+
+body.logged-out .pool-panel,
+body.logged-out .result-panel,
+body.logged-out .bets-panel {
+  opacity: 0.4;
+}
+
+@keyframes fluorescentFlicker {
+  0% {
+    opacity: 0.1;
+  }
+
+  10% {
+    opacity: 1;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+  }
+
+  20% {
+    opacity: 0.2;
+  }
+
+  30% {
+    opacity: 0.8;
+  }
+
+  40% {
+    opacity: 0.3;
+  }
+
+  50% {
+    opacity: 1;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+  }
+
+  60% {
+    opacity: 0.5;
+  }
+
+  70% {
+    opacity: 0.9;
+  }
+
+  80% {
+    opacity: 0.4;
+    text-shadow: none;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+body:not(.logged-out) .number-segment,
+body:not(.logged-out) .block-marker:not(.target):not(.current),
+body:not(.logged-out) .pool-panel,
+body:not(.logged-out) .result-panel,
+body:not(.logged-out) .bets-panel {
+  animation: fluorescentFlicker 2.1s ease-in-out forwards;
 }
 
 .number-segment:hover {
@@ -223,39 +300,24 @@ body.flash-green .block-marker:not(.target) {
   text-shadow: 0 0 10px #00ff9d;
 }
 
-.top-login-btn {
+.top-user-profile {
   position: absolute;
   top: 20px;
   right: 20px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #aaa;
+  background: rgba(247, 147, 26, 0.2);
+  border: 1px solid #f7931a;
+  color: #f7931a;
   padding: 8px 16px;
   border-radius: 8px;
   font-weight: bold;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  transition: opacity 0.3s ease;
   z-index: 100;
-}
-
-.top-login-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-}
-
-.top-login-btn.logged-in {
-  background: rgba(247, 147, 26, 0.2);
-  border-color: #f7931a;
-  color: #f7931a;
 }
 
 @keyframes blinkPurple {
 
   0%,
   100% {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.1);
-    color: #aaa;
     box-shadow: 0 0 0 transparent;
   }
 
@@ -263,11 +325,11 @@ body.flash-green .block-marker:not(.target) {
     background: rgba(176, 38, 255, 0.3);
     border-color: #b026ff;
     color: #fff;
-    box-shadow: 0 0 30px rgba(176, 38, 255, 0.8);
+    box-shadow: 0 0 40px rgba(176, 38, 255, 0.8);
   }
 }
 
-.top-login-btn.blink-purple {
+.pay-btn.blink-purple {
   animation: blinkPurple 0.6s ease-in-out infinite;
 }
 

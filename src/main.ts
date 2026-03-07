@@ -1,7 +1,7 @@
 import { state, BLOCKS } from './components/state';
-import { createClock, updateClockRings, selectNumber } from './components/clock';
+import { createClock, updateClockRings, selectNumber, updateCenterButton } from './components/clock';
 import { makePayment } from './components/payment';
-import { createLoginButton, createLoginModal } from './components/auth';
+import { createUserProfile, createLoginModal, updateAuthUI } from './components/auth';
 import { createDashboard, renderBetsTable, renderResult } from './components/tables';
 import { createPool, updatePool } from './components/pool';
 import { fetchBets, fetchResult, fetchPoolBalance } from './utils/ledger';
@@ -45,10 +45,11 @@ async function init(): Promise<void> {
     // Inject global functions for buttons in pure HTML if needed
     (window as any).makePayment = makePayment;
     (window as any).selectNumber = selectNumber;
+    (window as any).updateCenterButton = updateCenterButton;
 
     const app = document.createElement('div');
     app.id = 'app';
-    app.appendChild(createLoginButton());
+    app.appendChild(createUserProfile());
     app.appendChild(createLoginModal());
     app.appendChild(createHeader());
     app.appendChild(createPool());
@@ -61,6 +62,7 @@ async function init(): Promise<void> {
     app.appendChild(gameContainer);
 
     document.body.prepend(app);
+    updateAuthUI(); // set initial state
 
     await fetchCurrentBlock();
     await updateUI();
