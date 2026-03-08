@@ -5,19 +5,36 @@ export function showInvoiceModal(bolt11PaymentRequest: string, handleSuccessfulP
     };
 
     const handleCopyInvoiceToClipboard = async () => {
-        try {
-            await navigator.clipboard.writeText(bolt11PaymentRequest);
+        const showStatus = () => {
             const statusNotification = document.getElementById('prStatus');
             if (statusNotification) {
                 statusNotification.style.opacity = '1';
                 setTimeout(() => { if (statusNotification) statusNotification.style.opacity = '0'; }, 2000);
             }
+        };
+
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(bolt11PaymentRequest);
+                showStatus();
+            } else {
+                throw new Error('Clipboard API unavailable');
+            }
         } catch (copyError) {
             const fallbackTextArea = document.createElement("textarea");
             fallbackTextArea.value = bolt11PaymentRequest;
+            fallbackTextArea.style.position = "fixed";
+            fallbackTextArea.style.left = "-9999px";
+            fallbackTextArea.style.top = "0";
             document.body.appendChild(fallbackTextArea);
+            fallbackTextArea.focus();
             fallbackTextArea.select();
-            document.execCommand('copy');
+            try {
+                document.execCommand('copy');
+                showStatus();
+            } catch (e) {
+                console.error('Fallback copy failed', e);
+            }
             document.body.removeChild(fallbackTextArea);
         }
     };
@@ -42,10 +59,10 @@ export function showInvoiceModal(bolt11PaymentRequest: string, handleSuccessfulP
             </div>
 
             <div style="text-align: left; margin-bottom: 25px">
-                <label style="font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase">Bolt11 Invoice:</label>
-                <div id="copyPr" style="background: rgba(0,0,0,0.4); padding: 12px; border-radius: 8px; font-family: monospace; font-size: 0.72rem; word-break: break-all; margin-top: 5px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); color: var(--neon-green); position: relative">
+                <label style="font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px">Bolt11 Invoice:</label>
+                <div id="copyPr" class="copy-target" style="background: rgba(0,0,0,0.4); padding: 12px; border-radius: 8px; font-family: monospace; font-size: 0.72rem; word-break: break-all; margin-top: 5px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); color: var(--neon-green); position: relative; transition: all 0.2s; -webkit-tap-highlight-color: transparent; user-select: all">
                     ${bolt11PaymentRequest.slice(0, 50)}...${bolt11PaymentRequest.slice(-20)}
-                    <div id="prStatus" style="position: absolute; left: 50%; transform: translateX(-50%); bottom: -22px; font-size: 0.65rem; color: var(--neon-green); opacity: 0; transition: opacity 0.3s; white-space: nowrap">¡Invoice Copiado! ⚡</div>
+                    <div id="prStatus" style="position: absolute; left: 50%; transform: translateX(-50%); bottom: -22px; font-size: 0.65rem; color: var(--neon-green); opacity: 0; transition: opacity 0.3s; white-space: nowrap; pointer-events: none">¡Invoice Copiado! ⚡</div>
                 </div>
             </div>
 

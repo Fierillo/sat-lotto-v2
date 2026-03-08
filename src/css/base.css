@@ -82,7 +82,7 @@ h1 span {
     }
 
     .header {
-        margin-bottom: 20px;
+        margin-bottom: 15px;
     }
 }
 
@@ -159,4 +159,9 @@ body:not(.logged-out) .pool-panel,
 body:not(.logged-out) .result-panel,
 body:not(.logged-out) .bets-panel {
     animation: fluorescentFlicker 1s ease-in-out forwards;
+}
+
+.copy-target:active {
+    transform: scale(0.98);
+    background: rgba(255, 255, 255, 0.1) !important;
 }
