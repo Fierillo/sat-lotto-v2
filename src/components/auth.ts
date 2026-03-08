@@ -15,56 +15,20 @@ export function createLoginModal(): HTMLElement {
     const loginModalContainer = document.createElement('div');
     loginModalContainer.id = 'loginModal';
     loginModalContainer.className = 'modal-bg';
-
-    const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
     loginModalContainer.innerHTML = `
-        <div class="modal auth-modal">
-            <div class="auth-header">
-                <h2>Conectá tu Wallet</h2>
-                <p class="auth-subtitle">Elegí cómo querés firmar tus apuestas</p>
+        <div class="modal">
+            <h2>Conectá tu Wallet</h2>
+            <button class="auth-btn" id="extLogin">Login con extensión</button>
+            <div class="nwc-section">
+                <input type="password" id="nwcInput" placeholder="nostr+walletconnect://..." />
+                <button class="auth-btn" id="nwcBtn">Conectar NWC</button>
             </div>
-
-            <div class="auth-options">
-                ${!isMobileDevice ? `
-                    <div class="auth-option-card" id="extLogin">
-                        <div class="icon">🔌</div>
-                        <div class="details">
-                            <strong>Extensión de Navegador</strong>
-                            <span>Alby, Nos2x, etc.</span>
-                        </div>
-                    </div>
-                ` : `
-                    <div class="auth-option-card mobile-notice">
-                        <div class="icon">📱</div>
-                        <div class="details">
-                            <strong>Modo Mobile</strong>
-                            <span>Usá Bunker o NWC para conectar Amber/Alby</span>
-                        </div>
-                    </div>
-                `}
-
-                <div class="auth-divider"><span>O usá una conexión remota</span></div>
-
-                <div class="nwc-section">
-                    <div class="input-group">
-                        <label>Nostr Wallet Connect (NWC)</label>
-                        <input type="password" id="nwcInput" placeholder="nostr+walletconnect://..." />
-                        <button class="auth-btn-action" id="nwcBtn">CONECTAR NWC</button>
-                    </div>
-                </div>
-
-                <div class="nwc-section">
-                    <div class="input-group">
-                        <label>Bunker (NIP-46) - <small>Ideal para Amber/Móvil</small></label>
-                        <input type="text" id="bunkerInput" placeholder="usuario@dominio.com o bunker://..." />
-                        <button class="auth-btn-action" id="bunkerLogin">CONECTAR BUNKER</button>
-                    </div>
-                </div>
+            <div class="nwc-section">
+                <input type="text" id="bunkerInput" placeholder="bunker://... o handle@domain" />
+                <button class="auth-btn" id="bunkerLogin">Conectar Bunker (NIP-46)</button>
             </div>
-
             <p id="authError" class="auth-error"></p>
-            <button class="close-modal-link" id="closeModal">Quizás más tarde</button>
+            <button class="close-btn" id="closeModal">Cerrar</button>
         </div>
     `;
 
@@ -86,7 +50,7 @@ export function createUserProfile(): HTMLElement {
 
 async function loginWithExtension(): Promise<void> {
     const nostrExtension = (window as any).nostr;
-    if (!nostrExtension) throw new Error('No se detectó extensión. Si estás en móvil, usá Bunker.');
+    if (!nostrExtension) throw new Error('No se detectó extensión Nostr (Alby/Nos2x)');
 
     const extensionSigner = new NDKNip07Signer();
     await extensionSigner.blockUntilReady();
@@ -98,7 +62,7 @@ async function loginWithExtension(): Promise<void> {
 }
 
 export async function loginWithNwc(nwcUrl: string): Promise<void> {
-    if (!nwcUrl) throw new Error('Copiá tu URL de conexión NWC');
+    if (!nwcUrl) throw new Error('NWC URL inválida');
     const { info: nwcConnectionInfo } = await getNwcInfo(nwcUrl);
     const nwcUrlObject = new URL(nwcUrl.replace('nostr+walletconnect:', 'http:'));
     const secretKeyHex = nwcUrlObject.searchParams.get('secret');
@@ -107,7 +71,7 @@ export async function loginWithNwc(nwcUrl: string): Promise<void> {
         const secretKeyBytes = Uint8Array.from(secretKeyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
         authState.pubkey = getPublicKey(secretKeyBytes);
     } else {
-        if (!nwcConnectionInfo.pubkey) throw new Error('NWC no devolvió un pubkey válido');
+        if (!nwcConnectionInfo.pubkey) throw new Error('La conexión NWC no devolvió un pubkey válido');
         authState.pubkey = nwcConnectionInfo.pubkey;
     }
 
@@ -121,24 +85,15 @@ async function handleBunkerLogin(): Promise<void> {
     try {
         setAuthError('');
         const bunkerTarget = bunkerInput?.value || '';
-        if (!bunkerTarget) throw new Error('Ingresá tu Bunker ID (ej: yo@amber.app)');
+        if (!bunkerTarget) throw new Error('Bunker URL o NIP-05 requerido');
 
-        loginButton.textContent = 'CONECTANDO...';
+        loginButton.textContent = 'Conectando...';
         loginButton.disabled = true;
 
         const bunkerSigner = new NDKNip46Signer(ndk, bunkerTarget);
-
-        // Timeout simple para no quedar colgado si el usuario no acepta en la app
-        const connectionTimeout = setTimeout(() => {
-            setAuthError('Tiempo agotado. ¿Aceptaste la solicitud en tu App (Amber/Alby)?');
-            loginButton.disabled = false;
-            loginButton.textContent = 'CONECTAR BUNKER';
-        }, 30000);
-
         await bunkerSigner.blockUntilReady();
-        clearTimeout(connectionTimeout);
-
         const bunkerUser = await bunkerSigner.user();
+
         authState.pubkey = bunkerUser.pubkey;
         authState.signer = bunkerSigner;
         finishLogin();
@@ -146,7 +101,7 @@ async function handleBunkerLogin(): Promise<void> {
         setAuthError(loginError.message);
     } finally {
         if (loginButton) {
-            loginButton.textContent = 'CONECTAR BUNKER';
+            loginButton.textContent = 'Conectar Bunker (NIP-46)';
             loginButton.disabled = false;
         }
     }
@@ -171,7 +126,11 @@ function handleAutoLogin(): void {
         loginWithExtension().catch(error => setAuthError(error.message));
         return;
     }
-    setAuthError('No se detectó extensión. En móvil, te recomendamos usar el Bunker con Amber.');
+    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        window.location.href = 'nostrsigner:';
+        return;
+    }
+    setAuthError('No se detectó extensión Nostr.');
 }
 
 async function handleNwcLogin(): Promise<void> {
