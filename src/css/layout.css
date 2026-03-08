@@ -51,9 +51,7 @@
         grid-column: auto;
         order: 1;
         transform: scale(0.6);
-        /* Scale 0.6 of 540px is 324px. Difference is 216px. 
-           Negative margin of 108px on each side makes it center properly. */
-        margin: -80px -108px;
+        margin: -100px -108px;
         flex-shrink: 0;
     }
 

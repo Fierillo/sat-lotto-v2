@@ -15,15 +15,15 @@ function showTransparencyModal(blockHash: string, blockHeight: number, winningNu
                 <div style="font-family: monospace; font-size: 0.75rem; word-break: break-all; color: var(--text-dim)">${blockHash}</div>
             </div>
 
-            <div style="margin-bottom: 20px">
-                <label style="font-size: 0.72rem; color: var(--neon-orange); text-transform: uppercase; display: block; marginBottom: 8px">Verificalo vos mismo:</label>
-                <code id="copyFormula" class="verify-command" style="cursor: pointer; padding: 12px; display: block; background: rgba(0,0,0,0.4); position: relative">
+            <div style="margin-bottom: 0">
+                <label style="font-size: 0.72rem; color: var(--neon-orange); text-transform: uppercase; display: block">Verificalo vos mismo:</label>
+                <code id="copyFormula" class="verify-command" style="cursor: pointer; padding: 12px; display: block; background: rgba(0,0,0,0.4); position: relative; margin: 5px 0">
                     BigInt('0x${blockHash}') % 21n + 1n
                 </code>
-                <div id="copyStatus" style="color: var(--neon-green); font-size: 0.65rem; text-align: center; margin-top: -15px; margin-bottom: 20px; opacity: 0; transition: opacity 0.3s; font-weight: bold">¡Copiado! ⚡</div>
+                <div id="copyStatus" style="color: var(--neon-green); font-size: 0.65rem; text-align: center; margin-top: -10px; margin-bottom: 0; opacity: 0; transition: opacity 0.3s; font-weight: bold">¡Copiado! ⚡</div>
             </div>
 
-            <p style="font-size: 0.75rem; color: var(--text-dim); margin: 15px 0 25px; line-height: 1.4; text-align: center">
+            <p style="font-size: 0.75rem; color: var(--text-dim); margin-top: 4px; margin-bottom: 15px; line-height: 1.2; text-align: center">
                 Copiá y pegá la fórmula en la consola (F12) o en tu terminal para verificar el resultado exacto.
             </p>
 

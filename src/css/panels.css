@@ -141,6 +141,13 @@
     box-shadow: 0 0 20px rgba(247, 147, 26, 0.1);
 }
 
+@media (max-width: 800px) {
+    .pool-panel {
+        margin-bottom: 5px;
+        padding: 10px 20px;
+    }
+}
+
 .pool-title {
     color: var(--neon-orange);
     font-size: 0.8rem;
