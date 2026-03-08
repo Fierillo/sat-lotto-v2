@@ -1,5 +1,6 @@
-import { BLOCKS, state } from './state';
-import { authState, showLoginModal } from './auth';
+import { BLOCKS, state } from './app-state';
+import { authState } from './auth-state';
+import { showLoginModal } from './auth-manager';
 
 export function createClock(): HTMLElement {
     const clockContainer = document.createElement('div');

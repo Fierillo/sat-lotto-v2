@@ -1,8 +1,8 @@
-import { state } from './state';
+import { state } from './app-state';
 import { requestProvider } from 'webln';
 import { updateUI } from '../main';
-import { submitBet, fetchBets, confirmBet } from '../utils/ledger';
-import { authState } from './auth';
+import { submitBet, fetchBets, confirmBet } from '../utils/game-api';
+import { authState } from './auth-state';
 import { payNwcInvoice } from '../utils/pay-invoice';
 import { showInvoiceModal } from './invoice-modal';
 
