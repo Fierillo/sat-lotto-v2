@@ -1,12 +1,13 @@
-import { state } from './components/state';
-import { createClock, updateClockRings, selectNumber, updateCenterButton } from './components/clock';
-import { makePayment } from './components/payment';
-import { createUserProfile, createLoginModal, updateAuthUI } from './components/auth';
-import { createLeftDashboard, createRightDashboard } from './components/dashboard';
+import { state } from './components/app-state';
+import { createClock, updateClockRings, selectNumber, updateCenterButton } from './components/game-clock';
+import { makePayment } from './components/bet-handler';
+import { createUserProfile, createLoginModal, updateAuthUI } from './components/auth-manager';
+import { authState, logRemote } from './components/auth-state';
+import { drawDashboardElements } from './components/layout-manager';
 import { renderBetsTable } from './components/bets-table';
 import { renderResult } from './components/result-panel';
-import { createPool, updatePool } from './components/pool';
-import { fetchBets, fetchResult, fetchPoolBalance } from './utils/ledger';
+import { createPool, updatePool } from './components/jackpot-panel';
+import { fetchBets, fetchResult, fetchPoolBalance } from './utils/game-api';
 
 function createApplicationHeader(): HTMLElement {
     const headerElement = document.createElement('div');
@@ -56,7 +57,14 @@ async function fetchLatestBlockData(): Promise<void> {
 }
 
 async function initializeApplication(): Promise<void> {
-    const { checkExternalLogin, authState, finishLogin } = await import('./components/auth');
+    const existingApp = document.getElementById('app');
+    if (existingApp) existingApp.remove();
+    const existingProfile = document.querySelector('.top-user-profile');
+    if (existingProfile) existingProfile.remove();
+    const existingModal = document.getElementById('loginModal');
+    if (existingModal) existingModal.remove();
+
+    const { checkExternalLogin, finishLogin } = await import('./components/auth-manager');
     checkExternalLogin();
 
     if (authState.pubkey) {
@@ -67,7 +75,6 @@ async function initializeApplication(): Promise<void> {
         const signedEvent = (window as any).lastExternalSig;
         const stateData = JSON.parse(localStorage.getItem('satlotto_pending_bet') || '{}');
         if (stateData.targetBlock && authState.pubkey) {
-            const { logRemote } = await import('./components/auth');
             logRemote({ msg: 'Sending signed event to server', block: stateData.targetBlock });
             const apiResponse = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/bet`, {
                 method: 'POST',
@@ -80,7 +87,7 @@ async function initializeApplication(): Promise<void> {
 
             if (apiResponse.ok && responseContent.paymentRequest) {
                 const { showInvoiceModal } = await import('./components/invoice-modal');
-                const { confirmBet } = await import('./utils/ledger');
+                const { confirmBet } = await import('./utils/game-api');
                 const { updateUI } = await import('./main');
 
                 showInvoiceModal(responseContent.paymentRequest, async () => {
@@ -111,9 +118,9 @@ async function initializeApplication(): Promise<void> {
 
     const gameLayoutContainer = document.createElement('div');
     gameLayoutContainer.className = 'game-container';
-    gameLayoutContainer.appendChild(createLeftDashboard());
+    
     gameLayoutContainer.appendChild(createClock());
-    gameLayoutContainer.appendChild(createRightDashboard());
+    drawDashboardElements(gameLayoutContainer);
 
     mainAppContainer.appendChild(gameLayoutContainer);
     document.body.prepend(mainAppContainer);
@@ -130,3 +137,7 @@ async function initializeApplication(): Promise<void> {
 }
 
 initializeApplication();
+
+if (import.meta.hot) {
+    import.meta.hot.accept();
+}

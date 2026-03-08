@@ -1,38 +1,48 @@
 .game-container {
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    grid-template-columns: 350px auto 350px;
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas: 
+        "bets clock info"
+        "bets clock result"
+        "bets clock .";
     align-items: start;
-    gap: 50px;
+    justify-content: center;
+    gap: 20px 40px;
     width: 100%;
-    max-width: 1400px;
+    max-width: 1240px;
+    margin: 0 auto;
 }
 
-#leftDashboard {
-    grid-column: 1;
-    display: flex;
-    flex-direction: column;
+#jackpotPool {
+    margin-bottom: 25px;
+}
+
+#betsTable {
+    grid-area: bets;
     width: 100%;
-    max-width: 380px;
-    justify-self: end;
+    margin-top: 0;
 }
 
 #clock {
-    grid-column: 2;
+    grid-area: clock;
 }
 
-#rightDashboard {
-    grid-column: 3;
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    max-width: 380px;
+#clockInfo {
+    grid-area: info;
+    margin-top: 0;
 }
 
-#rightDashboard .result-panel {
-    margin-top: 20px;
+#lastResult {
+    grid-area: result;
+    margin-top: 10px;
 }
 
 @media (max-width: 800px) {
+    .pool-panel {
+        margin-bottom: 30px;
+    }
+
     .game-container {
         display: flex;
         flex-direction: column;
@@ -40,22 +50,31 @@
         gap: 10px;
     }
 
-    #leftDashboard,
-    #rightDashboard {
-        width: 100%;
-        max-width: 100%;
-        order: 2;
-    }
-
     #clock {
-        grid-column: auto;
         order: 1;
-        transform: scale(0.6);
-        margin: -100px -108px;
+        grid-column: auto;
+        transform: scale(0.66);
+        margin: -80px 0 -40px 0;
         flex-shrink: 0;
     }
 
+    #lastResult {
+        order: 2;
+        margin-top: 0;
+    }
+
+    #betsTable {
+        order: 3;
+    }
+
     #clockInfo {
-        margin-top: 10px;
+        order: 4;
+        margin-top: 0;
+        text-align: center;
+    }
+
+    #betsTable, #lastResult, #clockInfo {
+        width: 100%;
+        max-width: 100%;
     }
 }

@@ -1,4 +1,5 @@
-import { resolveName } from '../utils/nostr';
+import { resolveName } from '../utils/nostr-service';
+import { copyToClipboard } from '../utils/clipboard-utils';
 
 function showTransparencyModal(blockHash: string, blockHeight: number, winningNumber: number): void {
     const transparencyModalElement = document.createElement('div');
@@ -32,18 +33,20 @@ function showTransparencyModal(blockHash: string, blockHeight: number, winningNu
     `;
 
     transparencyModalElement.querySelector('#closeHelp')?.addEventListener('click', () => transparencyModalElement.remove());
-    transparencyModalElement.querySelector('#copyFormula')?.addEventListener('click', () => {
+    transparencyModalElement.querySelector('#copyFormula')?.addEventListener('click', async () => {
         const formulaToCopy = `BigInt('0x${blockHash}') % 21n + 1n`;
-        navigator.clipboard.writeText(formulaToCopy);
-        const formulaDisplay = document.getElementById('copyFormula');
-        const copyStatus = document.getElementById('copyStatus');
-        if (formulaDisplay) {
-            formulaDisplay.classList.add('copied');
-            setTimeout(() => formulaDisplay.classList.remove('copied'), 300);
-        }
-        if (copyStatus) {
-            copyStatus.style.opacity = '1';
-            setTimeout(() => copyStatus.style.opacity = '0', 1500);
+        const success = await copyToClipboard(formulaToCopy);
+        if (success) {
+            const formulaDisplay = document.getElementById('copyFormula');
+            const copyStatus = document.getElementById('copyStatus');
+            if (formulaDisplay) {
+                formulaDisplay.classList.add('copied');
+                setTimeout(() => formulaDisplay.classList.remove('copied'), 300);
+            }
+            if (copyStatus) {
+                copyStatus.style.opacity = '1';
+                setTimeout(() => copyStatus.style.opacity = '0', 1500);
+            }
         }
     });
 
