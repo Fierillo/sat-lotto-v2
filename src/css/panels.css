@@ -198,4 +198,11 @@
     word-break: break-all;
     border: 1px solid rgba(0, 255, 157, 0.2);
     text-align: left;
+    transition: all 0.2s;
+}
+
+.verify-command.copied {
+    background: rgba(0, 255, 157, 0.15);
+    border-color: var(--neon-green);
+    transform: scale(1.02);
 }
