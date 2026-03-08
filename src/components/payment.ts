@@ -67,7 +67,9 @@ export async function makePayment(): Promise<void> {
     centralPayButton.innerHTML = `<span style="font-size:0.9rem">Firmando...</span>`;
 
     try {
-        const { paymentRequest, paymentHash } = await submitBet(state.targetBlock, state.selectedNumber);
+        const result = await submitBet(state.targetBlock, state.selectedNumber);
+        if (!result) return;
+        const { paymentRequest, paymentHash } = result;
         await updateUI();
 
         const handleSuccessfulPayment = async () => {
