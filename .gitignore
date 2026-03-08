@@ -5,3 +5,4 @@ dist/
 .vercel
 
 src/vite-env.d.ts
+tests/*.log
