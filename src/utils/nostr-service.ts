@@ -2,15 +2,19 @@ import NDK from '@nostr-dev-kit/ndk';
 
 const ndk = new NDK({
     explicitRelayUrls: [
+        'wss://relay.primal.net',
         'wss://relay.damus.io',
         'wss://relay.snort.social',
-        'wss://nos.lol'
+        'wss://nos.lol',
+        'wss://relay.nsec.app',
+        'wss://nostr.oxtr.dev',
+        'wss://purplepag.es',
+        'wss://relay.mobile.net'
     ]
 });
 
-ndk.connect();
-// @ts-ignore - Enable NIP-44 support to silence deprecation warnings
-ndk.enableNip44 = true;
+ndk.connect(5000).catch(e => console.error('[NDK] Connect initial failed', e));
+(ndk as any).enableNip44 = true;
 
 const aliasCache: Record<string, string> = {};
 const pendingRequests = new Set<string>();
@@ -23,7 +27,6 @@ export function resolveName(pubkey: string): string {
 
     pendingRequests.add(pubkey);
 
-    // Concurrent check: API (Neon) + NDK (Relays)
     Promise.all([
         fetch(`/api/identity/${pubkey}`).then(r => r.ok ? r.json() : { alias: null }).catch(() => ({ alias: null })),
         ndk.getUser({ pubkey }).fetchProfile().then(() => ({ nip05: (ndk.getUser({ pubkey }) as any).profile?.nip05 })).catch(() => ({ nip05: null }))
@@ -32,7 +35,6 @@ export function resolveName(pubkey: string): string {
         aliasCache[pubkey] = name;
         pendingRequests.delete(pubkey);
 
-        // Notify UI to re-render if needed (Simple way: signal through a global callback if exists)
         if (typeof (window as any).updateUI === 'function') (window as any).updateUI();
     });
 

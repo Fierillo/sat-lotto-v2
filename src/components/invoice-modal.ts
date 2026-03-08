@@ -1,3 +1,5 @@
+import { copyToClipboard } from '../utils/clipboard-utils';
+
 export function showInvoiceModal(bolt11PaymentRequest: string, handleSuccessfulPayment: () => void, handleCancelInteraction?: () => void): void {
     const handleCloseModal = () => {
         if (handleCancelInteraction) handleCancelInteraction();
@@ -13,30 +15,8 @@ export function showInvoiceModal(bolt11PaymentRequest: string, handleSuccessfulP
             }
         };
 
-        try {
-            if (navigator.clipboard && window.isSecureContext) {
-                await navigator.clipboard.writeText(bolt11PaymentRequest);
-                showStatus();
-            } else {
-                throw new Error('Clipboard API unavailable');
-            }
-        } catch (copyError) {
-            const fallbackTextArea = document.createElement("textarea");
-            fallbackTextArea.value = bolt11PaymentRequest;
-            fallbackTextArea.style.position = "fixed";
-            fallbackTextArea.style.left = "-9999px";
-            fallbackTextArea.style.top = "0";
-            document.body.appendChild(fallbackTextArea);
-            fallbackTextArea.focus();
-            fallbackTextArea.select();
-            try {
-                document.execCommand('copy');
-                showStatus();
-            } catch (e) {
-                console.error('Fallback copy failed', e);
-            }
-            document.body.removeChild(fallbackTextArea);
-        }
+        const success = await copyToClipboard(bolt11PaymentRequest);
+        if (success) showStatus();
     };
 
     const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(bolt11PaymentRequest)}`;
@@ -85,7 +65,7 @@ export function showInvoiceModal(bolt11PaymentRequest: string, handleSuccessfulP
             await handleSuccessfulPayment();
             clearInterval(paymentPollingInterval);
             invoiceModalContainer.remove();
-        } catch { /* waiting for payment */ }
+        } catch { }
     }, 2500);
 
     const modalMutationObserver = new MutationObserver(() => {

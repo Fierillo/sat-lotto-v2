@@ -1,4 +1,4 @@
-import { resolveName } from '../utils/nostr';
+import { resolveName } from '../utils/nostr-service';
 
 export function renderBetsTable(activeBets: Array<{ pubkey: string; selected_number: number; alias?: string }>): void {
     const betsTableContainer = document.getElementById('betsTable');
