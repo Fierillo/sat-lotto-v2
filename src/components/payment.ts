@@ -6,31 +6,31 @@ import { authState } from './auth';
 import { payNwcInvoice } from '../utils/pay-invoice';
 import { showInvoiceModal } from './invoice-modal';
 
-async function showConfirmModal(oldNum: number, newNum: number): Promise<boolean> {
+async function showConfirmModal(oldLuckNumber: number, newLuckNumber: number): Promise<boolean> {
     return new Promise((resolve) => {
-        const modal = document.createElement('div');
-        modal.className = 'modal-bg';
-        modal.style.display = 'flex';
-        modal.innerHTML = `
+        const confirmModalContainer = document.createElement('div');
+        confirmModalContainer.className = 'modal-bg';
+        confirmModalContainer.style.display = 'flex';
+        confirmModalContainer.innerHTML = `
             <div class="modal">
                 <h2 style="color:#f7931a">¿Cambiar apuesta?</h2>
                 <p style="margin-bottom:20px; color:rgba(255,255,255,0.7)">
-                    Ya tienes una apuesta al <strong class="text-green">${oldNum}</strong>.<br><br>
-                    Si continúas, la cambiaremos por el <strong class="text-orange">${newNum}</strong>.<br>
+                    Ya tienes una apuesta al <strong class="text-green">${oldLuckNumber}</strong>.<br><br>
+                    Si continúas, la cambiaremos por el <strong class="text-orange">${newLuckNumber}</strong>.<br>
                     <small>(Deberás pagar un nuevo ticket)</small>
                 </p>
-                <button class="auth-btn" id="confirmChange" style="background:rgba(0,255,157,0.2); border-color:#00ff9d; color:#00ff9d">CAMBIAR</button>
+                <button class="auth-btn" id="confirmChange">CAMBIAR</button>
                 <button class="close-btn" id="cancelChange" style="margin-top:10px">Cancelar</button>
             </div>
         `;
-        document.body.appendChild(modal);
+        document.body.appendChild(confirmModalContainer);
 
-        modal.querySelector('#confirmChange')?.addEventListener('click', () => {
-            modal.remove();
+        confirmModalContainer.querySelector('#confirmChange')?.addEventListener('click', () => {
+            confirmModalContainer.remove();
             resolve(true);
         });
-        modal.querySelector('#cancelChange')?.addEventListener('click', () => {
-            modal.remove();
+        confirmModalContainer.querySelector('#cancelChange')?.addEventListener('click', () => {
+            confirmModalContainer.remove();
             resolve(false);
         });
     });
@@ -38,74 +38,64 @@ async function showConfirmModal(oldNum: number, newNum: number): Promise<boolean
 
 export async function makePayment(): Promise<void> {
     if (state.selectedNumber === null) return;
+    const centralPayButton = document.querySelector('.pay-btn') as HTMLButtonElement;
+    if (!centralPayButton) return;
 
-    const btn = document.querySelector('.pay-btn') as HTMLButtonElement;
-    if (!btn) return;
-
-    const resetBtn = (): void => {
-        btn.classList.remove('success-glow', 'error-glow', 'blink-purple');
+    const resetInteractionStatus = (): void => {
+        centralPayButton.classList.remove('success-glow', 'error-glow', 'blink-purple');
         document.body.classList.remove('flash-green', 'processing');
-        document.querySelector('.number-segment.selected')?.classList.remove('error-selected');
-        if (typeof (window as any).updateCenterButton === 'function') {
-            (window as any).updateCenterButton();
-        }
+        if (typeof (window as any).updateCenterButton === 'function') (window as any).updateCenterButton();
     };
 
     if (!authState.pubkey) {
-        btn.classList.add('error-glow');
-        document.querySelector('.number-segment.selected')?.classList.add('error-selected');
-        btn.innerHTML = `<span style="font-size:0.9rem">Login<br>Antes</span>`;
-        setTimeout(() => btn.classList.add('blink-purple'), 1100);
-        setTimeout(resetBtn, 5000);
+        centralPayButton.classList.add('error-glow');
+        centralPayButton.innerHTML = `<span style="font-size:0.9rem">Login<br>Antes</span>`;
+        setTimeout(resetInteractionStatus, 5000);
         return;
     }
 
-    const bets = await fetchBets(state.targetBlock);
-    const myPubkey = authState.pubkey?.toLowerCase();
-    const existingBet = bets.find(b => b.pubkey.toLowerCase() === myPubkey);
+    const currentBetsList = await fetchBets(state.targetBlock);
+    const existingBetFromUser = currentBetsList.find(bet => bet.pubkey.toLowerCase() === authState.pubkey?.toLowerCase());
 
-    if (existingBet && Number(existingBet.selected_number) !== state.selectedNumber) {
-        const confirmed = await showConfirmModal(existingBet.selected_number, state.selectedNumber);
-        if (!confirmed) return;
+    if (existingBetFromUser && Number(existingBetFromUser.selected_number) !== state.selectedNumber) {
+        const userConfirmsChange = await showConfirmModal(existingBetFromUser.selected_number, state.selectedNumber);
+        if (!userConfirmsChange) return;
     }
 
     document.body.classList.add('processing');
-    btn.classList.add('success-glow');
-    btn.innerHTML = `<span style="font-size:0.9rem">Firmando...</span>`;
+    centralPayButton.classList.add('success-glow');
+    centralPayButton.innerHTML = `<span style="font-size:0.9rem">Firmando...</span>`;
 
     try {
         const { paymentRequest, paymentHash } = await submitBet(state.targetBlock, state.selectedNumber);
         await updateUI();
 
-        const onPaid = async () => {
+        const handleSuccessfulPayment = async () => {
             await confirmBet(paymentHash);
             await updateUI();
-            btn.innerHTML = `<span style="font-size:1rem">PAGO APROBADO</span>`;
+            centralPayButton.innerHTML = `<span style="font-size:1rem">PAGO APROBADO</span>`;
             document.body.classList.add('flash-green');
-            setTimeout(resetBtn, 4000);
+            setTimeout(resetInteractionStatus, 4000);
         };
 
         if (authState.nwcUrl) {
-            btn.innerHTML = `<span style="font-size:0.9rem">Pagando NWC...</span>`;
+            centralPayButton.innerHTML = `<span style="font-size:0.9rem">Pagando NWC...</span>`;
             await payNwcInvoice(authState.nwcUrl, paymentRequest);
-            await onPaid();
+            await handleSuccessfulPayment();
         } else {
             try {
-                const webln = await requestProvider();
-                btn.innerHTML = `<span style="font-size:0.9rem">Pagando WebLN...</span>`;
-                await webln.sendPayment(paymentRequest);
-                await onPaid();
-            } catch (weblnErr) {
-                // Extension login with nos2x or WebLN unavailable: Show QR
-                showInvoiceModal(paymentRequest, onPaid, resetBtn);
+                const weblnProvider = await requestProvider();
+                centralPayButton.innerHTML = `<span style="font-size:0.9rem">Pagando WebLN...</span>`;
+                await weblnProvider.sendPayment(paymentRequest);
+                await handleSuccessfulPayment();
+            } catch {
+                showInvoiceModal(paymentRequest, handleSuccessfulPayment, resetInteractionStatus);
             }
         }
-    } catch (e: any) {
-        btn.classList.remove('success-glow');
-        btn.classList.add('error-glow');
-        document.querySelector('.number-segment.selected')?.classList.add('error-selected');
-        btn.innerHTML = `<span style="font-size:0.8rem">${e.message || '❌'}</span>`;
-        document.body.classList.remove('flash-green');
-        setTimeout(resetBtn, 4000);
+    } catch (paymentError: any) {
+        centralPayButton.classList.remove('success-glow');
+        centralPayButton.classList.add('error-glow');
+        centralPayButton.innerHTML = `<span style="font-size:0.8rem">${paymentError.message || '❌'}</span>`;
+        setTimeout(resetInteractionStatus, 4000);
     }
 }

@@ -6,75 +6,83 @@ import { createLeftDashboard, createRightDashboard, renderBetsTable, renderResul
 import { createPool, updatePool } from './components/pool';
 import { fetchBets, fetchResult, fetchPoolBalance } from './utils/ledger';
 
-function createHeader(): HTMLElement {
-    const header = document.createElement('div');
-    header.className = 'header';
-    header.innerHTML = `<h1><span>SatLotto</span></h1><p class="subtitle">Proba tu suerte, cada 21 bloques</p>`;
-    return header;
+function createApplicationHeader(): HTMLElement {
+    const headerElement = document.createElement('div');
+    headerElement.className = 'header';
+    headerElement.innerHTML = `<h1><span>SatLotto</span></h1><p class="subtitle">Proba tu suerte, cada 21 bloques</p>`;
+    return headerElement;
 }
+
 export async function updateUI(): Promise<void> {
-    updateClockRings();
-    const info = document.getElementById('clockInfo');
-    if (info) info.innerHTML = `Bloque: <strong class="text-green">${state.currentBlock}</strong> • Sorteo: <strong class="text-orange">${state.targetBlock}</strong>`;
+    const outerRingElement = document.getElementById('outerRing');
+    const innerCircleContainer = document.getElementById('innerCircle');
+    if (outerRingElement && innerCircleContainer) {
+        updateClockRings(outerRingElement, innerCircleContainer);
+    }
 
-    const bets = await fetchBets(state.targetBlock);
-    renderBetsTable(bets);
+    const clockInfoDisplay = document.getElementById('clockInfo');
+    if (clockInfoDisplay) {
+        clockInfoDisplay.innerHTML = `Bloque: <strong class="text-green">${state.currentBlock}</strong> • Sorteo: <strong class="text-orange">${state.targetBlock}</strong>`;
+    }
 
-    const balance = await fetchPoolBalance();
-    updatePool(balance);
+    const activeBetsFromApi = await fetchBets(state.targetBlock);
+    renderBetsTable(activeBetsFromApi);
 
-    const resultTarget = Math.floor(state.currentBlock / 21) * 21;
-    const result = await fetchResult(resultTarget);
-    renderResult(result, resultTarget);
+    const currentJackpotBalance = await fetchPoolBalance();
+    updatePool(currentJackpotBalance);
+
+    const previousSorteoBlock = Math.floor(state.currentBlock / 21) * 21;
+    const previousSorteoResult = await fetchResult(previousSorteoBlock);
+    renderResult(previousSorteoResult, previousSorteoBlock);
 }
 
-async function fetchCurrentBlock(): Promise<void> {
+async function fetchLatestBlockData(): Promise<void> {
     try {
-        const response = await fetch('/api/blocks/tip');
-        const data = await response.json();
-        if (data.height) {
-            state.currentBlock = data.height;
-            state.targetBlock = data.target;
+        const blockApiResponse = await fetch('/api/blocks/tip');
+        const latestBlockInfo = await blockApiResponse.json();
+        if (latestBlockInfo.height) {
+            state.currentBlock = latestBlockInfo.height;
+            state.targetBlock = latestBlockInfo.target;
             localStorage.setItem('satlotto_blocks', JSON.stringify({
-                height: data.height,
-                target: data.target
+                height: latestBlockInfo.height,
+                target: latestBlockInfo.target
             }));
         }
-    } catch {
-        // Fallback or use existing state
+    } catch (apiError) {
+        console.error('[Main] Failed to sync block data', apiError);
     }
 }
 
-async function init(): Promise<void> {
-    // Inject global functions for buttons in pure HTML if needed
+async function initializeApplication(): Promise<void> {
     (window as any).makePayment = makePayment;
     (window as any).selectNumber = selectNumber;
     (window as any).updateCenterButton = updateCenterButton;
 
-    const app = document.createElement('div');
-    app.id = 'app';
-    app.appendChild(createUserProfile());
-    app.appendChild(createLoginModal());
-    app.appendChild(createHeader());
-    app.appendChild(createPool());
+    const mainAppContainer = document.createElement('div');
+    mainAppContainer.id = 'app';
+    mainAppContainer.appendChild(createUserProfile());
+    mainAppContainer.appendChild(createLoginModal());
+    mainAppContainer.appendChild(createApplicationHeader());
+    mainAppContainer.appendChild(createPool());
 
-    const gameContainer = document.createElement('div');
-    gameContainer.className = 'game-container';
-    gameContainer.appendChild(createLeftDashboard());
-    gameContainer.appendChild(createClock());
-    gameContainer.appendChild(createRightDashboard());
+    const gameLayoutContainer = document.createElement('div');
+    gameLayoutContainer.className = 'game-container';
+    gameLayoutContainer.appendChild(createLeftDashboard());
+    gameLayoutContainer.appendChild(createClock());
+    gameLayoutContainer.appendChild(createRightDashboard());
 
-    app.appendChild(gameContainer);
+    mainAppContainer.appendChild(gameLayoutContainer);
+    document.body.prepend(mainAppContainer);
 
-    document.body.prepend(app);
-    updateAuthUI(); // set initial state
+    updateAuthUI();
 
-    await fetchCurrentBlock();
+    await fetchLatestBlockData();
     await updateUI();
+
     setInterval(async () => {
-        await fetchCurrentBlock();
+        await fetchLatestBlockData();
         await updateUI();
     }, 21000);
 }
 
-init();
+initializeApplication();

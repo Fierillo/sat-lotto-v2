@@ -8,7 +8,7 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
 export async function submitBet(targetBlock: number, selectedNumber: number): Promise<{ paymentRequest: string; paymentHash: string }> {
     if (!authState.pubkey) throw new Error('No estás logueado');
 
-    const eventTemplate = {
+    const unsignedNostrEvent = {
         kind: 1,
         created_at: Math.floor(Date.now() / 1000),
         tags: [['t', 'satlotto']],
@@ -20,55 +20,55 @@ export async function submitBet(targetBlock: number, selectedNumber: number): Pr
         pubkey: authState.pubkey
     };
 
-    let signedEvent;
-    const nostr = (window as any).nostr;
+    let signedNostrEvent;
+    const windowNostrExtension = (window as any).nostr;
 
     if (authState.signer) {
-        const e = new NDKEvent(ndk, eventTemplate);
-        await e.sign(authState.signer);
-        signedEvent = e.rawEvent();
-    } else if (nostr) {
-        signedEvent = await nostr.signEvent(eventTemplate);
+        const ndkEvent = new NDKEvent(ndk, unsignedNostrEvent);
+        await ndkEvent.sign(authState.signer);
+        signedNostrEvent = ndkEvent.rawEvent();
+    } else if (windowNostrExtension) {
+        signedNostrEvent = await windowNostrExtension.signEvent(unsignedNostrEvent);
     } else if (authState.nwcUrl) {
-        const url = new URL(authState.nwcUrl.replace('nostr+walletconnect:', 'http:'));
-        const secret = url.searchParams.get('secret');
-        if (!secret) throw new Error('NWC URL no contiene secret para firmar');
-        const privkey = Uint8Array.from(secret.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-        signedEvent = finalizeEvent(eventTemplate, privkey);
+        const nwcUrlObject = new URL(authState.nwcUrl.replace('nostr+walletconnect:', 'http:'));
+        const secretKeyHex = nwcUrlObject.searchParams.get('secret');
+        if (!secretKeyHex) throw new Error('NWC URL no contiene secret para firmar');
+        const secretKeyBytes = Uint8Array.from(secretKeyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+        signedNostrEvent = finalizeEvent(unsignedNostrEvent, secretKeyBytes);
     } else {
         throw new Error('Se necesita extensión Nostr, Bunker o NWC para firmar la apuesta');
     }
 
-    const resp = await fetch(`${API_BASE}/api/bet`, {
+    const apiResponse = await fetch(`${API_BASE}/api/bet`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signedEvent })
+        body: JSON.stringify({ signedEvent: signedNostrEvent })
     });
 
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.error || 'Error del servidor');
+    const responseContent = await apiResponse.json();
+    if (!apiResponse.ok) throw new Error(responseContent.error || 'Error del servidor');
 
-    return { paymentRequest: data.paymentRequest, paymentHash: data.paymentHash };
+    return { paymentRequest: responseContent.paymentRequest, paymentHash: responseContent.paymentHash };
 }
 
 export async function confirmBet(paymentHash: string): Promise<void> {
-    const resp = await fetch(`${API_BASE}/api/confirm`, {
+    const apiResponse = await fetch(`${API_BASE}/api/confirm`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ paymentHash })
     });
-    if (!resp.ok) {
-        const data = await resp.json();
-        throw new Error(data.error || 'No se pudo confirmar el pago');
+    if (!apiResponse.ok) {
+        const responseError = await apiResponse.json();
+        throw new Error(responseError.error || 'No se pudo confirmar el pago');
     }
 }
 
 export async function fetchBets(targetBlock: number): Promise<Array<{ pubkey: string; selected_number: number; alias?: string }>> {
     try {
-        const resp = await fetch(`${API_BASE}/api/bets?block=${targetBlock}`);
-        if (!resp.ok) return [];
-        const data = await resp.json();
-        return data.bets || [];
+        const apiResponse = await fetch(`${API_BASE}/api/bets?block=${targetBlock}`);
+        if (!apiResponse.ok) return [];
+        const parsedBets = await apiResponse.json();
+        return parsedBets.bets || [];
     } catch {
         return [];
     }
@@ -76,9 +76,9 @@ export async function fetchBets(targetBlock: number): Promise<Array<{ pubkey: st
 
 export async function fetchResult(targetBlock: number) {
     try {
-        const resp = await fetch(`${API_BASE}/api/result?block=${targetBlock}`);
-        if (!resp.ok) return null;
-        return resp.json();
+        const apiResponse = await fetch(`${API_BASE}/api/result?block=${targetBlock}`);
+        if (!apiResponse.ok) return null;
+        return apiResponse.json();
     } catch {
         return null;
     }
@@ -86,20 +86,20 @@ export async function fetchResult(targetBlock: number) {
 
 export async function fetchPoolBalance(): Promise<number> {
     try {
-        const resp = await fetch(`${API_BASE}/api/pool`);
-        if (!resp.ok) return 0;
-        const data = await resp.json();
-        return data.balance || 0;
+        const apiResponse = await fetch(`${API_BASE}/api/pool`);
+        if (!apiResponse.ok) return 0;
+        const balanceData = await apiResponse.json();
+        return balanceData.balance || 0;
     } catch {
         return 0;
     }
 }
 export async function fetchIdentity(pubkey: string): Promise<string | null> {
     try {
-        const resp = await fetch(`${API_BASE}/api/identity/${pubkey}`);
-        if (!resp.ok) return null;
-        const data = await resp.json();
-        return data.alias || null;
+        const apiResponse = await fetch(`${API_BASE}/api/identity/${pubkey}`);
+        if (!apiResponse.ok) return null;
+        const identityData = await apiResponse.json();
+        return identityData.alias || null;
     } catch {
         return null;
     }
