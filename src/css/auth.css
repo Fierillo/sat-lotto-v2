@@ -167,6 +167,120 @@
     text-decoration: underline;
 }
 
-.close-btn:hover {
+.tab-btn:hover {
     color: var(--text-dim);
+}
+
+.auth-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 25px;
+    border-bottom: 1px solid var(--glass-border-light);
+    padding-bottom: 10px;
+}
+
+.tab-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    padding: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.9rem;
+    position: relative;
+    transition: color 0.2s;
+}
+
+.tab-btn.active {
+    color: var(--neon-orange);
+}
+
+.tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -11px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: var(--neon-orange);
+    box-shadow: 0 0 10px var(--neon-orange);
+}
+
+.auth-section {
+    display: none;
+    flex-direction: column;
+}
+
+.auth-section.active {
+    display: flex;
+}
+
+.auth-hint {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+}
+
+.qr-container {
+    background: #fff;
+    padding: 15px;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto 20px;
+    width: 230px;
+    height: 230px;
+}
+
+.qr-container img {
+    width: 100%;
+    height: 100%;
+}
+
+.qr-placeholder {
+    color: #000;
+    font-size: 0.9rem;
+}
+
+.uri-display {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.uri-display input {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--glass-border-light);
+    color: var(--text-dim);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.uri-display button {
+    background: var(--neon-orange);
+    color: #000;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.auth-btn.secondary {
+    background: transparent;
+    border: 1px solid var(--text-dim);
+    color: var(--text-dim);
+    font-size: 0.9rem;
+}
+
+.text-error {
+    color: var(--neon-red);
 }

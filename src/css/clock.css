@@ -77,12 +77,12 @@ body:not(.logged-out) .block-marker:not(.target):not(.current) {
 }
 
 body.logged-out .number-segment {
-    opacity: 0.1;
+    opacity: 0.3;
     pointer-events: none;
 }
 
 body.logged-out .block-marker:not(.target):not(.current) {
-    opacity: 0.2;
+    opacity: 0.15;
 }
 
 .number-segment:hover {

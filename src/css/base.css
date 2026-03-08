@@ -39,7 +39,6 @@ body {
 @media (max-width: 800px) {
     body {
         padding: 60px 10px 20px 10px;
-        /* More top padding for fixed bar */
     }
 }
 
