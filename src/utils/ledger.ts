@@ -20,6 +20,8 @@ export async function submitBet(targetBlock: number, selectedNumber: number): Pr
         pubkey: authState.pubkey
     };
 
+    localStorage.setItem('satlotto_pending_bet', JSON.stringify({ targetBlock, selectedNumber }));
+
     let signedNostrEvent;
     const windowNostrExtension = (window as any).nostr;
 
@@ -29,6 +31,10 @@ export async function submitBet(targetBlock: number, selectedNumber: number): Pr
         signedNostrEvent = ndkEvent.rawEvent();
     } else if (windowNostrExtension) {
         signedNostrEvent = await windowNostrExtension.signEvent(unsignedNostrEvent);
+    } else if (/Android/i.test(navigator.userAgent)) {
+        const intentUrl = `nostrsigner:?type=sign_event&event=${encodeURIComponent(JSON.stringify(unsignedNostrEvent))}&callbackUrl=${encodeURIComponent(window.location.href)}`;
+        window.location.href = intentUrl;
+        return { paymentRequest: '', paymentHash: '' }; // Redirecting
     } else if (authState.nwcUrl) {
         const nwcUrlObject = new URL(authState.nwcUrl.replace('nostr+walletconnect:', 'http:'));
         const secretKeyHex = nwcUrlObject.searchParams.get('secret');

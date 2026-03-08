@@ -133,18 +133,25 @@ app.post('/api/bet', async (req, res) => {
         const paymentHash = invoice.payment_hash || invoice.paymentHash || invoice.hash;
 
         if (!process.env.NEON_URL?.includes('user:password')) {
+            let finalAlias = bet.alias || null;
+            if (!finalAlias) {
+                const identities = await queryNeon('SELECT alias FROM lotto_identities WHERE pubkey = $1', [signedEvent.pubkey]);
+                if (identities.length) finalAlias = identities[0].alias;
+            }
+
             const upsertBet = `
-                INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, payment_hash, is_paid, betting_block)
-                VALUES ($1, $2, $3, $4, $5, FALSE, $6)
+                INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, payment_hash, is_paid, betting_block, alias)
+                VALUES ($1, $2, $3, $4, $5, FALSE, $6, $7)
                 ON CONFLICT (pubkey, target_block) 
                 DO UPDATE SET selected_number = EXCLUDED.selected_number, 
                              payment_request = EXCLUDED.payment_request,
                              payment_hash = EXCLUDED.payment_hash,
                              is_paid = FALSE,
                              betting_block = EXCLUDED.betting_block,
+                             alias = EXCLUDED.alias,
                              created_at = NOW()
             `;
-            await queryNeon(upsertBet, [signedEvent.pubkey, bet.bloque, bet.numero, pr, paymentHash, cachedBlock.height]);
+            await queryNeon(upsertBet, [signedEvent.pubkey, bet.bloque, bet.numero, pr, paymentHash, cachedBlock.height, finalAlias]);
 
             if (bet.alias) {
                 const upsertIdentity = `

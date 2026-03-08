@@ -122,15 +122,42 @@ async function finishLogin(): Promise<void> {
 
 function handleAutoLogin(): void {
     setAuthError('');
-    if ((window as any).nostr) {
+    const windowNostr = (window as any).nostr;
+
+    if (windowNostr) {
         loginWithExtension().catch(error => setAuthError(error.message));
         return;
     }
-    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-        window.location.href = 'nostrsigner:';
+
+    if (/Android/i.test(navigator.userAgent)) {
+        const intentUrl = `nostrsigner:?type=get_public_key&callbackUrl=${encodeURIComponent(window.location.href)}`;
+        window.location.href = intentUrl;
         return;
     }
+
     setAuthError('No se detectó extensión Nostr.');
+}
+
+export function checkExternalLogin(): void {
+    const urlParams = new URLSearchParams(window.location.search);
+    const externalPubkey = urlParams.get('pubkey');
+    const signature = urlParams.get('signature');
+    const event = urlParams.get('event');
+
+    if (externalPubkey && !authState.pubkey) {
+        authState.pubkey = externalPubkey;
+        finishLogin();
+        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+    }
+
+    if (signature && event) {
+        const eventObj = JSON.parse(event);
+        eventObj.sig = signature;
+        (window as any).lastExternalSig = eventObj;
+        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+    }
 }
 
 async function handleNwcLogin(): Promise<void> {
@@ -164,7 +191,7 @@ export function updateAuthUI(): void {
 
     if (authState.pubkey) {
         if (userProfileDisplay) {
-            userProfileDisplay.textContent = resolveName(authState.pubkey);
+            userProfileDisplay.textContent = authState.nip05 || resolveName(authState.pubkey);
             userProfileDisplay.style.display = 'block';
         }
         document.body.classList.remove('logged-out');

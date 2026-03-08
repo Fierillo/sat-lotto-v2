@@ -2,7 +2,9 @@ import { state } from './components/state';
 import { createClock, updateClockRings, selectNumber, updateCenterButton } from './components/clock';
 import { makePayment } from './components/payment';
 import { createUserProfile, createLoginModal, updateAuthUI } from './components/auth';
-import { createLeftDashboard, createRightDashboard, renderBetsTable, renderResult } from './components/tables';
+import { createLeftDashboard, createRightDashboard } from './components/dashboard';
+import { renderBetsTable } from './components/bets-table';
+import { renderResult } from './components/result-panel';
 import { createPool, updatePool } from './components/pool';
 import { fetchBets, fetchResult, fetchPoolBalance } from './utils/ledger';
 
@@ -54,6 +56,29 @@ async function fetchLatestBlockData(): Promise<void> {
 }
 
 async function initializeApplication(): Promise<void> {
+    const { checkExternalLogin, authState } = await import('./components/auth');
+    checkExternalLogin();
+
+    if ((window as any).lastExternalSig) {
+        const signedEvent = (window as any).lastExternalSig;
+        const stateData = JSON.parse(localStorage.getItem('satlotto_pending_bet') || '{}');
+        if (stateData.targetBlock && authState.pubkey) {
+            const apiResponse = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/bet`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ signedEvent })
+            });
+            const responseContent = await apiResponse.json();
+            if (apiResponse.ok) {
+                // In a real scenario we'd show the invoice modal here, 
+                // but for now we'll store it or rely on the user re-clicking
+                localStorage.setItem('satlotto_last_invoice', JSON.stringify(responseContent));
+            }
+        }
+        delete (window as any).lastExternalSig;
+        localStorage.removeItem('satlotto_pending_bet');
+    }
+
     (window as any).makePayment = makePayment;
     (window as any).selectNumber = selectNumber;
     (window as any).updateCenterButton = updateCenterButton;
