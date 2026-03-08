@@ -56,23 +56,41 @@ async function fetchLatestBlockData(): Promise<void> {
 }
 
 async function initializeApplication(): Promise<void> {
-    const { checkExternalLogin, authState } = await import('./components/auth');
+    const { checkExternalLogin, authState, finishLogin } = await import('./components/auth');
     checkExternalLogin();
+
+    if (authState.pubkey) {
+        finishLogin();
+    }
 
     if ((window as any).lastExternalSig) {
         const signedEvent = (window as any).lastExternalSig;
         const stateData = JSON.parse(localStorage.getItem('satlotto_pending_bet') || '{}');
         if (stateData.targetBlock && authState.pubkey) {
+            const { logRemote } = await import('./components/auth');
+            logRemote({ msg: 'Sending signed event to server', block: stateData.targetBlock });
             const apiResponse = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/bet`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ signedEvent })
             });
+
             const responseContent = await apiResponse.json();
-            if (apiResponse.ok) {
-                // In a real scenario we'd show the invoice modal here, 
-                // but for now we'll store it or rely on the user re-clicking
-                localStorage.setItem('satlotto_last_invoice', JSON.stringify(responseContent));
+            logRemote({ msg: 'Server response for signed event', ok: apiResponse.ok, hasPr: !!responseContent.paymentRequest });
+
+            if (apiResponse.ok && responseContent.paymentRequest) {
+                const { showInvoiceModal } = await import('./components/invoice-modal');
+                const { confirmBet } = await import('./utils/ledger');
+                const { updateUI } = await import('./main');
+
+                showInvoiceModal(responseContent.paymentRequest, async () => {
+                    await confirmBet(responseContent.paymentHash);
+                    await updateUI();
+                    document.body.classList.add('flash-green');
+                    setTimeout(() => document.body.classList.remove('flash-green'), 4000);
+                });
+            } else {
+                alert('Error al generar la apuesta: ' + (responseContent.error || 'Server error'));
             }
         }
         delete (window as any).lastExternalSig;
@@ -82,6 +100,7 @@ async function initializeApplication(): Promise<void> {
     (window as any).makePayment = makePayment;
     (window as any).selectNumber = selectNumber;
     (window as any).updateCenterButton = updateCenterButton;
+    (window as any).updateUI = updateUI;
 
     const mainAppContainer = document.createElement('div');
     mainAppContainer.id = 'app';

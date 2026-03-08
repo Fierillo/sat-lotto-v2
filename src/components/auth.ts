@@ -5,10 +5,45 @@ import ndk, { resolveName } from '../utils/nostr';
 import { fetchIdentity } from '../utils/ledger';
 
 export const authState = {
-    pubkey: null as string | null,
+    pubkey: localStorage.getItem('satlotto_pubkey'),
     signer: null as any | null,
-    nwcUrl: null as string | null,
+    nwcUrl: localStorage.getItem('satlotto_nwc'),
+    bunkerTarget: localStorage.getItem('satlotto_bunker'),
     nip05: null as string | null
+};
+
+export function logout(): void {
+    localStorage.removeItem('satlotto_pubkey');
+    localStorage.removeItem('satlotto_nwc');
+    localStorage.removeItem('satlotto_bunker');
+    authState.pubkey = null;
+    authState.signer = null;
+    authState.nwcUrl = null;
+    authState.bunkerTarget = null;
+    authState.nip05 = null;
+    updateAuthUI();
+    if (typeof (window as any).updateUI === 'function') (window as any).updateUI();
+}
+
+export const logRemote = (data: any) => {
+    let devLog = document.getElementById('devLog');
+    if (!devLog && document.body) {
+        devLog = document.createElement('div');
+        devLog.id = 'devLog';
+        devLog.style.cssText = 'position:fixed;top:0;left:0;right:0;background:rgba(0,255,0,0.05);backdrop-filter:blur(4px);color:#0f0;font-size:9px;z-index:9999;max-height:80px;overflow:auto;padding:5px;pointer-events:none;font-family:monospace;border-bottom:1px solid rgba(0,255,0,0.2);text-shadow:0 0 5px #0f0;display:none;';
+        document.body.appendChild(devLog);
+    }
+    if (devLog) {
+        const time = new Date().toLocaleTimeString();
+        devLog.innerHTML += `<div style="margin-bottom:2px; border-left:2px solid #0f0; padding-left:4px">[${time}] ${JSON.stringify(data)}</div>`;
+        devLog.scrollTop = devLog.scrollHeight;
+    }
+
+    fetch('/api/debug', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    }).catch(() => { });
 };
 
 export function createLoginModal(): HTMLElement {
@@ -45,6 +80,21 @@ export function createUserProfile(): HTMLElement {
     profileContainer.id = 'userProfile';
     profileContainer.className = 'top-user-profile';
     profileContainer.style.display = 'none';
+    profileContainer.innerHTML = `
+        <div id="userAlias" class="profile-info"></div>
+        <div id="logoutMenu" class="logout-menu">
+            <button id="logoutBtn">Cerrar Sesión</button>
+        </div>
+    `;
+
+    profileContainer.addEventListener('click', (e) => {
+        const menu = document.getElementById('logoutMenu');
+        if (menu) menu.classList.toggle('active');
+        e.stopPropagation();
+    });
+
+    profileContainer.querySelector('#logoutBtn')?.addEventListener('click', () => logout());
+
     return profileContainer;
 }
 
@@ -96,6 +146,7 @@ async function handleBunkerLogin(): Promise<void> {
 
         authState.pubkey = bunkerUser.pubkey;
         authState.signer = bunkerSigner;
+        authState.bunkerTarget = bunkerTarget;
         finishLogin();
     } catch (loginError: any) {
         setAuthError(loginError.message);
@@ -107,8 +158,24 @@ async function handleBunkerLogin(): Promise<void> {
     }
 }
 
-async function finishLogin(): Promise<void> {
+export async function finishLogin(): Promise<void> {
     if (authState.pubkey) {
+        localStorage.setItem('satlotto_pubkey', authState.pubkey);
+        if (authState.nwcUrl) localStorage.setItem('satlotto_nwc', authState.nwcUrl);
+        if (authState.bunkerTarget) localStorage.setItem('satlotto_bunker', authState.bunkerTarget);
+
+        if (!authState.signer && authState.bunkerTarget) {
+            try {
+                const bunkerSigner = new NDKNip46Signer(ndk, authState.bunkerTarget);
+                await bunkerSigner.blockUntilReady();
+                authState.signer = bunkerSigner;
+            } catch (e) {
+                logRemote({ msg: 'Bunker re-init failed', error: (e as any).message });
+            }
+        } else if (!authState.signer && (window as any).nostr) {
+            authState.signer = new NDKNip07Signer();
+        }
+
         let userAlias = await fetchIdentity(authState.pubkey);
         if (!userAlias) {
             const ndkUser = ndk.getUser({ pubkey: authState.pubkey });
@@ -125,37 +192,42 @@ function handleAutoLogin(): void {
     const windowNostr = (window as any).nostr;
 
     if (windowNostr) {
+        logRemote({ msg: 'Login via Extension detected' });
         loginWithExtension().catch(error => setAuthError(error.message));
         return;
     }
 
     if (/Android/i.test(navigator.userAgent)) {
-        const intentUrl = `nostrsigner:?type=get_public_key&callbackUrl=${encodeURIComponent(window.location.href)}`;
+        const cleanRoot = window.location.origin + window.location.pathname;
+        const intentUrl = `nostrsigner:?type=get_public_key&callbackUrl=${encodeURIComponent(cleanRoot)}`;
+        logRemote({ msg: 'Triggering Amber Intent', intent: intentUrl });
         window.location.href = intentUrl;
         return;
     }
 
+    logRemote({ msg: 'No Nostr wallet detected', ua: navigator.userAgent });
     setAuthError('No se detectó extensión Nostr.');
 }
 
 export function checkExternalLogin(): void {
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = new URLSearchParams(window.location.search || window.location.hash.split('?')[1]);
     const externalPubkey = urlParams.get('pubkey');
     const signature = urlParams.get('signature');
     const event = urlParams.get('event');
 
-    if (externalPubkey && !authState.pubkey) {
+    if (externalPubkey) {
         authState.pubkey = externalPubkey;
         finishLogin();
-        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-        window.history.replaceState({}, document.title, cleanUrl);
     }
 
     if (signature && event) {
         const eventObj = JSON.parse(event);
         eventObj.sig = signature;
         (window as any).lastExternalSig = eventObj;
-        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+    }
+
+    if (externalPubkey || (signature && event)) {
+        const cleanUrl = window.location.origin + window.location.pathname;
         window.history.replaceState({}, document.title, cleanUrl);
     }
 }
@@ -188,10 +260,11 @@ export function hideLoginModal(): void {
 export function updateAuthUI(): void {
     hideLoginModal();
     const userProfileDisplay = document.getElementById('userProfile');
+    const userAliasDisplay = document.getElementById('userAlias');
 
     if (authState.pubkey) {
-        if (userProfileDisplay) {
-            userProfileDisplay.textContent = authState.nip05 || resolveName(authState.pubkey);
+        if (userProfileDisplay && userAliasDisplay) {
+            userAliasDisplay.textContent = authState.nip05 || resolveName(authState.pubkey);
             userProfileDisplay.style.display = 'block';
         }
         document.body.classList.remove('logged-out');
