@@ -12,16 +12,16 @@ export const authState = {
 };
 
 export function createLoginModal(): HTMLElement {
-    const modal = document.createElement('div');
-    modal.id = 'loginModal';
-    modal.className = 'modal-bg';
-    modal.innerHTML = `
+    const loginModalContainer = document.createElement('div');
+    loginModalContainer.id = 'loginModal';
+    loginModalContainer.className = 'modal-bg';
+    loginModalContainer.innerHTML = `
         <div class="modal">
             <h2>Conectá tu Wallet</h2>
-            <button class="auth-btn" id="extensionLogin">Login con extensión</button>
+            <button class="auth-btn" id="extLogin">Login con extensión</button>
             <div class="nwc-section">
                 <input type="password" id="nwcInput" placeholder="nostr+walletconnect://..." />
-                <button class="auth-btn" id="nwcLogin">Conectar NWC</button>
+                <button class="auth-btn" id="nwcBtn">Conectar NWC</button>
             </div>
             <div class="nwc-section">
                 <input type="text" id="bunkerInput" placeholder="bunker://... o handle@domain" />
@@ -32,49 +32,47 @@ export function createLoginModal(): HTMLElement {
         </div>
     `;
 
-    modal.querySelector('#extensionLogin')?.addEventListener('click', () => handleAutoLogin());
-    modal.querySelector('#nwcLogin')?.addEventListener('click', () => handleNwcLogin());
-    modal.querySelector('#bunkerLogin')?.addEventListener('click', () => handleBunkerLogin());
-    modal.querySelector('#closeModal')?.addEventListener('click', () => hideLoginModal());
+    loginModalContainer.querySelector('#extLogin')?.addEventListener('click', () => handleAutoLogin());
+    loginModalContainer.querySelector('#nwcBtn')?.addEventListener('click', () => handleNwcLogin());
+    loginModalContainer.querySelector('#bunkerLogin')?.addEventListener('click', () => handleBunkerLogin());
+    loginModalContainer.querySelector('#closeModal')?.addEventListener('click', () => hideLoginModal());
 
-    return modal;
+    return loginModalContainer;
 }
 
 export function createUserProfile(): HTMLElement {
-    const profile = document.createElement('div');
-    profile.id = 'userProfile';
-    profile.className = 'top-user-profile';
-    profile.style.display = 'none';
-    return profile;
+    const profileContainer = document.createElement('div');
+    profileContainer.id = 'userProfile';
+    profileContainer.className = 'top-user-profile';
+    profileContainer.style.display = 'none';
+    return profileContainer;
 }
 
 async function loginWithExtension(): Promise<void> {
-    if (!(window as any).nostr) throw new Error('No se detectó extensión Nostr (Alby/Nos2x)');
-    try {
-        const signer = new NDKNip07Signer();
-        await signer.blockUntilReady();
-        const user = await signer.user();
-        authState.pubkey = user.pubkey;
-        authState.signer = signer;
-        await finishLogin();
-    } catch (e: any) {
-        throw new Error(`Error de extensión: ${e.message}`);
-    }
+    const nostrExtension = (window as any).nostr;
+    if (!nostrExtension) throw new Error('No se detectó extensión Nostr (Alby/Nos2x)');
+
+    const extensionSigner = new NDKNip07Signer();
+    await extensionSigner.blockUntilReady();
+    const nostrUser = await extensionSigner.user();
+
+    authState.pubkey = nostrUser.pubkey;
+    authState.signer = extensionSigner;
+    await finishLogin();
 }
 
 export async function loginWithNwc(nwcUrl: string): Promise<void> {
     if (!nwcUrl) throw new Error('NWC URL inválida');
-    const { info } = await getNwcInfo(nwcUrl);
+    const { info: nwcConnectionInfo } = await getNwcInfo(nwcUrl);
+    const nwcUrlObject = new URL(nwcUrl.replace('nostr+walletconnect:', 'http:'));
+    const secretKeyHex = nwcUrlObject.searchParams.get('secret');
 
-    const url = new URL(nwcUrl.replace('nostr+walletconnect:', 'http:'));
-    const secret = url.searchParams.get('secret');
-
-    if (secret) {
-        const privkey = Uint8Array.from(secret.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
-        authState.pubkey = getPublicKey(privkey);
+    if (secretKeyHex) {
+        const secretKeyBytes = Uint8Array.from(secretKeyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+        authState.pubkey = getPublicKey(secretKeyBytes);
     } else {
-        if (!info.pubkey) throw new Error('La conexión NWC no devolvió un pubkey válido');
-        authState.pubkey = info.pubkey;
+        if (!nwcConnectionInfo.pubkey) throw new Error('La conexión NWC no devolvió un pubkey válido');
+        authState.pubkey = nwcConnectionInfo.pubkey;
     }
 
     authState.nwcUrl = nwcUrl;
@@ -82,49 +80,42 @@ export async function loginWithNwc(nwcUrl: string): Promise<void> {
 }
 
 async function handleBunkerLogin(): Promise<void> {
+    const loginButton = document.getElementById('bunkerLogin') as HTMLButtonElement;
+    const bunkerInput = document.getElementById('bunkerInput') as HTMLInputElement;
     try {
         setAuthError('');
-        const btn = document.getElementById('bunkerLogin') as HTMLButtonElement;
-        const input = document.getElementById('bunkerInput') as HTMLInputElement;
-        const target = input?.value || '';
-        if (!target) throw new Error('Bunker URL o NIP-05 requerido');
+        const bunkerTarget = bunkerInput?.value || '';
+        if (!bunkerTarget) throw new Error('Bunker URL o NIP-05 requerido');
 
-        btn.textContent = 'Conectando...';
-        btn.disabled = true;
+        loginButton.textContent = 'Conectando...';
+        loginButton.disabled = true;
 
-        const signer = new NDKNip46Signer(ndk, target);
+        const bunkerSigner = new NDKNip46Signer(ndk, bunkerTarget);
+        await bunkerSigner.blockUntilReady();
+        const bunkerUser = await bunkerSigner.user();
 
-        // This might prompt for OTP or authorization in the bunker app
-        await signer.blockUntilReady();
-        const user = await signer.user();
-
-        authState.pubkey = user.pubkey;
-        authState.signer = signer;
+        authState.pubkey = bunkerUser.pubkey;
+        authState.signer = bunkerSigner;
         finishLogin();
-    } catch (e: any) {
-        setAuthError(e.message);
+    } catch (loginError: any) {
+        setAuthError(loginError.message);
     } finally {
-        const btn = document.getElementById('bunkerLogin') as HTMLButtonElement;
-        if (btn) {
-            btn.textContent = 'Conectar Bunker (NIP-46)';
-            btn.disabled = false;
+        if (loginButton) {
+            loginButton.textContent = 'Conectar Bunker (NIP-46)';
+            loginButton.disabled = false;
         }
     }
 }
 
 async function finishLogin(): Promise<void> {
     if (authState.pubkey) {
-        // 1. Check Neon
-        let alias = await fetchIdentity(authState.pubkey);
-
-        // 2. Fallback to Nostr profile
-        if (!alias) {
-            const user = ndk.getUser({ pubkey: authState.pubkey });
-            await user.fetchProfile();
-            alias = user.profile?.nip05 || null;
+        let userAlias = await fetchIdentity(authState.pubkey);
+        if (!userAlias) {
+            const ndkUser = ndk.getUser({ pubkey: authState.pubkey });
+            await ndkUser.fetchProfile();
+            userAlias = ndkUser.profile?.nip05 || null;
         }
-
-        authState.nip05 = alias;
+        authState.nip05 = userAlias;
     }
     updateAuthUI();
 }
@@ -132,60 +123,55 @@ async function finishLogin(): Promise<void> {
 function handleAutoLogin(): void {
     setAuthError('');
     if ((window as any).nostr) {
-        loginWithExtension().catch(e => setAuthError(e.message));
+        loginWithExtension().catch(error => setAuthError(error.message));
         return;
     }
-
     if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
         window.location.href = 'nostrsigner:';
         return;
     }
-
-    setAuthError('No se detectó extensión Nostr. Asegurate de que esté activa y permitida.');
+    setAuthError('No se detectó extensión Nostr.');
 }
 
 async function handleNwcLogin(): Promise<void> {
     try {
         setAuthError('');
-        const input = document.getElementById('nwcInput') as HTMLInputElement;
-        await loginWithNwc(input?.value || '');
-    } catch (e: any) {
-        setAuthError(e.message);
+        const nwcInputField = document.getElementById('nwcInput') as HTMLInputElement;
+        await loginWithNwc(nwcInputField?.value || '');
+    } catch (nwcError: any) {
+        setAuthError(nwcError.message);
     }
 }
 
-function setAuthError(msg: string): void {
-    const err = document.getElementById('authError');
-    if (err) err.textContent = msg;
+function setAuthError(errorMessage: string): void {
+    const errorDisplay = document.getElementById('authError');
+    if (errorDisplay) errorDisplay.textContent = errorMessage;
 }
 
 export function showLoginModal(): void {
-    const el = document.getElementById('loginModal');
-    if (el) el.style.display = 'flex';
+    const loginModalElement = document.getElementById('loginModal');
+    if (loginModalElement) loginModalElement.style.display = 'flex';
 }
 
 export function hideLoginModal(): void {
-    const el = document.getElementById('loginModal');
-    if (el) el.style.display = 'none';
+    const loginModalElement = document.getElementById('loginModal');
+    if (loginModalElement) loginModalElement.style.display = 'none';
 }
 
 export function updateAuthUI(): void {
     hideLoginModal();
-    const profile = document.getElementById('userProfile');
+    const userProfileDisplay = document.getElementById('userProfile');
 
     if (authState.pubkey) {
-        if (profile) {
-            profile.textContent = resolveName(authState.pubkey);
-            profile.style.display = 'block';
+        if (userProfileDisplay) {
+            userProfileDisplay.textContent = resolveName(authState.pubkey);
+            userProfileDisplay.style.display = 'block';
         }
         document.body.classList.remove('logged-out');
     } else {
-        if (profile) profile.style.display = 'none';
+        if (userProfileDisplay) userProfileDisplay.style.display = 'none';
         document.body.classList.add('logged-out');
     }
 
-    // Call clock update center button explicitly if available globally or loosely coupled
-    if (typeof (window as any).updateCenterButton === 'function') {
-        (window as any).updateCenterButton();
-    }
+    if (typeof (window as any).updateCenterButton === 'function') (window as any).updateCenterButton();
 }

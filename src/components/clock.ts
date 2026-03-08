@@ -2,124 +2,103 @@ import { BLOCKS, state } from './state';
 import { authState, showLoginModal } from './auth';
 
 export function createClock(): HTMLElement {
-    const clock = document.createElement('div');
-    clock.id = 'clock';
+    const clockContainer = document.createElement('div');
+    clockContainer.id = 'clock';
+    clockContainer.innerHTML = `
+        <div id="outerRing" class="ring"></div>
+        <div id="innerCircle" class="inner-ring-container"></div>
+        <div id="paymentStep">
+            <button id="centerBtn" class="pay-btn"></button>
+        </div>
+    `;
 
-    const outerRing = document.createElement('div');
-    outerRing.id = 'outerRing';
-    outerRing.className = 'ring';
+    const outerRingElement = clockContainer.querySelector('#outerRing') as HTMLElement;
+    const innerCircleContainer = clockContainer.querySelector('#innerCircle') as HTMLElement;
+    updateClockRings(outerRingElement, innerCircleContainer);
 
-    const innerCircle = document.createElement('div');
-    innerCircle.id = 'innerCircle';
-    innerCircle.className = 'inner-ring-container';
-
-    const paymentStep = document.createElement('div');
-    paymentStep.id = 'paymentStep';
-
-    const btn = document.createElement('button');
-    btn.id = 'centerBtn';
-    btn.className = 'pay-btn';
-    paymentStep.appendChild(btn);
-
-    clock.appendChild(outerRing);
-    clock.appendChild(innerCircle);
-    clock.appendChild(paymentStep);
-
-    updateClockRings(outerRing, innerCircle);
-
-    return clock;
+    return clockContainer;
 }
 
 export function updateClockRings(outer?: HTMLElement, inner?: HTMLElement): void {
-    const ring = outer || document.getElementById('outerRing');
-    const container = inner || document.getElementById('innerCircle');
-    if (!ring || !container) return;
+    const ringElement = outer || document.getElementById('outerRing');
+    const innerCircleContainer = inner || document.getElementById('innerCircle');
+    if (!ringElement || !innerCircleContainer) return;
 
-    // Outer Ring
-    const radius = 230;
-    const isNew = ring.children.length === 0;
+    const markerRadius = 230;
+    const isFirstRender = ringElement.children.length === 0;
 
-    for (let i = 0; i < BLOCKS; i++) {
-        const blockNum = i === 0 ? state.targetBlock : state.targetBlock - BLOCKS + i;
-        let marker: HTMLElement;
+    for (let blockIndex = 0; blockIndex < BLOCKS; blockIndex++) {
+        const targetBlockNumber = blockIndex === 0 ? state.targetBlock : state.targetBlock - BLOCKS + blockIndex;
+        let blockMarkerElement: HTMLElement;
 
-        if (isNew) {
-            marker = document.createElement('div');
-            const deg = (i * 360 / BLOCKS) - 90;
-            const rad = deg * Math.PI / 180;
-            const x = Math.cos(rad) * radius;
-            const y = Math.sin(rad) * radius;
-            marker.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
-            ring.appendChild(marker);
+        if (isFirstRender) {
+            const rotationDegree = (blockIndex * 360 / BLOCKS) - 90;
+            const rotationRadian = rotationDegree * Math.PI / 180;
+            const markerXPosition = Math.cos(rotationRadian) * markerRadius;
+            const markerYPosition = Math.sin(rotationRadian) * markerRadius;
+
+            blockMarkerElement = document.createElement('div');
+            blockMarkerElement.className = 'block-marker';
+            blockMarkerElement.style.transform = `translate(-50%, -50%) translate(${markerXPosition}px, ${markerYPosition}px)`;
+            ringElement.appendChild(blockMarkerElement);
         } else {
-            marker = ring.children[i] as HTMLElement;
+            blockMarkerElement = ringElement.children[blockIndex] as HTMLElement;
         }
 
-        marker.className = 'block-marker';
-        marker.textContent = blockNum.toString();
-
-        if (i === 0) marker.classList.add('target');
-        if (blockNum === state.currentBlock) marker.classList.add('current');
+        blockMarkerElement.textContent = targetBlockNumber.toString();
+        blockMarkerElement.classList.remove('target', 'current');
+        if (blockIndex === 0) blockMarkerElement.classList.add('target');
+        if (targetBlockNumber === state.currentBlock) blockMarkerElement.classList.add('current');
     }
 
-    // Inner Ring (only if empty)
-    if (container.children.length === 0) {
-        for (let i = 0; i < BLOCKS; i++) {
-            const deg = (i * 360 / BLOCKS);
-            const displayNum = i === 0 ? 21 : i;
+    if (innerCircleContainer.children.length === 0) {
+        for (let numberIndex = 0; numberIndex < BLOCKS; numberIndex++) {
+            const segmentRotationDegree = (numberIndex * 360 / BLOCKS);
+            const luckNumberToDisplay = numberIndex === 0 ? 21 : numberIndex;
 
-            const segment = document.createElement('div');
-            segment.className = 'number-segment';
-            segment.style.transform = `translateX(-50%) rotate(${deg}deg)`;
-            segment.onclick = () => selectNumber(displayNum);
+            const numberSegmentElement = document.createElement('div');
+            numberSegmentElement.className = 'number-segment';
+            numberSegmentElement.style.transform = `translateX(-50%) rotate(${segmentRotationDegree}deg)`;
+            numberSegmentElement.onclick = () => selectNumber(luckNumberToDisplay);
+            numberSegmentElement.innerHTML = `<div class="number-text" style="transform: rotate(${-segmentRotationDegree}deg)">${luckNumberToDisplay}</div>`;
 
-            const text = document.createElement('div');
-            text.className = 'number-text';
-            text.textContent = displayNum.toString();
-            text.style.transform = `rotate(${-deg}deg)`;
-
-            segment.appendChild(text);
-            container.appendChild(segment);
+            innerCircleContainer.appendChild(numberSegmentElement);
         }
     }
 }
 
 export function updateCenterButton(): void {
-    const step = document.getElementById('paymentStep');
-    const btn = document.getElementById('centerBtn') as HTMLButtonElement;
-    if (!step || !btn) return;
+    const paymentStepContainer = document.getElementById('paymentStep');
+    const centerActionButton = document.getElementById('centerBtn') as HTMLButtonElement;
+    if (!paymentStepContainer || !centerActionButton) return;
 
     if (!authState.pubkey) {
-        step.style.display = 'block';
-        btn.textContent = 'JUGAR';
-        btn.onclick = () => showLoginModal();
+        paymentStepContainer.style.display = 'block';
+        centerActionButton.textContent = 'JUGAR';
+        centerActionButton.onclick = () => showLoginModal();
+    } else if (state.selectedNumber !== null) {
+        paymentStepContainer.style.display = 'block';
+        centerActionButton.textContent = 'APOSTAR';
+        centerActionButton.onclick = () => (window as any).makePayment();
     } else {
-        if (state.selectedNumber !== null) {
-            step.style.display = 'block';
-
-            btn.textContent = 'APOSTAR';
-            btn.style.fontSize = '1em';
-
-            btn.onclick = () => (window as any).makePayment();
-        } else {
-            step.style.display = 'none';
-        }
+        paymentStepContainer.style.display = 'none';
     }
 }
 
-export function selectNumber(num: number): void {
+export function selectNumber(selectedLuckNumber: number): void {
     if (!authState.pubkey || document.body.classList.contains('processing')) {
         if (!authState.pubkey) showLoginModal();
         return;
     }
 
-    if (state.selectedNumber === num) return;
-    state.selectedNumber = num;
+    if (state.selectedNumber === selectedLuckNumber) return;
+    state.selectedNumber = selectedLuckNumber;
 
-    document.querySelectorAll('.number-segment').forEach(seg => {
-        const txt = seg.querySelector('.number-text');
-        if (txt) {
-            seg.classList.toggle('selected', parseInt(txt.textContent || '0') === num);
+    document.querySelectorAll('.number-segment').forEach(segmentElement => {
+        const numberTextElement = segmentElement.querySelector('.number-text');
+        if (numberTextElement) {
+            const segmentValue = parseInt(numberTextElement.textContent || '0');
+            segmentElement.classList.toggle('selected', segmentValue === selectedLuckNumber);
         }
     });
 
