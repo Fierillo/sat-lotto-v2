@@ -5,7 +5,7 @@ import { NDKEvent } from '@nostr-dev-kit/ndk';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
-export async function submitBet(targetBlock: number, selectedNumber: number): Promise<{ paymentRequest: string; paymentHash: string }> {
+export async function submitBet(targetBlock: number, selectedNumber: number): Promise<{ paymentRequest: string; paymentHash: string } | null> {
     if (!authState.pubkey) throw new Error('No estás logueado');
 
     const unsignedNostrEvent = {
@@ -31,24 +31,24 @@ export async function submitBet(targetBlock: number, selectedNumber: number): Pr
         signedNostrEvent = ndkEvent.rawEvent();
     } else if (windowNostrExtension) {
         signedNostrEvent = await windowNostrExtension.signEvent(unsignedNostrEvent);
-    } else if (/Android/i.test(navigator.userAgent)) {
-        const intentUrl = `nostrsigner:?type=sign_event&event=${encodeURIComponent(JSON.stringify(unsignedNostrEvent))}&callbackUrl=${encodeURIComponent(window.location.href)}`;
-        window.location.href = intentUrl;
-        return { paymentRequest: '', paymentHash: '' }; // Redirecting
     } else if (authState.nwcUrl) {
         const nwcUrlObject = new URL(authState.nwcUrl.replace('nostr+walletconnect:', 'http:'));
         const secretKeyHex = nwcUrlObject.searchParams.get('secret');
         if (!secretKeyHex) throw new Error('NWC URL no contiene secret para firmar');
         const secretKeyBytes = Uint8Array.from(secretKeyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
         signedNostrEvent = finalizeEvent(unsignedNostrEvent, secretKeyBytes);
-    } else {
-        throw new Error('Se necesita extensión Nostr, Bunker o NWC para firmar la apuesta');
     }
+
+    const apiPayload = signedNostrEvent ? { signedEvent: signedNostrEvent } : {
+        pubkey: authState.pubkey,
+        bet: { bloque: targetBlock, numero: selectedNumber },
+        alias: getAlias(authState.pubkey)
+    };
 
     const apiResponse = await fetch(`${API_BASE}/api/bet`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signedEvent: signedNostrEvent })
+        body: JSON.stringify(apiPayload)
     });
 
     const responseContent = await apiResponse.json();

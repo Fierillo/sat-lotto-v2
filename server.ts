@@ -61,6 +61,28 @@ app.get('/api/blocks/tip', (_req, res) => {
     res.json(cachedBlock);
 });
 
+// Amber Deep Link Fix: Redirect /<pubkey> back to /?pubkey=<pubkey>
+app.get('/:hex', (req, res, next) => {
+    const { hex } = req.params;
+    if (/^[a-fA-F0-9]{60,}$/.test(hex)) {
+        return res.redirect(`/?pubkey=${hex}`);
+    }
+    next();
+});
+
+import fs from 'fs';
+const LOG_FILE = 'tests/mobile_debug.log';
+const logToFile = (entry: string) => {
+    fs.appendFileSync(LOG_FILE, entry);
+    const lines = fs.readFileSync(LOG_FILE, 'utf8').split('\n');
+    if (lines.length > 210) fs.writeFileSync(LOG_FILE, lines.slice(-210).join('\n'));
+};
+
+app.post('/api/debug', (req, res) => {
+    logToFile(`[${new Date().toISOString()}] ${JSON.stringify(req.body, null, 2)}\n---\n`);
+    res.sendStatus(200);
+});
+
 async function setupDb() {
     if (process.env.NEON_URL?.includes('user:password')) return;
     try {
@@ -111,31 +133,52 @@ async function setupDb() {
 
 app.post('/api/bet', async (req, res) => {
     try {
-        let { signedEvent } = req.body;
-        if (typeof signedEvent === 'string') {
-            try { signedEvent = JSON.parse(signedEvent); } catch { }
+        let { signedEvent, pubkey, bet: rawBet, alias: rawAlias } = req.body;
+        let finalPubkey, finalBloque, finalNumero, finalAlias;
+
+        if (signedEvent) {
+            if (typeof signedEvent === 'string') {
+                try { signedEvent = JSON.parse(signedEvent); } catch { }
+            }
+            if (!signedEvent || typeof signedEvent !== 'object' || !verifyEvent(signedEvent)) {
+                return res.status(400).json({ error: 'Invalid signed event' });
+            }
+            const betContent = JSON.parse(signedEvent.content);
+            finalPubkey = signedEvent.pubkey;
+            finalBloque = betContent.bloque;
+            finalNumero = betContent.numero;
+            finalAlias = betContent.alias;
+        } else if (pubkey && rawBet) {
+            finalPubkey = pubkey;
+            finalBloque = rawBet.bloque;
+            finalNumero = rawBet.numero;
+            finalAlias = rawAlias;
+        } else {
+            return res.status(400).json({ error: 'Missing signedEvent or pubkey+bet' });
         }
 
-        if (!signedEvent || typeof signedEvent !== 'object' || !verifyEvent(signedEvent)) {
-            return res.status(400).json({ error: 'Invalid signed event' });
-        }
-
-        const bet = JSON.parse(signedEvent.content);
-        if (!bet.bloque || !bet.numero) {
+        if (!finalBloque || !finalNumero) {
             return res.status(400).json({ error: 'Missing block or number' });
         }
 
         const nwcUrl = process.env.NWC_URL;
         if (!nwcUrl) return res.status(500).json({ error: 'Server missing NWC' });
 
-        const invoice: any = await createNwcInvoice(nwcUrl, 21, `SatLotto Block ${bet.bloque} - Num ${bet.numero}`);
+        const invoice: any = await createNwcInvoice(nwcUrl, 21, `SatLotto Block ${finalBloque} - Num ${finalNumero}`).catch(e => {
+            logToFile(`[NWC ERROR] ${e.message}\n`);
+            return null;
+        });
+
+        if (!invoice) return res.status(500).json({ error: 'Could not generate invoice' });
+
         const pr = invoice.payment_request || invoice.paymentRequest || invoice.invoice;
         const paymentHash = invoice.payment_hash || invoice.paymentHash || invoice.hash;
 
+        logToFile(`[NWC SUCCESS] PR: ${pr?.slice(0, 20)}... Hash: ${paymentHash}\n`);
+
         if (!process.env.NEON_URL?.includes('user:password')) {
-            let finalAlias = bet.alias || null;
             if (!finalAlias) {
-                const identities = await queryNeon('SELECT alias FROM lotto_identities WHERE pubkey = $1', [signedEvent.pubkey]);
+                const identities = await queryNeon('SELECT alias FROM lotto_identities WHERE pubkey = $1', [finalPubkey]);
                 if (identities.length) finalAlias = identities[0].alias;
             }
 
@@ -151,15 +194,16 @@ app.post('/api/bet', async (req, res) => {
                              alias = EXCLUDED.alias,
                              created_at = NOW()
             `;
-            await queryNeon(upsertBet, [signedEvent.pubkey, bet.bloque, bet.numero, pr, paymentHash, cachedBlock.height, finalAlias]);
+            await queryNeon(upsertBet, [finalPubkey, finalBloque, finalNumero, pr, paymentHash, cachedBlock.height, finalAlias]);
 
-            if (bet.alias) {
+            if (finalAlias && !signedEvent) {
+                // Keep local alias storage updated if sent directly
                 const upsertIdentity = `
                     INSERT INTO lotto_identities (pubkey, alias, updated_at)
                     VALUES ($1, $2, NOW())
                     ON CONFLICT (pubkey) DO UPDATE SET alias = EXCLUDED.alias, updated_at = NOW()
                 `;
-                await queryNeon(upsertIdentity, [signedEvent.pubkey, bet.alias]);
+                await queryNeon(upsertIdentity, [finalPubkey, finalAlias]);
             }
         }
 
@@ -283,6 +327,8 @@ createViteServer({ server: { middlewareMode: true }, appType: 'spa' })
     .then(async (vite) => {
         await setupDb();
         app.use(vite.middlewares);
-        app.listen(5173, '0.0.0.0', () => console.log(`\n  ➜  Local:   http://localhost:5173/`));
+        app.listen(5173, '0.0.0.0', () => {
+            console.log(`\n  ➜  Local:   http://localhost:5173/`);
+        });
     })
     .catch(console.error);

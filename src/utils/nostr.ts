@@ -22,17 +22,18 @@ export function resolveName(pubkey: string): string {
     if (pendingRequests.has(pubkey)) return fallback;
 
     pendingRequests.add(pubkey);
-    const user = ndk.getUser({ pubkey });
-    user.fetchProfile().then(() => {
-        if (user.profile?.nip05) {
-            aliasCache[pubkey] = user.profile.nip05;
-        } else {
-            aliasCache[pubkey] = fallback;
-        }
+
+    // Concurrent check: API (Neon) + NDK (Relays)
+    Promise.all([
+        fetch(`/api/identity/${pubkey}`).then(r => r.ok ? r.json() : { alias: null }).catch(() => ({ alias: null })),
+        ndk.getUser({ pubkey }).fetchProfile().then(() => ({ nip05: (ndk.getUser({ pubkey }) as any).profile?.nip05 })).catch(() => ({ nip05: null }))
+    ]).then(([apiRes, ndkRes]) => {
+        const name = apiRes.alias || ndkRes.nip05 || fallback;
+        aliasCache[pubkey] = name;
         pendingRequests.delete(pubkey);
-    }).catch(() => {
-        aliasCache[pubkey] = fallback;
-        pendingRequests.delete(pubkey);
+
+        // Notify UI to re-render if needed (Simple way: signal through a global callback if exists)
+        if (typeof (window as any).updateUI === 'function') (window as any).updateUI();
     });
 
     return fallback;
