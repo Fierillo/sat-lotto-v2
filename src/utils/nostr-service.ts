@@ -22,6 +22,15 @@ const pendingRequests = new Set<string>();
 export function resolveName(pubkey: string): string {
     if (aliasCache[pubkey]) return aliasCache[pubkey];
 
+    // Check localStorage fallback for current user to avoid flicker
+    if (localStorage.getItem('satlotto_pubkey') === pubkey) {
+        const cached = localStorage.getItem('satlotto_alias');
+        if (cached) {
+            aliasCache[pubkey] = cached;
+            return cached;
+        }
+    }
+
     const fallback = `${pubkey.slice(0, 8)}…`;
     if (pendingRequests.has(pubkey)) return fallback;
 
