@@ -50,7 +50,11 @@ export const handleBet = async (req: any, res: any, cachedBlock: any) => {
         }
 
         // 3. Server-side Frozen Check (Anti-Last Second Betting)
-        const isFrozen = cachedBlock.height >= finalBloque - 2;
+        // Real-time height check to avoid 21s poll race condition
+        const realTimeResp = await fetch('https://mempool.space/api/blocks/tip/height');
+        const realTimeHeight = parseInt(await realTimeResp.text(), 10);
+        
+        const isFrozen = (realTimeHeight || cachedBlock.height) >= finalBloque - 2;
         if (isFrozen) {
             return res.status(403).json({ error: 'Betting is closed for this block (Fase Frozen)' });
         }
@@ -182,11 +186,30 @@ export const handleVerifyIdentity = async (req: any, res: any) => {
             return res.status(400).json({ error: 'Invalid signature' });
         }
 
+        const pubkey = parsedEvent.pubkey;
+        const createdAt = parsedEvent.created_at;
+
+        // 1. Insurance of Date: Check if this event is newer than the stored one
+        const existing = await queryNeon('SELECT last_updated FROM lotto_identities WHERE pubkey = $1', [pubkey]);
+        if (existing[0] && existing[0].last_updated) {
+            const lastUpdated = Math.floor(new Date(existing[0].last_updated).getTime() / 1000);
+            if (createdAt <= lastUpdated) {
+                return res.json({ ok: true, message: 'Existing identity is newer or same age' });
+            }
+        }
+
         const content = JSON.parse(parsedEvent.content);
         const alias = content.nip05 || content.name || content.display_name;
         
         if (alias) {
-            await queryNeon('INSERT INTO lotto_identities (pubkey, alias) VALUES ($1, $2) ON CONFLICT (pubkey) DO UPDATE SET alias = EXCLUDED.alias', [parsedEvent.pubkey, alias]);
+            // Update with last_updated to prevent old event replays
+            await queryNeon(`
+                INSERT INTO lotto_identities (pubkey, alias, last_updated) 
+                VALUES ($1, $2, TO_TIMESTAMP($3)) 
+                ON CONFLICT (pubkey) DO UPDATE SET 
+                    alias = EXCLUDED.alias, 
+                    last_updated = EXCLUDED.last_updated
+            `, [pubkey, alias, createdAt]);
             return res.json({ ok: true, alias });
         }
         
