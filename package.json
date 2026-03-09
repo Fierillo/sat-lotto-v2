@@ -10,7 +10,9 @@
     "example:invoice": "node src/examples/create-invoice.js",
     "example:pay": "node src/examples/pay-invoice.js",
     "example:nwc": "node src/examples/nwc-connect.js",
-    "example:lnurl": "node src/examples/lnurl-pay.js"
+    "example:lnurl": "node src/examples/lnurl-pay.js",
+    "test:nwc": "npx tsx tests/test-nwc.ts",
+    "test:all": "ls tests/*.ts | xargs -n 1 npx tsx"
   },
   "keywords": [
     "lightning",

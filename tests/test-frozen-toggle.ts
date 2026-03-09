@@ -1,5 +1,5 @@
-import { state } from '../src/components/app-state.js';
-import { updateUI } from '../src/main.js';
+import { state } from '../src/app-state';
+import { updateUI } from '../src/main';
 
 const addFrozenToggle = () => {
 	const testBtn = document.createElement('button');
