@@ -27,18 +27,41 @@ export function resolveName(pubkey: string): string {
 
     pendingRequests.add(pubkey);
 
-    Promise.all([
-        fetch(`/api/identity/${pubkey}`).then(r => r.ok ? r.json() : { alias: null }).catch(() => ({ alias: null })),
-        ndk.getUser({ pubkey }).fetchProfile().then(() => ({ nip05: (ndk.getUser({ pubkey }) as any).profile?.nip05 })).catch(() => ({ nip05: null }))
-    ]).then(([apiRes, ndkRes]) => {
-        const name = apiRes.alias || ndkRes.nip05 || fallback;
-        aliasCache[pubkey] = name;
+    // 1. Check Neon (Truth source)
+    fetch(`/api/identity/${pubkey}`).then(r => r.ok ? r.json() : { alias: null }).then(res => {
+        if (res.alias) {
+            aliasCache[pubkey] = res.alias;
+            pendingRequests.delete(pubkey);
+            if (typeof (window as any).updateUI === 'function') (window as any).updateUI();
+        } else {
+            // 2. Not in Neon? Resolve via NDK and save to Neon for next time
+            ndk.getUser({ pubkey }).fetchProfile().then(profile => {
+                const nip05 = (profile as any)?.nip05;
+                if (nip05) setAlias(pubkey, nip05);
+                pendingRequests.delete(pubkey);
+            }).catch(() => {
+                pendingRequests.delete(pubkey);
+            });
+        }
+    }).catch(() => {
         pendingRequests.delete(pubkey);
-
-        if (typeof (window as any).updateUI === 'function') (window as any).updateUI();
     });
 
     return fallback;
+}
+
+export function setAlias(pubkey: string, name: string): void {
+    if (!name || name.includes('…')) return;
+    aliasCache[pubkey] = name;
+    
+    // Sync to Neon (Future truth)
+    fetch('/api/identity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pubkey, alias: name })
+    }).catch(e => console.error('[NostrService] Sync alias to neon failed', e));
+
+    if (typeof (window as any).updateUI === 'function') (window as any).updateUI();
 }
 
 export function getAlias(pubkey: string): string | null {

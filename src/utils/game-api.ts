@@ -12,7 +12,11 @@ export async function submitBet(targetBlock: number, selectedNumber: number): Pr
         kind: 1,
         created_at: Math.floor(Date.now() / 1000),
         tags: [['t', 'satlotto']],
-        content: JSON.stringify({ bloque: targetBlock, numero: selectedNumber, alias: getAlias(authState.pubkey) }),
+        content: JSON.stringify({ 
+            bloque: targetBlock, 
+            numero: selectedNumber, 
+            alias: authState.nip05 || getAlias(authState.pubkey) 
+        }),
         pubkey: authState.pubkey
     };
 
@@ -36,7 +40,7 @@ export async function submitBet(targetBlock: number, selectedNumber: number): Pr
     const payload = signed ? { signedEvent: signed } : {
         pubkey: authState.pubkey,
         bet: { bloque: targetBlock, numero: selectedNumber },
-        alias: getAlias(authState.pubkey)
+        alias: authState.nip05 || getAlias(authState.pubkey)
     };
 
     return apiClient.post<{ paymentRequest: string; paymentHash: string }>('/api/bet', payload);
