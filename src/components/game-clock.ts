@@ -24,6 +24,15 @@ export function createClock(): HTMLElement {
         e.stopPropagation();
     };
 
+    // Immediate positioning
+    const markerRadius = 230;
+    const frozenHelpAngle = (20.5 * 360 / BLOCKS) - 90 - 20;
+    const frozenHelpRadian = frozenHelpAngle * Math.PI / 180;
+    const frozenHelpRadius = markerRadius + 24;
+    const fx = Math.cos(frozenHelpRadian) * frozenHelpRadius;
+    const fy = Math.sin(frozenHelpRadian) * frozenHelpRadius;
+    frozenHelpElement.style.transform = `translate(-50%, -50%) translate(${fx}px, ${fy}px)`;
+
     updateClockRings(outerRingElement, innerCircleContainer);
 
     return clockContainer;
@@ -67,19 +76,14 @@ export function updateClockRings(outer?: HTMLElement, inner?: HTMLElement): void
         if (targetBlockNumber === state.currentBlock) blockMarkerElement.classList.add('current');
     }
 
-    const frozenHelpElement = document.getElementById('frozenHelp');
+    const frozenHelpElement = ringElement.parentElement?.querySelector('#frozenHelp') as HTMLElement || document.getElementById('frozenHelp');
     if (frozenHelpElement) {
-        // Positioned exactly between the two blue blocks (indices 19 and 20)
-        // Adjusting to 20.5 to fix the visual shift seen in browser
         const frozenHelpAngle = (20.5 * 360 / BLOCKS) - 90 - 20;
         const frozenHelpRadian = frozenHelpAngle * Math.PI / 180;
         const frozenHelpRadius = markerRadius + 24;
         const fx = Math.cos(frozenHelpRadian) * frozenHelpRadius;
         const fy = Math.sin(frozenHelpRadian) * frozenHelpRadius;
         frozenHelpElement.style.transform = `translate(-50%, -50%) translate(${fx}px, ${fy}px)`;
-        
-        // Hide if logged out (extra safety)
-        frozenHelpElement.style.display = document.body.classList.contains('logged-out') ? 'none' : 'flex';
     }
 
     if (innerCircleContainer.children.length === 0) {
