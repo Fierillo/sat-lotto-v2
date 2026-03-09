@@ -67,8 +67,10 @@ export async function makePayment(): Promise<void> {
     centralPayButton.innerHTML = `<span style="font-size:0.9rem">Firmando...</span>`;
 
     try {
+        console.log('[makePayment] Requesting bet from server...');
         const result = await submitBet(state.targetBlock, state.selectedNumber);
-        if (!result) return;
+        if (!result) throw new Error('No response from server');
+        
         const { paymentRequest, paymentHash } = result;
         await updateUI();
 
@@ -86,18 +88,22 @@ export async function makePayment(): Promise<void> {
             await handleSuccessfulPayment();
         } else {
             try {
+                // Alby / WebLN Extension
                 const weblnProvider = await requestProvider();
-                centralPayButton.innerHTML = `<span style="font-size:0.9rem">Pagando WebLN...</span>`;
+                centralPayButton.innerHTML = `<span style="font-size:0.9rem">Confirmá en Alby</span>`;
+                console.log('[makePayment] Sending payment with WebLN...');
                 await weblnProvider.sendPayment(paymentRequest);
                 await handleSuccessfulPayment();
-            } catch {
+            } catch (err) {
+                console.warn('[makePayment] WebLN payment failed or canceled, showing modal');
                 showInvoiceModal(paymentRequest, handleSuccessfulPayment, resetInteractionStatus);
             }
         }
     } catch (paymentError: any) {
+        console.error('[makePayment] Final catch:', paymentError);
         centralPayButton.classList.remove('success-glow');
         centralPayButton.classList.add('error-glow');
-        centralPayButton.innerHTML = `<span style="font-size:0.8rem">${paymentError.message || '❌'}</span>`;
-        setTimeout(resetInteractionStatus, 4000);
+        centralPayButton.innerHTML = `<span style="font-size:0.8rem">${paymentError.message || 'Error'}</span>`;
+        setTimeout(resetInteractionStatus, 5000);
     }
 }
