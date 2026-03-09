@@ -25,7 +25,14 @@ export const handleBet = async (req: any, res: any, cachedBlock: any) => {
         const finalBloque = parseInt(betContent.bloque);
         const finalNumero = parseInt(betContent.numero);
         const finalAlias = betContent.alias;
+        const eventId = event.id;
         const createdAt = event.created_at;
+
+        // Anti-Replay: Check if event ID was already processed
+        const existingEvent = await queryNeon('SELECT count(*) FROM lotto_bets WHERE nostr_event_id = $1', [eventId]);
+        if (parseInt(existingEvent[0].count) > 0) {
+            return res.status(409).json({ error: 'Esta apuesta ya fue procesada (Replay Attack protection)' });
+        }
 
         // 2. Clock Drift Check (+/- 15 min)
         const now = Math.floor(Date.now() / 1000);
