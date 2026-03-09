@@ -1,8 +1,14 @@
 import { resolveName } from './utils/nostr-service';
+import { state } from './app-state';
 
 export function renderBetsTable(activeBets: Array<{ pubkey: string; selected_number: number; alias?: string }>): void {
     const betsTableContainer = document.getElementById('betsTable');
     if (!betsTableContainer) return;
+
+    // Redundancy Check: Compare JSON strings to avoid touching the DOM
+    const currentBetsJson = JSON.stringify(activeBets);
+    if (currentBetsJson === state.lastBetsJson) return;
+    state.lastBetsJson = currentBetsJson;
 
     if (!activeBets.length) {
         betsTableContainer.innerHTML = '<p class="empty-bets">Sin apuestas en este ciclo</p>';
