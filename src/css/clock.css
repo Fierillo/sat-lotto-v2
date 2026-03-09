@@ -36,7 +36,7 @@ body.phase-frozen #clock {
     white-space: nowrap;
 }
 
-body:not(.logged-out) .block-marker:not(.target):not(.current) {
+body:not(.logged-out) .block-marker:not(.target):not(.current):not(.neon-blue) {
     color: #ffffffc8;
     text-shadow: 0 0 5px rgba(255, 255, 255, 0.3);
 }
@@ -99,6 +99,8 @@ body.logged-out .number-segment {
 
 body.logged-out .block-marker:not(.target):not(.current) {
     opacity: 0.15;
+    color: #555 !important;
+    text-shadow: none !important;
 }
 
 .number-segment:hover {
@@ -203,11 +205,11 @@ body.processing #clock {
     opacity: 0.8;
 }
 
-.block-marker.neon-blue {
-    color: rgba(0, 242, 255, 0.899);
-    text-shadow: 0 0 8px rgba(0, 242, 255, 0.667);
-    font-size: 0.95rem;
-    font-weight: 700;
+body:not(.logged-out) .block-marker.neon-blue {
+    color: var(--neon-blue);
+    text-shadow: 0 0 12px rgba(0, 242, 255, 0.6), 0 0 20px rgba(0, 242, 255, 0.2);
+    font-size: 1rem;
+    font-weight: 800;
     z-index: 100;
 }
 
@@ -222,8 +224,8 @@ body.phase-frozen .block-marker.current {
         text-shadow: 0 0 12px var(--neon-green), 0 0 20px rgba(0, 255, 157, 0.5);
     }
     50% {
-        color: #00f2ff;
-        text-shadow: 0 0 15px #00f2ff, 0 0 25px rgba(0, 242, 255, 0.6);
+        color: var(--neon-blue);
+        text-shadow: 0 0 15px var(--neon-blue), 0 0 25px rgba(0, 242, 255, 0.6);
     }
 }
 
@@ -247,6 +249,18 @@ body.phase-frozen .block-marker.current {
     text-shadow: 0 0 8px var(--neon-blue);
 }
 
+#frozenHelp {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 200;
+    margin: 0;
+}
+
+body.logged-out #frozenHelp {
+    display: none !important;
+}
+
 .help-icon {
     display: inline-flex;
     align-items: center;
@@ -259,7 +273,6 @@ body.phase-frozen .block-marker.current {
     border-radius: 50%;
     font-size: 0.82rem;
     cursor: pointer;
-    margin-left: 8px;
     vertical-align: middle;
     transition: all 0.2s;
     font-family: serif;
