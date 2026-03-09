@@ -19,6 +19,8 @@ function createApplicationHeader(): HTMLElement {
 export async function updateUI(): Promise<void> {
     const outerRingElement = document.getElementById('outerRing');
     const innerCircleContainer = document.getElementById('innerCircle');
+    
+    // Immediate visual updates (sync)
     if (outerRingElement && innerCircleContainer) {
         updateClockRings(outerRingElement, innerCircleContainer);
     }
@@ -29,15 +31,18 @@ export async function updateUI(): Promise<void> {
         clockInfoDisplay.innerHTML = `Bloque: <strong class="text-green">${state.currentBlock}</strong> • Sorteo: <strong class="text-orange">${state.targetBlock}</strong>`;
     }
 
-    const activeBetsFromApi = await fetchBets(state.targetBlock);
-    renderBetsTable(activeBetsFromApi);
-
-    const currentJackpotBalance = await fetchPoolBalance();
-    updatePool(currentJackpotBalance);
-
-    const previousSorteoBlock = Math.floor(state.currentBlock / 21) * 21;
-    const previousSorteoResult = await fetchResult(previousSorteoBlock);
-    renderResult(previousSorteoResult, previousSorteoBlock);
+    // Parallel data background fetch (doesn't block current flow)
+    const blockForResults = Math.floor(state.currentBlock / 21) * 21;
+    
+    Promise.all([
+        fetchBets(state.targetBlock),
+        fetchPoolBalance(),
+        fetchResult(blockForResults)
+    ]).then(([bets, balance, result]) => {
+        renderBetsTable(bets);
+        updatePool(balance);
+        renderResult(result, blockForResults);
+    });
 }
 
 async function fetchLatestBlockData(): Promise<void> {
