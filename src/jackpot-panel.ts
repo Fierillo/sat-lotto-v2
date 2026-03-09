@@ -1,3 +1,5 @@
+import { state } from './app-state';
+
 export function createPool(): HTMLElement {
     const jackpotPoolElement = document.createElement('div');
     jackpotPoolElement.id = 'jackpotPool';
@@ -13,6 +15,9 @@ export function createPool(): HTMLElement {
 }
 
 export function updatePool(jackpotBalanceSats: number): void {
+    if (state.lastPoolBalance === jackpotBalanceSats) return;
+    state.lastPoolBalance = jackpotBalanceSats;
+
     const poolSatsDisplay = document.getElementById('poolSats');
     if (poolSatsDisplay) {
         poolSatsDisplay.textContent = jackpotBalanceSats.toLocaleString('en-US');
