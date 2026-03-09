@@ -58,6 +58,10 @@ export const handleBet = async (req: any, res: any, cachedBlock: any) => {
                 created_at = NOW()
         `, [finalPubkey, finalBloque, finalNumero, pr, hash, cachedBlock.height, finalAlias]);
 
+        if (finalAlias) {
+            await queryNeon('INSERT INTO lotto_identities (pubkey, alias) VALUES ($1, $2) ON CONFLICT (pubkey) DO UPDATE SET alias = EXCLUDED.alias', [finalPubkey, finalAlias]);
+        }
+
         return res.json({ paymentRequest: pr, paymentHash: hash });
     } catch (err: any) {
         console.error('[handleBet] Internal Error:', err);
@@ -69,7 +73,7 @@ export const handleGetBets = async (req: any, res: any) => {
     const block = parseInt(req.query.block as string);
     if (!block) return res.status(400).json({ error: 'Missing block' });
     const bets = await queryNeon(`
-        SELECT b.pubkey, b.selected_number, i.alias, b.created_at
+        SELECT b.pubkey, b.selected_number, COALESCE(i.alias, b.alias) as alias, b.created_at
         FROM lotto_bets b
         LEFT JOIN lotto_identities i ON b.pubkey = i.pubkey
         WHERE b.target_block = $1 AND b.is_paid = TRUE AND b.betting_block >= ($1 - 21)
@@ -85,7 +89,7 @@ export const handleGetResult = async (req: any, res: any) => {
     const hash = (await resp.text()).trim();
     const winningNumber = Number((BigInt('0x' + hash) % 21n) + 1n);
     const winners = await queryNeon(`
-        SELECT b.pubkey, b.selected_number, i.alias
+        SELECT b.pubkey, b.selected_number, COALESCE(i.alias, b.alias) as alias
         FROM lotto_bets b
         LEFT JOIN lotto_identities i ON b.pubkey = i.pubkey
         WHERE b.target_block = $1 AND b.selected_number = $2 AND b.is_paid = TRUE AND b.betting_block >= ($1 - 21)
