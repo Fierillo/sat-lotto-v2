@@ -1,6 +1,7 @@
 import { BLOCKS, state } from './app-state';
 import { authState } from './auth-state';
 import { showLoginModal } from './auth-manager';
+import { showFrozenHelpModal } from './frozen-modal';
 
 export function createClock(): HTMLElement {
     const clockContainer = document.createElement('div');
@@ -47,8 +48,14 @@ export function updateClockRings(outer?: HTMLElement, inner?: HTMLElement): void
         }
 
         blockMarkerElement.textContent = targetBlockNumber.toString();
-        blockMarkerElement.classList.remove('target', 'current');
-        if (blockIndex === 0) blockMarkerElement.classList.add('target');
+        blockMarkerElement.classList.remove('target', 'current', 'neon-blue');
+        
+        if (blockIndex === 0) {
+            blockMarkerElement.classList.add('target');
+        } else if (blockIndex === 19 || blockIndex === 20) {
+            blockMarkerElement.classList.add('neon-blue');
+        }
+        
         if (targetBlockNumber === state.currentBlock) blockMarkerElement.classList.add('current');
     }
 
@@ -73,16 +80,36 @@ export function updateCenterButton(): void {
     const centerActionButton = document.getElementById('centerBtn') as HTMLButtonElement;
     if (!paymentStepContainer || !centerActionButton) return;
 
-    if (!authState.pubkey) {
+    const isFrozen = state.currentBlock >= state.targetBlock - 2;
+    document.body.classList.toggle('phase-frozen', isFrozen);
+
+    if (isFrozen && authState.pubkey) {
+        paymentStepContainer.style.display = 'block';
+        centerActionButton.innerHTML = `
+            <span style="font-size:0.75rem">NO PODÉS<br>APOSTAR</span>
+            <div id="frozenHelp" class="help-icon" style="margin-top: 8px; margin-left: 0;">?</div>
+        `;
+        centerActionButton.classList.add('frozen');
+        centerActionButton.onclick = (e) => {
+            const target = e.target as HTMLElement;
+            if (target.id === 'frozenHelp') {
+                showFrozenHelpModal();
+                e.stopPropagation();
+            }
+        };
+    } else if (!authState.pubkey) {
         paymentStepContainer.style.display = 'block';
         centerActionButton.textContent = 'JUGAR';
         centerActionButton.onclick = () => showLoginModal();
+        centerActionButton.classList.remove('frozen');
     } else if (state.selectedNumber !== null) {
         paymentStepContainer.style.display = 'block';
         centerActionButton.textContent = 'APOSTAR';
+        centerActionButton.classList.remove('frozen');
         centerActionButton.onclick = () => (window as any).makePayment();
     } else {
         paymentStepContainer.style.display = 'none';
+        centerActionButton.classList.remove('frozen');
     }
 }
 
