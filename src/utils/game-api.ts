@@ -1,7 +1,7 @@
 import { authState } from '../components/auth-state';
 import { finalizeEvent } from 'nostr-tools';
 import ndk, { getAlias } from './nostr-service';
-import { NDKEvent } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKNip46Signer } from '@nostr-dev-kit/ndk';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -25,7 +25,7 @@ export async function submitBet(targetBlock: number, selectedNumber: number): Pr
     let signedNostrEvent;
     const windowNostrExtension = (window as any).nostr;
 
-    if (authState.signer) {
+    if (authState.signer && !(authState.signer instanceof NDKNip46Signer)) {
         const ndkEvent = new NDKEvent(ndk, unsignedNostrEvent);
         await ndkEvent.sign(authState.signer);
         signedNostrEvent = ndkEvent.rawEvent();
