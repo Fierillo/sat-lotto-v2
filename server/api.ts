@@ -4,6 +4,8 @@ import { createNwcInvoice } from '../src/utils/create-invoice.ts';
 import { lookupNwcInvoice } from '../src/utils/pay-invoice.ts';
 import { nwc } from '@getalby/sdk';
 
+const blockHashCache: Record<number, string> = {};
+
 export const handleBet = async (req: any, res: any, cachedBlock: any) => {
     try {
         let { signedEvent, pubkey, bet: rawBet, alias: rawAlias } = req.body;
@@ -84,9 +86,17 @@ export const handleGetBets = async (req: any, res: any) => {
 
 export const handleGetResult = async (req: any, res: any) => {
     const block = parseInt(req.query.block as string);
-    const resp = await fetch(`https://mempool.space/api/block-height/${block}`);
-    if (!resp.ok) return res.json({ resolved: false });
-    const hash = (await resp.text()).trim();
+    
+    // Cache check to avoid redundant Mempool calls
+    let hash = blockHashCache[block];
+    if (!hash) {
+        console.log(`[Backend] Fetching hash for block ${block} from Mempool...`);
+        const resp = await fetch(`https://mempool.space/api/block-height/${block}`);
+        if (!resp.ok) return res.json({ resolved: false });
+        hash = (await resp.text()).trim();
+        blockHashCache[block] = hash; // Store forever
+    }
+
     const winningNumber = Number((BigInt('0x' + hash) % 21n) + 1n);
     const winners = await queryNeon(`
         SELECT b.pubkey, b.selected_number, COALESCE(i.alias, b.alias) as alias
