@@ -8,23 +8,23 @@ const blockHashCache: Record<number, string> = {};
 
 export const handleBet = async (req: any, res: any, cachedBlock: any) => {
     try {
-        let { signedEvent, pubkey, bet: rawBet, alias: rawAlias } = req.body;
-        let finalPubkey, finalBloque, finalNumero, finalAlias;
-
-        if (signedEvent) {
-            const event = typeof signedEvent === 'string' ? JSON.parse(signedEvent) : signedEvent;
-            if (!verifyEvent(event)) return res.status(400).json({ error: 'Invalid event' });
-            const betContent = JSON.parse(event.content);
-            finalPubkey = event.pubkey;
-            finalBloque = betContent.bloque;
-            finalNumero = betContent.numero;
-            finalAlias = betContent.alias;
-        } else {
-            finalPubkey = pubkey;
-            finalBloque = rawBet.bloque;
-            finalNumero = rawBet.numero;
-            finalAlias = rawAlias;
+        let { signedEvent } = req.body;
+        
+        // 1. Mandatory Signature (Anti-Identity Spoofing)
+        if (!signedEvent) {
+            return res.status(401).json({ error: 'Signature required to bet' });
         }
+
+        const event = typeof signedEvent === 'string' ? JSON.parse(signedEvent) : signedEvent;
+        if (!verifyEvent(event)) {
+            return res.status(400).json({ error: 'Invalid event signature' });
+        }
+
+        const betContent = JSON.parse(event.content);
+        const finalPubkey = event.pubkey;
+        const finalBloque = parseInt(betContent.bloque);
+        const finalNumero = parseInt(betContent.numero);
+        const finalAlias = betContent.alias;
 
         const nwcUrl = process.env.NWC_URL;
         if (!nwcUrl) return res.status(500).json({ error: 'Server NWC_URL not configured in .env' });
