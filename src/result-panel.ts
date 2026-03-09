@@ -1,7 +1,83 @@
 import { resolveName } from './utils/nostr-service';
 import { copyToClipboard } from './utils/clipboard-utils';
+import { state } from './app-state';
+import { authState } from './auth/auth-state';
+
+function triggerVictoryCelebration(winningNumber: number): void {
+    const clock = document.getElementById('clock');
+    if (!clock) return;
+
+    // 1. Iniciar animación del reloj
+    clock.classList.add('victory-mode');
+    
+    // 2. Overlay de resplandor
+    const overlay = document.createElement('div');
+    overlay.className = 'winner-overlay';
+    document.body.appendChild(overlay);
+
+    // 3. Mostrar mensaje épico flotante
+    const msg = document.createElement('div');
+    msg.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #fff;
+        font-size: 3rem;
+        font-weight: 900;
+        text-shadow: 0 0 40px #f7931a, 0 0 80px #f7931a;
+        z-index: 1001;
+        letter-spacing: 10px;
+        text-transform: uppercase;
+        animation: winnerTextPop 4.2s forwards;
+        white-space: nowrap;
+        pointer-events: none;
+    `;
+    msg.innerHTML = `¡GANASTE CON EL ${winningNumber}!`;
+    document.body.appendChild(msg);
+
+    // Estilo de la animación del texto
+    const style = document.createElement('style');
+    style.innerHTML = `
+        @keyframes winnerTextPop {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); filter: blur(10px); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); filter: blur(0); }
+            80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(2); filter: blur(20px); }
+        }
+    `;
+    document.head.appendChild(style);
+
+    // Limpieza después de 4.2s
+    setTimeout(() => {
+        clock.classList.remove('victory-mode');
+        overlay.remove();
+        msg.remove();
+        style.remove();
+    }, 4500);
+}
+
+function checkVictory(sorteoResult: any, blockHeight: number): void {
+    if (!authState.pubkey || !sorteoResult.winners) return;
+
+    const isWinner = sorteoResult.winners.some((w: any) => 
+        w.pubkey.toLowerCase() === authState.pubkey?.toLowerCase()
+    );
+
+    if (isWinner && blockHeight > state.lastVictoryBlock) {
+        console.log(`🎉 [VICTORIA] ¡Ganaste en el bloque ${blockHeight}!`);
+        
+        // Persistir que ya festejamos este bloque
+        state.lastVictoryBlock = blockHeight;
+        localStorage.setItem('satlotto_last_victory_block', blockHeight.toString());
+        
+        // Festejar
+        triggerVictoryCelebration(sorteoResult.winningNumber);
+    }
+}
 
 function showTransparencyModal(blockHash: string, blockHeight: number, winningNumber: number): void {
+// ... resto del código ...
     const transparencyModalElement = document.createElement('div');
     transparencyModalElement.className = 'modal-bg';
     transparencyModalElement.style.display = 'flex';
@@ -56,6 +132,9 @@ function showTransparencyModal(blockHash: string, blockHeight: number, winningNu
 export function renderResult(sorteoResult: any, blockHeight: number): void {
     const resultDisplayContainer = document.getElementById('lastResult');
     if (!resultDisplayContainer || !sorteoResult || !sorteoResult.resolved) return;
+
+    // Verificar si el usuario ganó
+    checkVictory(sorteoResult, blockHeight);
 
     resultDisplayContainer.innerHTML = `
         <h3>Último Sorteo</h3>

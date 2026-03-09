@@ -13,5 +13,7 @@ export const state = {
     lastRenderedBlock: 0,
     lastResolvedResultBlock: 0,
     lastBetsJson: '',
-    lastPoolBalance: -1
+    lastPoolBalance: -1,
+    lastVictoryBlock: parseInt(localStorage.getItem('satlotto_last_victory_block') || '0'),
+    pendingVictory: JSON.parse(localStorage.getItem('satlotto_pending_victory') || 'null')
 };
