@@ -34,6 +34,9 @@ export function resolveName(pubkey: string): string {
     const fallback = `${pubkey.slice(0, 8)}…`;
     if (pendingRequests.has(pubkey)) return fallback;
 
+    // Rate limit profile fetches: wait 100ms between requests to avoid DoS
+    if (pendingRequests.size > 5) return fallback;
+
     pendingRequests.add(pubkey);
 
     // 1. Check Neon (Truth source)
