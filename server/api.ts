@@ -152,3 +152,29 @@ export const handlePool = async (_req: any, res: any) => {
         client.close();
     }
 };
+
+export const handleVerifyIdentity = async (req: any, res: any) => {
+    try {
+        const { event } = req.body;
+        if (!event) return res.status(400).json({ error: 'Missing event' });
+        
+        const parsedEvent = typeof event === 'string' ? JSON.parse(event) : event;
+        if (parsedEvent.kind !== 0) return res.status(400).json({ error: 'Invalid kind' });
+
+        if (!verifyEvent(parsedEvent)) {
+            return res.status(400).json({ error: 'Invalid signature' });
+        }
+
+        const content = JSON.parse(parsedEvent.content);
+        const alias = content.nip05 || content.name || content.display_name;
+        
+        if (alias) {
+            await queryNeon('INSERT INTO lotto_identities (pubkey, alias) VALUES ($1, $2) ON CONFLICT (pubkey) DO UPDATE SET alias = EXCLUDED.alias', [parsedEvent.pubkey, alias]);
+            return res.json({ ok: true, alias });
+        }
+        
+        return res.json({ ok: true, message: 'No alias found' });
+    } catch (err: any) {
+        return res.status(500).json({ error: err.message });
+    }
+};

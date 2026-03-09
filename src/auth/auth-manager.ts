@@ -51,7 +51,20 @@ export async function finishLogin(): Promise<void> {
 
     // Resolve identity (Future-proof: this is our only update factor)
     const apiAlias = await fetchIdentity(authState.pubkey);
-    const ndkAlias = (await ndk.getUser({ pubkey: authState.pubkey }).fetchProfile())?.nip05 || null;
+    const user = ndk.getUser({ pubkey: authState.pubkey });
+    const profile = await user.fetchProfile();
+    const ndkAlias = profile?.nip05 || null;
+    
+    // Securely verify identity on server using the signed event (Kind 0)
+    ndk.fetchEvent({ kinds: [0], authors: [authState.pubkey] }).then(ev => {
+        if (ev) {
+            fetch('/api/identity/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ event: ev.rawEvent() })
+            }).catch(() => {});
+        }
+    });
     
     // Preserve existing nip05 (like from NWC) if both lookups fail
     authState.nip05 = ndkAlias || apiAlias || authState.nip05 || null;

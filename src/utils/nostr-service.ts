@@ -63,13 +63,6 @@ export function setAlias(pubkey: string, name: string): void {
     if (!name || name.includes('…')) return;
     aliasCache[pubkey] = name;
     
-    // Sync to Neon (Future truth)
-    fetch('/api/identity', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pubkey, alias: name })
-    }).catch(e => console.error('[NostrService] Sync alias to neon failed', e));
-
     if (typeof (window as any).updateUI === 'function') (window as any).updateUI();
 }
 
