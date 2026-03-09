@@ -21,5 +21,12 @@ export function updatePool(jackpotBalanceSats: number): void {
     const poolSatsDisplay = document.getElementById('poolSats');
     if (poolSatsDisplay) {
         poolSatsDisplay.textContent = jackpotBalanceSats.toLocaleString('en-US');
+        
+        // Glow effect
+        const amountContainer = poolSatsDisplay.parentElement;
+        if (amountContainer) {
+            amountContainer.classList.add('update-glow');
+            setTimeout(() => amountContainer.classList.remove('update-glow'), 1000);
+        }
     }
 }

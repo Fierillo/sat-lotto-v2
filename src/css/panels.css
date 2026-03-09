@@ -170,6 +170,13 @@
     font-weight: 800;
     color: #fff;
     text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+    transition: all 0.5s ease;
+}
+
+.pool-amount.update-glow {
+    color: #f7931a;
+    text-shadow: 0 0 20px rgba(247, 147, 26, 0.8);
+    transform: scale(1.1);
 }
 
 .sats-label {
