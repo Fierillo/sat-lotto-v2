@@ -257,6 +257,7 @@ async function initNostrConnect(): Promise<void> {
 
         const confirmedPubkey = await handshakePromise;
         (bunkerSigner as any).remotePubkey = confirmedPubkey;
+        (bunkerSigner as any).remoteUser = ndk.getUser({ pubkey: confirmedPubkey });
         (bunkerSigner as any).ndk = ndk;
         ndk.signer = bunkerSigner;
 
@@ -340,6 +341,7 @@ export async function finishLogin(): Promise<void> {
                 // Si es solo una pubkey, forzamos el seteo para NDK
                 if (authState.bunkerTarget.length === 64 && !authState.bunkerTarget.includes(':')) {
                     (bunkerSigner as any).remotePubkey = authState.bunkerTarget;
+                    (bunkerSigner as any).remoteUser = ndk.getUser({ pubkey: authState.bunkerTarget });
                 }
 
                 bunkerSigner.on('authUrl', (url: string) => {
