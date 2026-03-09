@@ -65,9 +65,18 @@ export function createLoginModal(): HTMLElement {
 
             <div id="manual-section" class="auth-section active">
                 <button class="auth-btn" id="extLogin">Login con extensión</button>
+                
                 <div class="nwc-section">
+                    <div class="nwc-guide">
+                        <p><strong>¿Cómo conectar vía NWC?</strong></p>
+                        <ol>
+                            <li>Abrí <strong>Alby</strong>, <strong>Mutiny</strong> o tu wallet NWC.</li>
+                            <li>Buscá "Connections" y creá una para <strong>SatLotto</strong>.</li>
+                            <li>Copiá el link y pegalo acá abajo:</li>
+                        </ol>
+                    </div>
                     <input type="password" id="nwcInput" placeholder="nostr+walletconnect://..." />
-                    <button class="auth-btn" id="nwcBtn">Conectar NWC</button>
+                    <button class="auth-btn" id="nwcBtn">Conectar Wallet</button>
                 </div>
             </div>
 
@@ -425,6 +434,7 @@ export function checkExternalLogin(): void {
         window.history.replaceState({}, document.title, cleanUrl);
     }
 }
+
 
 async function handleNwcLogin(): Promise<void> {
     try {
