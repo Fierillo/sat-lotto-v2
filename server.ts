@@ -171,10 +171,15 @@ app.post('/api/bet', async (req, res) => {
 
         if (!invoice) return res.status(500).json({ error: 'Could not generate invoice' });
 
-        const pr = invoice.payment_request || invoice.paymentRequest || invoice.invoice;
+        const pr = invoice.payment_request || invoice.paymentRequest || invoice.invoice || invoice.bolt11;
         const paymentHash = invoice.payment_hash || invoice.paymentHash || invoice.hash;
 
-        logToFile(`[NWC SUCCESS] PR: ${pr?.slice(0, 20)}... Hash: ${paymentHash}\n`);
+        if (!pr) {
+            logToFile(`[NWC ERROR] Invoice fields missing: ${JSON.stringify(invoice)}\n`);
+            return res.status(500).json({ error: 'Invoice fields missing from NWC response' });
+        }
+
+        logToFile(`[NWC SUCCESS] PR: ${pr.slice(0, 20)}... Hash: ${paymentHash}\n`);
 
         if (!process.env.NEON_URL?.includes('user:password')) {
             if (!finalAlias) {
