@@ -33,6 +33,12 @@ export const handleBet = async (req: any, res: any, cachedBlock: any) => {
             });
         }
 
+        // 3. Server-side Frozen Check (Anti-Last Second Betting)
+        const isFrozen = cachedBlock.height >= finalBloque - 2;
+        if (isFrozen) {
+            return res.status(403).json({ error: 'Betting is closed for this block (Fase Frozen)' });
+        }
+
         const nwcUrl = process.env.NWC_URL;
         if (!nwcUrl) return res.status(500).json({ error: 'Server NWC_URL not configured in .env' });
 
