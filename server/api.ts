@@ -26,6 +26,13 @@ export const handleBet = async (req: any, res: any, cachedBlock: any) => {
         const finalNumero = parseInt(betContent.numero);
         const finalAlias = betContent.alias;
 
+        // 2. Validate Target Block (Anti-Jackpot Spoofing)
+        if (finalBloque !== cachedBlock.target) {
+            return res.status(400).json({ 
+                error: `Invalid target block. Expected ${cachedBlock.target}, got ${finalBloque}` 
+            });
+        }
+
         const nwcUrl = process.env.NWC_URL;
         if (!nwcUrl) return res.status(500).json({ error: 'Server NWC_URL not configured in .env' });
 
