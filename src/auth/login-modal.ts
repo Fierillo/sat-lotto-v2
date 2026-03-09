@@ -78,9 +78,13 @@ export function createUserProfile(username: string): HTMLElement {
     container.id = 'userProfile';
     container.className = 'top-user-profile';
     container.innerHTML = `
-        <div id="userAlias" class="profile-info">${username}</div>
+        <div id="userAlias" class="profile-info"></div>
         <div id="logoutMenu" class="logout-menu"><button id="logoutBtn">Cerrar Sesión</button></div>
     `;
+    
+    const aliasDisplay = container.querySelector('#userAlias') as HTMLElement;
+    aliasDisplay.textContent = username;
+
     container.addEventListener('click', () => container.querySelector('#logoutMenu')?.classList.toggle('active'));
     container.querySelector('#logoutBtn')?.addEventListener('click', logout);
     return container;

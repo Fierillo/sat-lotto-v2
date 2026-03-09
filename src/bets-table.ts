@@ -15,20 +15,24 @@ export function renderBetsTable(activeBets: Array<{ pubkey: string; selected_num
         return;
     }
 
-    const tableRowsHtml = activeBets.map(bet => `
-        <tr>
-            <td>${bet.alias || resolveName(bet.pubkey)}</td>
-            <td>${bet.selected_number}</td>
-        </tr>
-    `).join('');
+    const tableBody = document.createElement('tbody');
+    activeBets.forEach(bet => {
+        const row = document.createElement('tr');
+        
+        const nameCell = document.createElement('td');
+        nameCell.textContent = bet.alias || resolveName(bet.pubkey);
+        
+        const numCell = document.createElement('td');
+        numCell.textContent = bet.selected_number.toString();
+        
+        row.appendChild(nameCell);
+        row.appendChild(numCell);
+        tableBody.appendChild(row);
+    });
 
-    betsTableContainer.innerHTML = `
-        <h3>Apuestas Activas</h3>
-        <table>
-            <thead>
-                <tr><th>Jugador</th><th>Número</th></tr>
-            </thead>
-            <tbody>${tableRowsHtml}</tbody>
-        </table>
-    `;
+    betsTableContainer.innerHTML = `<h3>Apuestas Activas</h3>`;
+    const table = document.createElement('table');
+    table.innerHTML = `<thead><tr><th>Jugador</th><th>Número</th></tr></thead>`;
+    table.appendChild(tableBody);
+    betsTableContainer.appendChild(table);
 }

@@ -57,15 +57,18 @@ export function renderResult(sorteoResult: any, blockHeight: number): void {
     const resultDisplayContainer = document.getElementById('lastResult');
     if (!resultDisplayContainer || !sorteoResult || !sorteoResult.resolved) return;
 
-    const winnersNamesList = sorteoResult.winners?.length
-        ? sorteoResult.winners.map((winner: any) => winner.alias || resolveName(winner.pubkey)).join(', ')
-        : 'Nadie';
-
     resultDisplayContainer.innerHTML = `
         <h3>Último Sorteo</h3>
         <p>Número ganador: <strong class="text-orange">${sorteoResult.winningNumber}</strong> <span class="help-icon" id="helpIcon">?</span></p>
-        <p>Ganadores: <strong>${winnersNamesList}</strong></p>
+        <p id="winnersListContainer">Ganadores: </p>
     `;
+
+    const winnersText = document.createElement('strong');
+    winnersText.textContent = sorteoResult.winners?.length
+        ? sorteoResult.winners.map((winner: any) => winner.alias || resolveName(winner.pubkey)).join(', ')
+        : 'Nadie';
+    
+    resultDisplayContainer.querySelector('#winnersListContainer')?.appendChild(winnersText);
 
     resultDisplayContainer.querySelector('#helpIcon')?.addEventListener('click', () => showTransparencyModal(sorteoResult.blockHash, blockHeight, sorteoResult.winningNumber));
 }
