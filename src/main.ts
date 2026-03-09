@@ -10,6 +10,7 @@ import { renderResult } from './result-panel';
 import { createPool, updatePool } from './jackpot-panel';
 import { handleAutoLogin, handleNwcLogin, handleBunkerLogin, initNostrConnect } from './auth/login-handlers';
 import { fetchBets, fetchResult, fetchPoolBalance } from './utils/game-api';
+import { injectDebugButtons } from '../tests/debug-ui';
 
 export async function updateUI(): Promise<void> {
     const outer = document.getElementById('outerRing');
@@ -69,8 +70,10 @@ async function init(): Promise<void> {
     const header = document.createElement('div');
     header.className = 'header';
     header.innerHTML = `<h1><span>SatLotto</span></h1><p class="subtitle">Proba tu suerte, cada 21 bloques</p>`;
-    app.appendChild(header);
+    app.prepend(header);
     app.appendChild(createPool());
+    
+    injectDebugButtons();
 
     const game = document.createElement('div');
     game.className = 'game-container';
