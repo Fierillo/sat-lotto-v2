@@ -41,12 +41,12 @@ npm run dev
 
 Abrir http://localhost:5173 en el navegador.
 
-## 📦 Herramientas incluidas
+## 📦 Herramientas principales
 
 | Herramienta | Descripción | Docs |
 |-------------|-------------|------|
 | **@getalby/sdk** | SDK de Alby para NWC y pagos | [Docs](https://github.com/getAlby/js-sdk) |
-| **@getalby/lightning-tools** | Utilidades: LNURL, Lightning Address | [Docs](https://github.com/getAlby/lightning-tools) |
+| **@neondatabase/serverless** | Driver para Neon (Postgres) | [Docs](https://neon.tech) |
 | **@nostr-dev-kit/ndk** | SDK para Nostr (identidad, eventos) | [Docs](https://github.com/nostr-dev-kit/ndk) |
 | **webln** | Standard para wallets Lightning | [Docs](https://webln.dev) |
 
@@ -76,45 +76,6 @@ const response = await client.payInvoice({
 });
 ```
 
-## 💸 Lightning Address
-
-Enviar pagos a Lightning Addresses (user@domain.com):
-
-```javascript
-import { LightningAddress } from "@getalby/lightning-tools";
-
-// Resolver Lightning Address
-const ln = new LightningAddress("claudio@lacrypta.ar");
-await ln.fetch();
-
-// Generar invoice de 1000 sats
-const invoice = await ln.requestInvoice({ satoshi: 1000 });
-console.log(invoice.paymentRequest);
-
-// Info del destinatario
-console.log(ln.lnurlpData);
-```
-
-## 🔗 LNURL-pay
-
-Pagar usando LNURL:
-
-```javascript
-import { requestInvoice } from "@getalby/lightning-tools";
-
-// Desde LNURL
-const invoice = await requestInvoice({
-  lnUrlOrAddress: "lnurl1dp68gurn8ghj7...",
-  tokens: 1000 // sats
-});
-
-// Desde Lightning Address
-const invoice2 = await requestInvoice({
-  lnUrlOrAddress: "user@getalby.com",
-  tokens: 500
-});
-```
-
 ## 🌐 WebLN (Browser)
 
 Para apps en el navegador con extensión de wallet:
@@ -138,35 +99,24 @@ const invoice = await webln.makeInvoice({
 ## 📁 Estructura del proyecto
 
 ```
-lightning-starter/
-├── src/
-│   ├── examples/           # Ejemplos para correr con Node
-│   │   ├── create-invoice.js
-│   │   ├── pay-invoice.js
-│   │   ├── nwc-connect.js
-│   │   └── lnurl-pay.js
-│   ├── main.js             # Entry point del frontend
-│   └── lib/                # Utilidades reutilizables
-├── public/
-│   └── index.html          # Frontend de demo
+sat-lotto-v2/
+├── server/             # Backend (API, DB)
+├── src/                # Frontend (Vite)
+│   ├── utils/          # Utilidades (NWC, Nostr)
+│   └── ui/             # Componentes UI
+├── tests/              # Scripts de test y migración
 ├── package.json
 └── README.md
 ```
 
-## 🏃 Ejecutar ejemplos
+## 🏃 Ejecución de Tests
 
 ```bash
-# Crear invoice con NWC
-npm run example:invoice
+# Probar conexión NWC
+npm run test:nwc
 
-# Pagar invoice
-npm run example:pay
-
-# Conectar wallet NWC
-npm run example:nwc
-
-# Pagar Lightning Address
-npm run example:lnurl
+# Ejecutar todos los tests (excepto UI)
+npm run test:all
 ```
 
 > ⚠️ Para los ejemplos que usan NWC, necesitás configurar tu connection string en `.env`
