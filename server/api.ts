@@ -25,8 +25,17 @@ export const handleBet = async (req: any, res: any, cachedBlock: any) => {
         const finalBloque = parseInt(betContent.bloque);
         const finalNumero = parseInt(betContent.numero);
         const finalAlias = betContent.alias;
+        const createdAt = event.created_at;
 
-        // 2. Validate Target Block (Anti-Jackpot Spoofing)
+        // 2. Clock Drift Check (+/- 15 min)
+        const now = Math.floor(Date.now() / 1000);
+        if (Math.abs(now - createdAt) > 900) {
+            return res.status(400).json({ 
+                error: 'Firma desincronizada. Verificá la fecha y hora de tu dispositivo para poder apostar.' 
+            });
+        }
+
+        // 3. Validate Target Block (Anti-Jackpot Spoofing)
         if (finalBloque !== cachedBlock.target) {
             return res.status(400).json({ 
                 error: `Invalid target block. Expected ${cachedBlock.target}, got ${finalBloque}` 
