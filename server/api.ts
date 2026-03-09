@@ -83,8 +83,8 @@ export const handleBet = async (req: any, res: any, cachedBlock: any) => {
         }
 
         await queryNeon(`
-            INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, payment_hash, is_paid, betting_block, alias)
-            VALUES ($1, $2, $3, $4, $5, FALSE, $6, $7)
+            INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, payment_hash, is_paid, betting_block, alias, nostr_event_id)
+            VALUES ($1, $2, $3, $4, $5, FALSE, $6, $7, $8)
             ON CONFLICT (pubkey, target_block) DO UPDATE SET 
                 selected_number = EXCLUDED.selected_number, 
                 payment_request = EXCLUDED.payment_request,
@@ -92,8 +92,9 @@ export const handleBet = async (req: any, res: any, cachedBlock: any) => {
                 is_paid = FALSE,
                 betting_block = EXCLUDED.betting_block,
                 alias = EXCLUDED.alias,
+                nostr_event_id = EXCLUDED.nostr_event_id,
                 created_at = NOW()
-        `, [finalPubkey, finalBloque, finalNumero, pr, hash, cachedBlock.height, finalAlias]);
+        `, [finalPubkey, finalBloque, finalNumero, pr, hash, cachedBlock.height, finalAlias, eventId]);
 
         if (finalAlias) {
             await queryNeon('INSERT INTO lotto_identities (pubkey, alias) VALUES ($1, $2) ON CONFLICT (pubkey) DO UPDATE SET alias = EXCLUDED.alias', [finalPubkey, finalAlias]);
