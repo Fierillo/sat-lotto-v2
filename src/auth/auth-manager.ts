@@ -6,7 +6,7 @@ import { getOrCreateLocalSigner } from './auth-utils';
 import { setAuthError } from './login-handlers';
 
 export function logout(): void {
-    ['pubkey', 'nwc', 'bunker'].forEach(k => localStorage.removeItem(`satlotto_${k}`));
+    ['pubkey', 'nwc', 'bunker', 'alias'].forEach(k => localStorage.removeItem(`satlotto_${k}`));
     authState.pubkey = authState.signer = authState.nwcUrl = authState.bunkerTarget = authState.nip05 = null;
     updateAuthUI();
     (window as any).updateUI?.();
@@ -53,8 +53,12 @@ export async function finishLogin(): Promise<void> {
     const apiAlias = await fetchIdentity(authState.pubkey);
     const ndkAlias = (await ndk.getUser({ pubkey: authState.pubkey }).fetchProfile())?.nip05 || null;
     
-    authState.nip05 = ndkAlias || apiAlias || null;
-    if (authState.nip05) setAlias(authState.pubkey, authState.nip05);
+    // Preserve existing nip05 (like from NWC) if both lookups fail
+    authState.nip05 = ndkAlias || apiAlias || authState.nip05 || null;
+    if (authState.nip05) {
+        localStorage.setItem('satlotto_alias', authState.nip05);
+        setAlias(authState.pubkey, authState.nip05);
+    }
 
     updateAuthUI();
 }

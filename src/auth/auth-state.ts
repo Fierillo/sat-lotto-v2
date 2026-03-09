@@ -4,7 +4,7 @@ export const authState = {
     nwcUrl: localStorage.getItem('satlotto_nwc'),
     bunkerTarget: localStorage.getItem('satlotto_bunker'),
     localPrivkey: localStorage.getItem('satlotto_local_privkey'),
-    nip05: null as string | null
+    nip05: localStorage.getItem('satlotto_alias')
 };
 
 export const logRemote = (data: any) => {
