@@ -9,6 +9,7 @@ export function createClock(): HTMLElement {
     clockContainer.innerHTML = `
         <div id="outerRing" class="ring"></div>
         <div id="innerCircle" class="inner-ring-container"></div>
+        <div id="frozenHelp" class="help-icon">?</div>
         <div id="paymentStep">
             <button id="centerBtn" class="pay-btn"></button>
         </div>
@@ -16,6 +17,13 @@ export function createClock(): HTMLElement {
 
     const outerRingElement = clockContainer.querySelector('#outerRing') as HTMLElement;
     const innerCircleContainer = clockContainer.querySelector('#innerCircle') as HTMLElement;
+    const frozenHelpElement = clockContainer.querySelector('#frozenHelp') as HTMLElement;
+
+    frozenHelpElement.onclick = (e) => {
+        showFrozenHelpModal();
+        e.stopPropagation();
+    };
+
     updateClockRings(outerRingElement, innerCircleContainer);
 
     return clockContainer;
@@ -59,6 +67,21 @@ export function updateClockRings(outer?: HTMLElement, inner?: HTMLElement): void
         if (targetBlockNumber === state.currentBlock) blockMarkerElement.classList.add('current');
     }
 
+    const frozenHelpElement = document.getElementById('frozenHelp');
+    if (frozenHelpElement) {
+        // Positioned exactly between the two blue blocks (indices 19 and 20)
+        // Adjusting to 20.5 to fix the visual shift seen in browser
+        const frozenHelpAngle = (20.5 * 360 / BLOCKS) - 90 - 20;
+        const frozenHelpRadian = frozenHelpAngle * Math.PI / 180;
+        const frozenHelpRadius = markerRadius + 24;
+        const fx = Math.cos(frozenHelpRadian) * frozenHelpRadius;
+        const fy = Math.sin(frozenHelpRadian) * frozenHelpRadius;
+        frozenHelpElement.style.transform = `translate(-50%, -50%) translate(${fx}px, ${fy}px)`;
+        
+        // Hide if logged out (extra safety)
+        frozenHelpElement.style.display = document.body.classList.contains('logged-out') ? 'none' : 'flex';
+    }
+
     if (innerCircleContainer.children.length === 0) {
         for (let numberIndex = 0; numberIndex < BLOCKS; numberIndex++) {
             const segmentRotationDegree = (numberIndex * 360 / BLOCKS);
@@ -85,18 +108,9 @@ export function updateCenterButton(): void {
 
     if (isFrozen && authState.pubkey) {
         paymentStepContainer.style.display = 'block';
-        centerActionButton.innerHTML = `
-            <span style="font-size:0.75rem">NO PODÉS<br>APOSTAR</span>
-            <div id="frozenHelp" class="help-icon" style="margin-top: 8px; margin-left: 0;">?</div>
-        `;
+        centerActionButton.innerHTML = `<span>NO PODÉS<br>APOSTAR</span>`;
         centerActionButton.classList.add('frozen');
-        centerActionButton.onclick = (e) => {
-            const target = e.target as HTMLElement;
-            if (target.id === 'frozenHelp') {
-                showFrozenHelpModal();
-                e.stopPropagation();
-            }
-        };
+        centerActionButton.onclick = null;
     } else if (!authState.pubkey) {
         paymentStepContainer.style.display = 'block';
         centerActionButton.textContent = 'JUGAR';
