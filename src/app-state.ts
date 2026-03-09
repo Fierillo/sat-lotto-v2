@@ -10,5 +10,7 @@ export const state = {
     
     // UI tracking to avoid double work
     lastRenderedBlock: 0,
-    lastResolvedResultBlock: 0
+    lastResolvedResultBlock: 0,
+    lastBetsJson: '',
+    lastPoolBalance: -1
 };
