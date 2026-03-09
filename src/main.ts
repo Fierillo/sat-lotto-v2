@@ -68,8 +68,15 @@ async function init(): Promise<void> {
     (window as any).handleBunkerLogin = handleBunkerLogin;
     (window as any).initNostrConnect = initNostrConnect;
 
-    const app = document.createElement('div');
-    app.id = 'app';
+    let app = document.getElementById('app');
+    if (app) {
+        app.innerHTML = '';
+    } else {
+        app = document.createElement('div');
+        app.id = 'app';
+        document.body.prepend(app);
+    }
+
     app.appendChild(createUserProfile(authState.nip05 || ''));
     
     const handlers = {
@@ -95,7 +102,6 @@ async function init(): Promise<void> {
     drawDashboardElements(game);
     app.appendChild(game);
 
-    document.body.prepend(app);
     updateAuthUI();
     await updateUI();
     setInterval(async () => { await syncBlocks(); await updateUI(); }, 21000);
