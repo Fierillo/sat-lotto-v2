@@ -65,7 +65,11 @@ async function syncData() {
 
     // Sync Pool Balance (Single source of truth, avoids open DDoS vector)
     try {
-        cachedBlock.poolBalance = await getPoolBalance();
+        const bal = await getPoolBalance();
+        if (bal !== cachedBlock.poolBalance) {
+            console.log(`[Sync] Pool balance updated: ${bal} sats`);
+            cachedBlock.poolBalance = bal;
+        }
     } catch (e) {
         console.error('[Sync] Pool balance fetch failed');
     }

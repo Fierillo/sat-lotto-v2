@@ -104,6 +104,7 @@ async function init(): Promise<void> {
     app.appendChild(game);
 
     updateAuthUI();
+    await syncBlocks(); // Fetch block and balance BEFORE first UI update
     await updateUI();
     setInterval(async () => { await syncBlocks(); await updateUI(); }, 21000);
 }
