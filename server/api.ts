@@ -25,13 +25,25 @@ export const handleBet = async (req: any, res: any, cachedBlock: any) => {
         }
 
         const nwcUrl = process.env.NWC_URL;
-        if (!nwcUrl) return res.status(500).json({ error: 'Server missing NWC' });
+        if (!nwcUrl) return res.status(500).json({ error: 'Server NWC_URL not configured in .env' });
 
-        const invoice: any = await createNwcInvoice(nwcUrl, 21, `SatLotto Block ${finalBloque} - Num ${finalNumero}`);
-        const pr = invoice?.payment_request || invoice?.paymentRequest;
-        const hash = invoice?.payment_hash || invoice?.paymentHash;
+        let invoice: any;
+        try {
+            console.log(`[NWC] Creating invoice for 21 sats... Block: ${finalBloque}, Num: ${finalNumero}`);
+            invoice = await createNwcInvoice(nwcUrl, 21, `SatLotto Block ${finalBloque} - Num ${finalNumero}`);
+            console.log('[NWC] Response received:', JSON.stringify(invoice));
+        } catch (e: any) {
+            console.error('[NWC] makeInvoice failed:', e);
+            return res.status(500).json({ error: `NWC error: ${e.message || 'unknown'}. Make sure your NWC connection has make_invoice permission.` });
+        }
 
-        if (!pr) return res.status(500).json({ error: 'Could not generate invoice' });
+        const pr = (invoice as any).invoice || (invoice as any).payment_request || (invoice as any).paymentRequest;
+        const hash = (invoice as any).payment_hash || (invoice as any).paymentHash;
+
+        if (!pr) {
+            console.error('[NWC] Empty invoice returned from NWC (no BOLT11 found in fields invoice/payment_request):', invoice);
+            return res.status(500).json({ error: 'NWC returned an empty invoice (no BOLT11)' });
+        }
 
         await queryNeon(`
             INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, payment_hash, is_paid, betting_block, alias)
@@ -48,6 +60,7 @@ export const handleBet = async (req: any, res: any, cachedBlock: any) => {
 
         return res.json({ paymentRequest: pr, paymentHash: hash });
     } catch (err: any) {
+        console.error('[handleBet] Internal Error:', err);
         return res.status(500).json({ error: err.message });
     }
 };
@@ -85,7 +98,7 @@ export const handleConfirm = async (req: any, res: any) => {
     const nwcUrl = process.env.NWC_URL;
     if (!nwcUrl || !paymentHash) return res.status(400).json({ error: 'Missing data' });
     const tx = await lookupNwcInvoice(nwcUrl, paymentHash);
-    if (tx && ((tx as any).settled || tx.preimage)) {
+    if (tx && ((tx as any).settled || (tx as any).preimage)) {
         await queryNeon('UPDATE lotto_bets SET is_paid = TRUE WHERE payment_hash = $1', [paymentHash]);
         return res.json({ confirmed: true });
     }
@@ -99,6 +112,9 @@ export const handlePool = async (_req: any, res: any) => {
     try {
         const balanceData = await client.getBalance();
         res.json({ balance: Math.floor(balanceData.balance / 1000) });
+    } catch (e: any) {
+        console.error('[handlePool] Error:', e.message);
+        res.json({ balance: 0 });
     } finally {
         client.close();
     }
