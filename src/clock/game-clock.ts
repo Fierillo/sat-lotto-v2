@@ -8,8 +8,20 @@ const markerRadius = 230;
 export function createClock(): HTMLElement {
     const el = document.createElement('div');
     el.id = 'clock';
-    el.innerHTML = `<div id="outerRing" class="ring"></div><div id="innerCircle" class="inner-ring-container"></div><div id="frozenHelp" class="help-icon">?</div><div id="paymentStep"><button id="centerBtn" class="pay-btn"></button></div>`;
+    el.innerHTML = `<div id="outerRing" class="ring"></div><div id="innerCircle" class="inner-ring-container"></div><div id="frozenHelp" class="help-icon">?</div><div id="paymentStep"><button id="centerBtn" class="pay-btn"></button><button id="testFlashBtn" style="position:absolute;bottom:-45px;left:50%;transform:translateX(-50%);font-size:0.65rem;padding:2px 8px;background:rgba(0,255,157,0.1);border:1px solid #00ff9d;color:#00ff9d;border-radius:4px;opacity:0.6;">TEST FLASH</button></div>`;
     el.querySelector('#frozenHelp')!.addEventListener('click', (e) => { showFrozenHelpModal(); e.stopPropagation(); });
+    
+    // Test button for flash-green animation
+    const testBtn = el.querySelector('#testFlashBtn') as HTMLButtonElement;
+    if (testBtn) {
+        testBtn.addEventListener('click', () => {
+            document.body.classList.add('flash-green');
+            setTimeout(() => {
+                document.body.classList.remove('flash-green');
+            }, 5000);
+        });
+    }
+    
     updateClockRings(el.querySelector('#outerRing') as HTMLElement, el.querySelector('#innerCircle') as HTMLElement);
     return el;
 }
