@@ -69,7 +69,7 @@ body:not(.logged-out) .block-marker:not(.target):not(.current) {
     display: flex;
     justify-content: center;
     padding-top: 15px;
-    color: #888;
+    color: #8888885c;
     font-size: 1.1rem;
     font-weight: bold;
     transition: all 0.3s ease;
