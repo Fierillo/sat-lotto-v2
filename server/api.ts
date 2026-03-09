@@ -66,6 +66,17 @@ export const handleBet = async (req: any, res: any, cachedBlock: any) => {
         }
 
         // 4. Rate Limit (DDoS Protection) - basic per-pubkey unpaid limit
+        const existingBet = await queryNeon('SELECT is_paid, selected_number FROM lotto_bets WHERE pubkey = $1 AND target_block = $2', [finalPubkey, finalBloque]);
+        
+        if (existingBet[0]?.is_paid) {
+            // If the number is the same, just return the existing success (idempotency)
+            if (existingBet[0].selected_number === finalNumero) {
+                return res.json({ message: 'You already have a paid bet for this number. Good luck!' });
+            }
+            // If the number is different, we allow a new bet (modal in frontend handles payment warning)
+            // But we MUST NOT reset is_paid to false in the INSERT below if we don't handle it carefully.
+        }
+
         const unpaidCount = await queryNeon('SELECT count(*) FROM lotto_bets WHERE pubkey = $1 AND is_paid = FALSE', [finalPubkey]);
         if (parseInt(unpaidCount[0].count) > 5) {
             return res.status(429).json({ error: 'Too many unpaid invoices. Pay your bets before requesting more.' });
@@ -78,7 +89,11 @@ export const handleBet = async (req: any, res: any, cachedBlock: any) => {
         try {
             console.log(`[NWC] Creating invoice for 21 sats... Block: ${finalBloque}, Num: ${finalNumero}`);
             invoice = await createNwcInvoice(nwcUrl, 21, `SatLotto Block ${finalBloque} - Num ${finalNumero}`);
-            console.log('[NWC] Response received:', JSON.stringify(invoice));
+            // Sanitize log: only show safe fields for debugging
+            console.log('[NWC] Response received:', JSON.stringify({
+                payment_request: invoice.payment_request || invoice.paymentRequest,
+                payment_hash: invoice.payment_hash || invoice.paymentHash
+            }));
         } catch (e: any) {
             console.error('[NWC] makeInvoice failed:', e);
             return res.status(500).json({ error: `NWC error: ${e.message || 'unknown'}. Make sure your NWC connection has make_invoice permission.` });
@@ -96,10 +111,13 @@ export const handleBet = async (req: any, res: any, cachedBlock: any) => {
             INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, payment_hash, is_paid, betting_block, alias, nostr_event_id)
             VALUES ($1, $2, $3, $4, $5, FALSE, $6, $7, $8)
             ON CONFLICT (pubkey, target_block) DO UPDATE SET 
+                is_paid = CASE 
+                    WHEN lotto_bets.selected_number = EXCLUDED.selected_number THEN lotto_bets.is_paid 
+                    ELSE FALSE 
+                END,
                 selected_number = EXCLUDED.selected_number, 
                 payment_request = EXCLUDED.payment_request,
                 payment_hash = EXCLUDED.payment_hash,
-                is_paid = FALSE,
                 betting_block = EXCLUDED.betting_block,
                 alias = EXCLUDED.alias,
                 nostr_event_id = EXCLUDED.nostr_event_id,
@@ -168,6 +186,7 @@ export const handleConfirm = async (req: any, res: any) => {
 export const getPoolBalance = async (): Promise<number> => {
     const nwcUrl = process.env.NWC_URL;
     if (!nwcUrl) return 0;
+
     const client = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
     try {
         const balanceData = await client.getBalance();
@@ -176,9 +195,7 @@ export const getPoolBalance = async (): Promise<number> => {
         console.error('[getPoolBalance] Error:', e.message);
         return 0;
     } finally {
-        try {
-            client.close();
-        } catch {}
+        try { client.close(); } catch {}
     }
 };
 
