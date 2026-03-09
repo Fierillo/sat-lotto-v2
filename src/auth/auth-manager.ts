@@ -1,7 +1,7 @@
 import { NDKNip07Signer, NDKNip46Signer, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
-import ndk, { resolveName } from '../utils/nostr-service';
+import ndk, { resolveName, setAlias } from '../utils/nostr-service';
 import { fetchIdentity } from '../utils/game-api';
-import { authState, logRemote } from './auth-state';
+import { authState } from './auth-state';
 import { getOrCreateLocalSigner } from './auth-utils';
 import { setAuthError } from './login-handlers';
 
@@ -49,10 +49,13 @@ export async function finishLogin(): Promise<void> {
         }
     }
 
-    if (!authState.nip05) {
-        logRemote({ msg: 'Fetching identity...', pubkey: authState.pubkey });
-        authState.nip05 = await fetchIdentity(authState.pubkey) || (await ndk.getUser({ pubkey: authState.pubkey }).fetchProfile())?.nip05 || null;
-    }
+    // Resolve identity (Future-proof: this is our only update factor)
+    const apiAlias = await fetchIdentity(authState.pubkey);
+    const ndkAlias = (await ndk.getUser({ pubkey: authState.pubkey }).fetchProfile())?.nip05 || null;
+    
+    authState.nip05 = ndkAlias || apiAlias || null;
+    if (authState.nip05) setAlias(authState.pubkey, authState.nip05);
+
     updateAuthUI();
 }
 
