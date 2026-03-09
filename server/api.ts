@@ -39,6 +39,12 @@ export const handleBet = async (req: any, res: any, cachedBlock: any) => {
             return res.status(403).json({ error: 'Betting is closed for this block (Fase Frozen)' });
         }
 
+        // 4. Rate Limit (DDoS Protection) - basic per-pubkey unpaid limit
+        const unpaidCount = await queryNeon('SELECT count(*) FROM lotto_bets WHERE pubkey = $1 AND is_paid = FALSE', [finalPubkey]);
+        if (parseInt(unpaidCount[0].count) > 5) {
+            return res.status(429).json({ error: 'Too many unpaid invoices. Pay your bets before requesting more.' });
+        }
+
         const nwcUrl = process.env.NWC_URL;
         if (!nwcUrl) return res.status(500).json({ error: 'Server NWC_URL not configured in .env' });
 
