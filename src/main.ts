@@ -130,21 +130,6 @@ async function initializeApplication(): Promise<void> {
 
     await updateUI();
 
-    // Toggle Frozen Mode for Testing
-    const testBtn = document.createElement('button');
-    testBtn.textContent = 'Toggle Test Frozen';
-    testBtn.style.cssText = 'position:fixed; bottom:20px; right:20px; z-index:9999; padding:10px 15px; background:rgba(0,0,0,0.8); border:1px solid #00f2ff; color:#00f2ff; border-radius:5px; cursor:pointer; font-size:12px;';
-    testBtn.onclick = () => {
-        const isFrozen = document.body.classList.contains('phase-frozen');
-        if (isFrozen) {
-            state.currentBlock = state.targetBlock - 5;
-        } else {
-            state.currentBlock = state.targetBlock - 1;
-        }
-        updateUI();
-    };
-    document.body.appendChild(testBtn);
-
     setInterval(async () => {
         await fetchLatestBlockData();
         await updateUI();
