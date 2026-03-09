@@ -39,12 +39,38 @@ body.phase-frozen #clock {
 body:not(.logged-out) .block-marker:not(.target):not(.current):not(.neon-blue) {
     color: #ffffffc8;
     text-shadow: 0 0 5px rgba(255, 255, 255, 0.3);
+    animation: neonTurnOn 0.6s ease-out forwards;
+}
+
+@keyframes neonTurnOn {
+    0% { opacity: 0; text-shadow: none; }
+    5% { opacity: 1; text-shadow: 0 0 10px #fff; }
+    10% { opacity: 0; text-shadow: none; }
+    15% { opacity: 1; text-shadow: 0 0 15px #fff; }
+    20% { opacity: 0; text-shadow: none; }
+    30% { opacity: 1; text-shadow: 0 0 10px #fff; }
+    35% { opacity: 0.4; text-shadow: none; }
+    40% { opacity: 1; text-shadow: 0 0 8px rgba(255, 255, 255, 0.5); }
+    100% { opacity: 1; text-shadow: 0 0 5px rgba(255, 255, 255, 0.3); }
 }
 
 .block-marker.target {
     color: var(--neon-orange);
     text-shadow: 0 0 10px var(--neon-orange);
     font-size: 1rem;
+}
+
+body:not(.logged-out) .block-marker.target {
+    animation: neonTurnOnOrange 0.8s ease-out forwards;
+}
+
+@keyframes neonTurnOnOrange {
+    0% { opacity: 0; text-shadow: none; }
+    10% { opacity: 1; text-shadow: 0 0 20px var(--neon-orange); }
+    15% { opacity: 0; text-shadow: none; }
+    25% { opacity: 1; text-shadow: 0 0 15px var(--neon-orange); }
+    30% { opacity: 0.2; text-shadow: none; }
+    100% { opacity: 1; text-shadow: 0 0 10px var(--neon-orange); }
 }
 
 .block-marker.current {
@@ -93,13 +119,13 @@ body.phase-frozen .number-segment:not(.selected) {
 }
 
 body.logged-out .number-segment {
-    opacity: 0.3;
+    opacity: 0.2;
     pointer-events: none;
 }
 
 body.logged-out .block-marker:not(.target):not(.current) {
-    opacity: 0.15;
-    color: #555 !important;
+    opacity: 0.08;
+    color: #333 !important;
     text-shadow: none !important;
 }
 
@@ -211,6 +237,16 @@ body:not(.logged-out) .block-marker.neon-blue {
     font-size: 1rem;
     font-weight: 800;
     z-index: 100;
+    animation: neonTurnOnBlue 0.7s ease-out forwards;
+}
+
+@keyframes neonTurnOnBlue {
+    0% { opacity: 0; text-shadow: none; }
+    12% { opacity: 1; text-shadow: 0 0 20px var(--neon-blue); }
+    18% { opacity: 0; text-shadow: none; }
+    28% { opacity: 1; text-shadow: 0 0 15px var(--neon-blue); }
+    35% { opacity: 0.3; text-shadow: none; }
+    100% { opacity: 1; text-shadow: 0 0 12px rgba(0, 242, 255, 0.6); }
 }
 
 body.phase-frozen .block-marker.current {
@@ -253,6 +289,12 @@ body.phase-frozen .block-marker.current {
     position: absolute;
     top: 50%;
     left: 50%;
+    /* Positioned between block 19 and 20, adjusted CW */
+    /* Angle = 239.28 + 2 = 241.28 deg */
+    /* Rad = 241.28 * PI / 180 = 4.211 */
+    /* Radius = 255px */
+    /* x = cos(4.211) * 255 = -123px, y = sin(4.211) * 255 = -223px */
+    transform: translate(-50%, -50%) translate(-123px, -223px);
     z-index: 200;
     margin: 0;
 }

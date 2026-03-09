@@ -6,8 +6,8 @@
     --neon-purple: #b026ff;
     --bg-top: #151828;
     --bg-bottom: #080b12;
-    --bg-dim-top: #0c0e17;
-    --bg-dim-bottom: #030408;
+    --bg-dim-top: #080a12;
+    --bg-dim-bottom: #010103;
     --bg-flash-top: #001a0f;
     --bg-flash-bottom: #000;
     --text-dim: rgba(255, 255, 255, 0.5);
@@ -53,6 +53,14 @@ body {
 
 body.logged-out {
     background: radial-gradient(circle at top, var(--bg-dim-top) 0%, var(--bg-dim-bottom) 100%);
+}
+
+body.logged-out .pool-panel,
+body.logged-out .result-panel,
+body.logged-out .bets-panel,
+body.logged-out .header h1,
+body.logged-out .header .subtitle {
+    opacity: 0.35;
 }
 
 .header {
