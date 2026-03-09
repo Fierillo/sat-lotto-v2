@@ -18,6 +18,10 @@
         "noUnusedLocals": true,
         "noUnusedParameters": true,
         "noImplicitReturns": true,
+        "baseUrl": ".",
+        "paths": {
+            "@/*": ["src/*"]
+        },
         "types": [
             "vite/client",
             "node"
@@ -25,9 +29,7 @@
         "esModuleInterop": true
     },
     "include": [
-        "src",
-        "server.ts",
-        "api",
-        "tests"
+        "src/**/*",
+        "server/**/*.ts"
     ]
 }

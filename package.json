@@ -4,7 +4,7 @@
   "description": "Lottery game that works with NWC and LN",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "tsx server/server.ts",
     "build": "vite build",
     "preview": "vite preview",
     "example:invoice": "node src/examples/create-invoice.js",
