@@ -1,4 +1,4 @@
-import { NDKNip07Signer, NDKNip46Signer, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
+import NDK, { NDKNip07Signer, NDKNip46Signer, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 import { getNwcInfo } from '../utils/nwc-connect';
 import ndk, { resolveName } from '../utils/nostr-service';
 import { fetchIdentity } from '../utils/game-api';
@@ -7,21 +7,33 @@ import { authState, logRemote } from './auth-state';
 
 function getOrCreateLocalSigner(): NDKPrivateKeySigner {
     let hex = localStorage.getItem('satlotto_local_privkey');
-    
     if (!hex || hex.length !== 64 || hex.includes('[') || hex.includes('undefined')) {
         const bytes = crypto.getRandomValues(new Uint8Array(32));
         hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
         localStorage.setItem('satlotto_local_privkey', hex);
     }
 
-    try {
-        return new NDKPrivateKeySigner(hex);
-    } catch (e) {
-        const bytes = crypto.getRandomValues(new Uint8Array(32));
-        const newHex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-        localStorage.setItem('satlotto_local_privkey', newHex);
-        return new NDKPrivateKeySigner(newHex);
-    }
+    const signer = new NDKPrivateKeySigner(hex);
+    const originalDecrypt = signer.decrypt.bind(signer);
+    
+    signer.decrypt = async (user, content) => {
+        try {
+            return await originalDecrypt(user, content);
+        } catch (e) {
+            const { nip04, nip44 } = await import('nostr-tools');
+            const privKeyBytes = (typeof hex === 'string') 
+                ? new Uint8Array(hex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)))
+                : hex;
+            
+            if (content.includes('?iv=')) {
+                return await nip04.decrypt(privKeyBytes as Uint8Array, user.pubkey, content);
+            } else {
+                const conversationKey = nip44.v2.utils.getConversationKey(privKeyBytes as Uint8Array, user.pubkey);
+                return nip44.v2.decrypt(content, conversationKey);
+            }
+        }
+    };
+    return signer;
 }
 
 export function logout(): void {
@@ -196,15 +208,17 @@ async function initNostrConnect(): Promise<void> {
         const localUser = await localSigner.user();
         const pubkey = localUser.pubkey;
 
-        const bunkerSigner = new NDKNip46Signer(ndk, "", localSigner);
-        
-        const relay = 'wss://relay.nsec.app';
+        const bunkerRelays = ['wss://relay.nsec.app', 'wss://relay.damus.io', 'wss://relay.primal.net', 'wss://nos.lol'];
         const secret = Math.random().toString(36).substring(7);
-        const metadata = { 
-            name: 'SatLotto',
-            url: window.location.origin
-        };
-        const connectUri = `nostrconnect://${pubkey}?relay=${encodeURIComponent(relay)}&metadata=${encodeURIComponent(JSON.stringify(metadata))}&secret=${secret}`;
+        const name = 'SatLotto';
+        const url = window.location.origin;
+        
+        const bunkerSigner = new NDKNip46Signer(ndk, "", localSigner);
+        (bunkerSigner as any).token = secret;
+
+        let connectUri = `nostrconnect://${pubkey}?`;
+        bunkerRelays.forEach(r => connectUri += `relay=${encodeURIComponent(r)}&`);
+        connectUri += `secret=${secret}&name=${encodeURIComponent(name)}&url=${encodeURIComponent(url)}`;
         
         if (uriInput) {
             uriInput.dataset.full = connectUri;
@@ -212,22 +226,37 @@ async function initNostrConnect(): Promise<void> {
         }
         qrContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(connectUri)}" alt="QR Nostr Connect" />`;
 
-        logRemote({ msg: 'Nostr Connect QR listo (v3)', pubkey, secret });
-        
-        bunkerSigner.on('authUrl', (url: string) => {
-            logRemote({ msg: 'Amber requiere autorización extra', url });
-            window.open(url, '_blank', 'width=400,height=600');
+        logRemote({ msg: 'Esperando conexión desde Amber...', relays: bunkerRelays });
+
+        // Handshake Manual (Estrategia Primal)
+        const handshakePromise = new Promise<string>((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Timeout (60s)')), 60000);
+            ndk.subscribe({
+                kinds: [24133 as any],
+                "#p": [pubkey]
+            }, { closeOnEose: false }).on('event', async (ev) => {
+                try {
+                    const decrypted = await localSigner.decrypt(ndk.getUser({ pubkey: ev.pubkey }), ev.content);
+                    const data = JSON.parse(decrypted);
+                    if (data.result === secret) {
+                        clearTimeout(timeout);
+                        resolve(ev.pubkey);
+                    }
+                } catch (e) {}
+            });
         });
 
-        await bunkerSigner.blockUntilReady();
-        
-        const bunkerUser = await bunkerSigner.user();
-        logRemote({ msg: 'Vínculo Amber OK!', pubkey: bunkerUser.pubkey });
+        const confirmedPubkey = await handshakePromise;
+        (bunkerSigner as any).remotePubkey = confirmedPubkey;
+        (bunkerSigner as any).ndk = ndk;
+        ndk.signer = bunkerSigner;
 
-        authState.pubkey = bunkerUser.pubkey;
+        authState.pubkey = confirmedPubkey;
         authState.signer = bunkerSigner;
-        authState.bunkerTarget = bunkerUser.pubkey; 
+        authState.bunkerTarget = confirmedPubkey; 
+        
         await finishLogin();
+        updateAuthUI();
     } catch (e: any) {
         logRemote({ msg: 'Fallo fatal en Nostr Connect', err: e.message });
         if (qrContainer) qrContainer.innerHTML = `<div class="qr-placeholder text-error">Error: ${e.message}</div>`;
@@ -281,33 +310,42 @@ async function handleBunkerLogin(): Promise<void> {
     }
 }
 
+let isFinishingLogin = false;
 export async function finishLogin(): Promise<void> {
-    if (!authState.pubkey) return;
+    if (!authState.pubkey || isFinishingLogin) return;
+    isFinishingLogin = true;
 
-    localStorage.setItem('satlotto_pubkey', authState.pubkey);
-    if (authState.nwcUrl) localStorage.setItem('satlotto_nwc', authState.nwcUrl);
-    if (authState.bunkerTarget) localStorage.setItem('satlotto_bunker', authState.bunkerTarget);
+    try {
+        localStorage.setItem('satlotto_pubkey', authState.pubkey);
+        if (authState.nwcUrl) localStorage.setItem('satlotto_nwc', authState.nwcUrl);
+        if (authState.bunkerTarget) localStorage.setItem('satlotto_bunker', authState.bunkerTarget);
 
-    const withTimeout = (promise: Promise<any>, ms: number, msg: string) => 
-        Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(msg)), ms))]);
+        const withTimeout = (promise: Promise<any>, ms: number, msg: string) => 
+            Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(msg)), ms))]);
 
-    if (!authState.signer && authState.bunkerTarget) {
-        try {
-            logRemote({ msg: 'Restaurando sesión Bunker', target: authState.bunkerTarget });
-            const localSigner = getOrCreateLocalSigner();
-            const bunkerSigner = new NDKNip46Signer(ndk, authState.bunkerTarget, localSigner);
-            
-            bunkerSigner.on('authUrl', (url: string) => {
-                logRemote({ msg: 'Autorización requerida en restauración', url });
-                window.open(url, '_blank', 'width=400,height=600');
-            });
+        if (!authState.signer && authState.bunkerTarget) {
+            try {
+                const localSigner = getOrCreateLocalSigner();
+                const bunkerSigner = new NDKNip46Signer(ndk, authState.bunkerTarget, localSigner);
+                
+                // Si es solo una pubkey, forzamos el seteo para NDK
+                if (authState.bunkerTarget.length === 64 && !authState.bunkerTarget.includes(':')) {
+                    (bunkerSigner as any).remotePubkey = authState.bunkerTarget;
+                }
 
-            await withTimeout(bunkerSigner.blockUntilReady(), 15000, 'Bunker re-init timeout');
-            authState.signer = bunkerSigner;
-        } catch (e) {
-            logRemote({ msg: 'Bunker re-init failed', error: (e as any).message });
-        }
-    } else if (!authState.signer && authState.nwcUrl) {
+                bunkerSigner.on('authUrl', (url: string) => {
+                    logRemote({ msg: 'Autorización requerida en restauración', url });
+                    window.open(url, '_blank', 'width=400,height=600');
+                });
+
+                // No bloqueamos por blockUntilReady en restauración para evitar el hang de Amber
+                (bunkerSigner as any).ndk = ndk;
+                authState.signer = bunkerSigner;
+                logRemote({ msg: 'Sesión Bunker restaurada' });
+            } catch (e) {
+                logRemote({ msg: 'Bunker re-init failed', error: (e as any).message });
+            }
+        } else if (!authState.signer && authState.nwcUrl) {
         try {
             const nwcUrlObject = new URL(authState.nwcUrl.replace('nostr+walletconnect:', 'http:'));
             const secretKeyHex = nwcUrlObject.searchParams.get('secret');
@@ -337,7 +375,10 @@ export async function finishLogin(): Promise<void> {
         }
     }
 
-    updateAuthUI();
+    } finally {
+        isFinishingLogin = false;
+        updateAuthUI();
+    }
 }
 
 function handleAutoLogin(): void {
