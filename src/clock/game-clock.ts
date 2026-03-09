@@ -20,7 +20,10 @@ export function updateClockRings(outer?: HTMLElement, inner?: HTMLElement): void
     const container = inner || document.getElementById('innerCircle');
     if (!ring || !container) return;
 
+    // Redundancy Check: If we already rendered this height, don't touch the markers
     const isFirst = ring.children.length === 0;
+    if (!isFirst && state.lastRenderedBlock === state.currentBlock) return;
+
     for (let i = 0; i < BLOCKS; i++) {
         const val = i === 0 ? state.targetBlock : state.targetBlock - BLOCKS + i;
         let marker: HTMLElement;
