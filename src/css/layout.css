@@ -53,8 +53,8 @@
     #clock {
         order: 1;
         grid-column: auto;
-        transform: scale(0.66);
-        margin: -80px 0 -40px 0;
+        transform: scale(0.62);
+        margin: -65px 20px -30px 20px;
         flex-shrink: 0;
     }
 
