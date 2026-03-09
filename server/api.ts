@@ -25,6 +25,12 @@ export const handleBet = async (req: any, res: any, cachedBlock: any) => {
         const finalBloque = parseInt(betContent.bloque);
         const finalNumero = parseInt(betContent.numero);
         const finalAlias = betContent.alias;
+
+        // 2. Validate Number Range (Anti-Invalid Numbers)
+        if (isNaN(finalNumero) || finalNumero < 1 || finalNumero > 21) {
+            return res.status(400).json({ error: 'Invalid number. Must be between 1 and 21.' });
+        }
+
         const eventId = event.id;
         const createdAt = event.created_at;
 
@@ -159,18 +165,20 @@ export const handleConfirm = async (req: any, res: any) => {
     res.status(400).json({ error: 'Not settled' });
 };
 
-export const handlePool = async (_req: any, res: any) => {
+export const getPoolBalance = async (): Promise<number> => {
     const nwcUrl = process.env.NWC_URL;
-    if (!nwcUrl) return res.json({ balance: 0 });
+    if (!nwcUrl) return 0;
     const client = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
     try {
         const balanceData = await client.getBalance();
-        res.json({ balance: Math.floor(balanceData.balance / 1000) });
+        return Math.floor(balanceData.balance / 1000);
     } catch (e: any) {
-        console.error('[handlePool] Error:', e.message);
-        res.json({ balance: 0 });
+        console.error('[getPoolBalance] Error:', e.message);
+        return 0;
     } finally {
-        client.close();
+        try {
+            client.close();
+        } catch {}
     }
 };
 

@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
-import { handleBet, handleGetBets, handleGetResult, handleConfirm, handlePool, handleVerifyIdentity } from './api.ts';
+import { handleBet, handleGetBets, handleGetResult, handleConfirm, handleVerifyIdentity, getPoolBalance } from './api.ts';
 import { queryNeon } from './db.ts';
 
 // Console overrides to reduce noise
@@ -48,9 +48,10 @@ setInterval(() => {
     for (const key in identityRateLimit) delete identityRateLimit[key];
 }, 3600000);
 
-let cachedBlock = { height: 890000, target: 890021 };
+let cachedBlock = { height: 890000, target: 890021, poolBalance: 0 };
 
-async function syncBlockHeight() {
+async function syncData() {
+    // Sync Block Height
     try {
         const resp = await fetch('https://mempool.space/api/blocks/tip/height');
         const height = parseInt(await resp.text(), 10);
@@ -58,11 +59,20 @@ async function syncBlockHeight() {
             cachedBlock.height = height;
             cachedBlock.target = (Math.floor(height / 21) + 1) * 21;
         }
-    } catch {}
+    } catch (e) {
+        console.error('[Sync] Block height fetch failed');
+    }
+
+    // Sync Pool Balance (Single source of truth, avoids open DDoS vector)
+    try {
+        cachedBlock.poolBalance = await getPoolBalance();
+    } catch (e) {
+        console.error('[Sync] Pool balance fetch failed');
+    }
 }
 
-setInterval(syncBlockHeight, 21000);
-syncBlockHeight();
+setInterval(syncData, 21000);
+syncData();
 
 // API Routes
 app.get('/api/blocks/tip', (_req, res) => res.json(cachedBlock));
@@ -70,7 +80,6 @@ app.post('/api/bet', (req, res) => handleBet(req, res, cachedBlock));
 app.get('/api/bets', handleGetBets);
 app.get('/api/result', handleGetResult);
 app.post('/api/confirm', handleConfirm);
-app.get('/api/pool', handlePool);
 app.post('/api/identity/verify', (req, res) => {
     const ip = req.ip || 'unknown';
     identityRateLimit[ip] = (identityRateLimit[ip] || 0) + 1;
