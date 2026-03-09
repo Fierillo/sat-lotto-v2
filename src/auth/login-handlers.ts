@@ -1,5 +1,5 @@
 import { NDKNip07Signer, NDKNip46Signer, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
-import ndk from '../utils/nostr-service';
+import ndk, { setAlias } from '../utils/nostr-service';
 import { getNwcInfo } from '../utils/nwc-connect';
 import { authState, logRemote } from './auth-state';
 import { getOrCreateLocalSigner } from './auth-utils';
@@ -54,6 +54,10 @@ export async function handleNwcLogin(): Promise<void> {
         }
 
         authState.nip05 = info.alias || null;
+        if (authState.pubkey && authState.nip05) {
+            setAlias(authState.pubkey, authState.nip05);
+        }
+        
         authState.nwcUrl = url;
         await finishLogin();
     } catch (e: any) {
