@@ -7,6 +7,7 @@ export const state = {
     targetBlock: savedBlock.target || (890000 + BLOCKS),
     lastResultBlock: savedBlock.lastResult || 890000,
     selectedNumber: null as number | null,
+    poolBalance: 0,
     
     // UI tracking to avoid double work
     lastRenderedBlock: 0,

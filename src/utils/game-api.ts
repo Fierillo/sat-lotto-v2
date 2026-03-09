@@ -49,5 +49,4 @@ export async function submitBet(targetBlock: number, selectedNumber: number): Pr
 export const confirmBet = (paymentHash: string) => apiClient.post('/api/confirm', { paymentHash });
 export const fetchBets = (block: number) => apiClient.get<{ bets: Bet[] }>(`/api/bets?block=${block}`).then(r => r.bets || []);
 export const fetchResult = (block: number) => apiClient.get<SorteoResult>(`/api/result?block=${block}`).catch(() => null);
-export const fetchPoolBalance = () => apiClient.get<{ balance: number }>('/api/pool').then(r => r.balance || 0).catch(() => 0);
 export const fetchIdentity = (pubkey: string) => apiClient.get<{ alias: string | null }>(`/api/identity/${pubkey}`).then(r => r.alias).catch(() => null);

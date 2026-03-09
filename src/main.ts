@@ -9,7 +9,7 @@ import { renderBetsTable } from './bets-table';
 import { renderResult } from './result-panel';
 import { createPool, updatePool } from './jackpot-panel';
 import { handleAutoLogin, handleNwcLogin, handleBunkerLogin, initNostrConnect } from './auth/login-handlers';
-import { fetchBets, fetchResult, fetchPoolBalance } from './utils/game-api';
+import { fetchBets, fetchResult } from './utils/game-api';
 import { injectDebugButtons } from '../tests/debug-ui';
 
 export async function updateUI(): Promise<void> {
@@ -22,7 +22,7 @@ export async function updateUI(): Promise<void> {
     if (info) info.innerHTML = `Bloque: <strong class="text-green">${state.currentBlock}</strong> • Sorteo: <strong class="text-orange">${state.targetBlock}</strong>`;
 
     const resBlock = Math.floor(state.currentBlock / 21) * 21;
-    const promises: Promise<any>[] = [fetchBets(state.targetBlock), fetchPoolBalance()];
+    const promises: Promise<any>[] = [fetchBets(state.targetBlock)];
     
     // Only fetch result if the cycle changed or we haven't processed this result yet
     const shouldFetchResult = state.lastResolvedResultBlock !== resBlock;
@@ -30,9 +30,9 @@ export async function updateUI(): Promise<void> {
         promises.push(fetchResult(resBlock));
     }
 
-    Promise.all(promises).then(([bets, bal, res]) => {
+    Promise.all(promises).then(([bets, res]) => {
         renderBetsTable(bets);
-        updatePool(bal);
+        updatePool(state.poolBalance);
         
         if (shouldFetchResult && res?.resolved) {
             renderResult(res, resBlock);
@@ -50,6 +50,7 @@ async function syncBlocks(): Promise<void> {
         if (data.height) {
             state.currentBlock = data.height;
             state.targetBlock = data.target;
+            state.poolBalance = data.poolBalance || 0;
             localStorage.setItem('satlotto_blocks', JSON.stringify(data));
         }
     } catch {}
