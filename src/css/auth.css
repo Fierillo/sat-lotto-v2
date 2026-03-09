@@ -128,6 +128,27 @@
     color: var(--neon-orange);
 }
 
+.nwc-guide {
+    text-align: left;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+}
+
+.nwc-guide p {
+    margin-bottom: 8px;
+    color: var(--neon-orange);
+}
+
+.nwc-guide ol {
+    margin-left: 18px;
+    line-height: 1.4;
+}
+
+.nwc-guide li {
+    margin-bottom: 5px;
+}
+
 .nwc-section {
     background: rgba(0, 0, 0, 0.2);
     padding: 15px;
