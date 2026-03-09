@@ -57,10 +57,26 @@ app.get('/api/pool', handlePool);
 
 app.get('/api/identity/:pubkey', async (req, res) => {
     try {
-        const rows = await queryNeon('SELECT alias FROM lotto_identities WHERE pubkey = $1', [req.params.pubkey]);
+        const rows = await queryNeon(`
+            SELECT alias FROM lotto_identities WHERE pubkey = $1 AND alias IS NOT NULL
+            UNION
+            SELECT alias FROM lotto_bets WHERE pubkey = $1 AND alias IS NOT NULL
+            LIMIT 1
+        `, [req.params.pubkey]);
         res.json({ alias: rows[0]?.alias || null });
     } catch {
         res.json({ alias: null });
+    }
+});
+
+app.post('/api/identity', async (req, res) => {
+    try {
+        const { pubkey, alias } = req.body;
+        if (!pubkey || !alias) return res.status(400).json({ error: 'Missing pubkey or alias' });
+        await queryNeon('INSERT INTO lotto_identities (pubkey, alias) VALUES ($1, $2) ON CONFLICT (pubkey) DO UPDATE SET alias = EXCLUDED.alias', [pubkey, alias]);
+        return res.json({ ok: true });
+    } catch (e: any) {
+        return res.status(500).json({ error: e.message });
     }
 });
 
@@ -69,6 +85,18 @@ app.get('/:hex', (req, res, next) => {
     const { hex } = req.params;
     if (/^[a-fA-F0-9]{60,}$/.test(hex)) return res.redirect(`/?pubkey=${hex}`);
     next();
+});
+
+import { appendFileSync } from 'fs';
+import { join } from 'path';
+
+// ... existing code ...
+
+app.post('/api/debug', (req, res) => {
+    const { msg, ...rest } = req.body;
+    const logMsg = `[${new Date().toISOString()}] ${msg} ${JSON.stringify(rest)}\n`;
+    appendFileSync(join(process.cwd(), 'tests/mobile_debug.log'), logMsg);
+    res.json({ ok: true });
 });
 
 createViteServer({ server: { middlewareMode: true }, appType: 'spa' }).then(async (vite) => {
