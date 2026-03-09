@@ -6,5 +6,9 @@ export const state = {
     currentBlock: savedBlock.height || 890000,
     targetBlock: savedBlock.target || (890000 + BLOCKS),
     lastResultBlock: savedBlock.lastResult || 890000,
-    selectedNumber: null as number | null
+    selectedNumber: null as number | null,
+    
+    // UI tracking to avoid double work
+    lastRenderedBlock: 0,
+    lastResolvedResultBlock: 0
 };

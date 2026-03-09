@@ -22,10 +22,24 @@ export async function updateUI(): Promise<void> {
     if (info) info.innerHTML = `Bloque: <strong class="text-green">${state.currentBlock}</strong> • Sorteo: <strong class="text-orange">${state.targetBlock}</strong>`;
 
     const resBlock = Math.floor(state.currentBlock / 21) * 21;
-    Promise.all([fetchBets(state.targetBlock), fetchPoolBalance(), fetchResult(resBlock)]).then(([bets, bal, res]) => {
+    const promises: Promise<any>[] = [fetchBets(state.targetBlock), fetchPoolBalance()];
+    
+    // Only fetch result if the cycle changed or we haven't processed this result yet
+    const shouldFetchResult = state.lastResolvedResultBlock !== resBlock;
+    if (shouldFetchResult) {
+        promises.push(fetchResult(resBlock));
+    }
+
+    Promise.all(promises).then(([bets, bal, res]) => {
         renderBetsTable(bets);
         updatePool(bal);
-        renderResult(res as any, resBlock);
+        
+        if (shouldFetchResult && res?.resolved) {
+            renderResult(res, resBlock);
+            state.lastResolvedResultBlock = resBlock;
+        }
+        
+        state.lastRenderedBlock = state.currentBlock;
     });
 }
 
