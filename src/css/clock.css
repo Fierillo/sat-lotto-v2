@@ -11,6 +11,13 @@
     display: flex;
     justify-content: center;
     align-items: center;
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body.phase-frozen #clock {
+    background: radial-gradient(circle at center, rgba(0, 242, 255, 0.08) 0%, rgba(10, 15, 30, 0.95) 100%);
+    border-color: rgba(0, 242, 255, 0.3);
+    box-shadow: 0 0 100px rgba(0, 242, 255, 0.1), inset 0 0 40px rgba(0, 242, 255, 0.05);
 }
 
 .ring {
@@ -54,6 +61,11 @@ body:not(.logged-out) .block-marker:not(.target):not(.current) {
     left: 50%;
     transform: translate(-50%, -50%);
     overflow: hidden;
+    transition: all 0.6s ease;
+}
+
+body.phase-frozen .inner-ring-container {
+    filter: saturate(0.5) brightness(1.1) contrast(0.9);
 }
 
 .number-segment {
@@ -74,6 +86,10 @@ body:not(.logged-out) .block-marker:not(.target):not(.current) {
     font-weight: bold;
     transition: all 0.3s ease;
     clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%);
+}
+
+body.phase-frozen .number-segment:not(.selected) {
+    opacity: 0.2;
 }
 
 body.logged-out .number-segment {
@@ -120,6 +136,7 @@ body.logged-out .block-marker:not(.target):not(.current) {
 }
 
 .pay-btn {
+    position: relative;
     background: #5d5f65;
     border: 1px solid #444;
     color: #aaa;
@@ -131,6 +148,7 @@ body.logged-out .block-marker:not(.target):not(.current) {
     cursor: pointer;
     transition: all 0.3s ease;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     letter-spacing: 1px;
@@ -183,4 +201,72 @@ body.logged-out .block-marker:not(.target):not(.current) {
 body.processing #clock {
     pointer-events: none;
     opacity: 0.8;
+}
+
+.block-marker.neon-blue {
+    color: rgba(0, 242, 255, 0.899);
+    text-shadow: 0 0 8px rgba(0, 242, 255, 0.667);
+    font-size: 0.95rem;
+    font-weight: 700;
+    z-index: 100;
+}
+
+body.phase-frozen .block-marker.current {
+    animation: frozenCurrentBlink 2.1s ease-in-out infinite !important;
+    z-index: 150 !important;
+}
+
+@keyframes frozenCurrentBlink {
+    0%, 100% {
+        color: var(--neon-green);
+        text-shadow: 0 0 12px var(--neon-green), 0 0 20px rgba(0, 255, 157, 0.5);
+    }
+    50% {
+        color: #00f2ff;
+        text-shadow: 0 0 15px #00f2ff, 0 0 25px rgba(0, 242, 255, 0.6);
+    }
+}
+
+.pay-btn.frozen {
+    background: #5d5f65 !important;
+    border: 1px solid #444 !important;
+    color: #aaa !important;
+    cursor: not-allowed !important;
+    text-align: center;
+    line-height: 1.2;
+    font-size: 0.82rem !important;
+    text-transform: uppercase;
+    transition: all 0.3s ease;
+    box-shadow: none !important;
+}
+
+.pay-btn.frozen:hover {
+    background: #00f2ff !important;
+    color: #010000 !important;
+    box-shadow: 0 0 30px rgba(0, 242, 255, 0.5), inset 0 0 15px rgba(0, 242, 255, 0.1) !important;
+    text-shadow: 0 0 8px var(--neon-blue);
+}
+
+.help-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: rgba(247, 147, 26, 0.1);
+    color: var(--neon-orange);
+    border: 1px solid var(--neon-orange);
+    border-radius: 50%;
+    font-size: 0.82rem;
+    cursor: pointer;
+    margin-left: 8px;
+    vertical-align: middle;
+    transition: all 0.2s;
+    font-family: serif;
+    font-weight: bold;
+}
+
+.help-icon:hover {
+    background: var(--neon-orange);
+    color: #000;
 }
