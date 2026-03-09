@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
-import { handleBet, handleGetBets, handleGetResult, handleConfirm, handlePool } from './api.ts';
+import { handleBet, handleGetBets, handleGetResult, handleConfirm, handlePool, handleVerifyIdentity } from './api.ts';
 import { queryNeon } from './db.ts';
 
 // Console overrides to reduce noise
@@ -54,6 +54,7 @@ app.get('/api/bets', handleGetBets);
 app.get('/api/result', handleGetResult);
 app.post('/api/confirm', handleConfirm);
 app.get('/api/pool', handlePool);
+app.post('/api/identity/verify', handleVerifyIdentity);
 
 app.get('/api/identity/:pubkey', async (req, res) => {
     try {
@@ -66,17 +67,6 @@ app.get('/api/identity/:pubkey', async (req, res) => {
         res.json({ alias: rows[0]?.alias || null });
     } catch {
         res.json({ alias: null });
-    }
-});
-
-app.post('/api/identity', async (req, res) => {
-    try {
-        const { pubkey, alias } = req.body;
-        if (!pubkey || !alias) return res.status(400).json({ error: 'Missing pubkey or alias' });
-        await queryNeon('INSERT INTO lotto_identities (pubkey, alias) VALUES ($1, $2) ON CONFLICT (pubkey) DO UPDATE SET alias = EXCLUDED.alias', [pubkey, alias]);
-        return res.json({ ok: true });
-    } catch (e: any) {
-        return res.status(500).json({ error: e.message });
     }
 });
 
