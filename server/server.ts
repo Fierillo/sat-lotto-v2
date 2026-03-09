@@ -25,11 +25,28 @@ console.error = (...args) => {
         originalLog('[NWC] Connection error with Alby');
         return;
     }
-    originalError(...args);
+    
+    // Sanitize any potential NWC Secret in errors
+    let sanitizedArgs = args.map(arg => {
+        if (typeof arg === 'string') {
+            return arg.replace(/secret=[a-f0-9]+/gi, 'secret=REDACTED')
+                      .replace(/nostr\+walletconnect:\/\/[^"'\s]+/gi, 'nwc://REDACTED');
+        }
+        return arg;
+    });
+
+    originalError(...sanitizedArgs);
 };
 
 const app = express();
 app.use(express.json());
+
+// Basic Rate Limiting for identity verification
+const identityRateLimit: Record<string, number> = {};
+setInterval(() => {
+    // Clear limit every hour
+    for (const key in identityRateLimit) delete identityRateLimit[key];
+}, 3600000);
 
 let cachedBlock = { height: 890000, target: 890021 };
 
@@ -54,7 +71,12 @@ app.get('/api/bets', handleGetBets);
 app.get('/api/result', handleGetResult);
 app.post('/api/confirm', handleConfirm);
 app.get('/api/pool', handlePool);
-app.post('/api/identity/verify', handleVerifyIdentity);
+app.post('/api/identity/verify', (req, res) => {
+    const ip = req.ip || 'unknown';
+    identityRateLimit[ip] = (identityRateLimit[ip] || 0) + 1;
+    if (identityRateLimit[ip] > 10) return res.status(429).json({ error: 'Rate limit exceeded' });
+    return handleVerifyIdentity(req, res);
+});
 
 app.get('/api/identity/:pubkey', async (req, res) => {
     try {
