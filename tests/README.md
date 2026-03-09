@@ -6,9 +6,18 @@ Este directorio está destinado a alojar *scripts* aislados para testear partes 
 Los tests se ejecutan utilizando `tsx`. 
 No requieren dependencias adicionales ni compilar, ya que `tsx` transpila TypeScript al vuelo.
 
-Ejemplo:
+Puedes usar el script facilitador:
 ```bash
- npx tsx tests/test-ping-bets.ts
+./tests/run.sh <nombre_del_test>
 ```
 
-*Nota: Los endpoints necesitan el servidor Node.js corriendo (`npm run dev`) con `dotenv` válido (`.env`) ya instanciado en el proyecto si buscan comunicarse con la base Neon u otros servicios.*
+O via npm:
+```bash
+npm run test:nwc
+```
+
+### Tests disponibles:
+- `test-nwc.ts`: Verifica la conexión NWC del servidor y capacidad de generar invoices.
+- `test-submit-bet.ts`: Simula una apuesta completa contra la API.
+- `test-db.ts`: Prueba básica de query a la base Neon.
+- `debug-ui.ts`: Utilidades para inyectar botones de test en el frontend.
