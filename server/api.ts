@@ -60,6 +60,7 @@ export const handleBet = async (req: any, res: any, cachedBlock: any) => {
         const realTimeResp = await fetch('https://mempool.space/api/blocks/tip/height');
         const realTimeHeight = parseInt(await realTimeResp.text(), 10);
         
+        // Fase Frozen: Bloqueamos apuestas en los bloques 19, 20 y 21 del ciclo (height >= target - 2)
         const isFrozen = (realTimeHeight || cachedBlock.height) >= finalBloque - 2;
         if (isFrozen) {
             return res.status(403).json({ error: 'Betting is closed for this block (Fase Frozen)' });
@@ -77,9 +78,14 @@ export const handleBet = async (req: any, res: any, cachedBlock: any) => {
             // But we MUST NOT reset is_paid to false in the INSERT below if we don't handle it carefully.
         }
 
-        const unpaidCount = await queryNeon('SELECT count(*) FROM lotto_bets WHERE pubkey = $1 AND is_paid = FALSE', [finalPubkey]);
+        const unpaidCount = await queryNeon(`
+            SELECT count(*) FROM lotto_bets 
+            WHERE pubkey = $1 AND is_paid = FALSE 
+            AND created_at > NOW() - INTERVAL '10 minutes'
+        `, [finalPubkey]);
+        
         if (parseInt(unpaidCount[0].count) > 5) {
-            return res.status(429).json({ error: 'Too many unpaid invoices. Pay your bets before requesting more.' });
+            return res.status(429).json({ error: 'Too many unpaid invoices. Please wait 10 minutes or pay your bets.' });
         }
 
         const nwcUrl = process.env.NWC_URL;
