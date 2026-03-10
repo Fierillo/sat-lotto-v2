@@ -39,6 +39,12 @@ export async function finishLogin(): Promise<void> {
         if (authState.bunkerTarget) {
             const signer = new NDKNip46Signer(ndk, authState.bunkerTarget, getOrCreateLocalSigner());
             (signer as any).ndk = ndk;
+            // Iniciamos el handshake en segundo plano sin await para no trabar la UI
+            signer.blockUntilReady().then(() => {
+                console.log('[Bunker] Signer is ready for action');
+            }).catch(e => {
+                console.error('[Bunker] Handshake failed during login:', e);
+            });
             authState.signer = signer;
         } else if (authState.nwcUrl) {
             const url = new URL(authState.nwcUrl.replace('nostr+walletconnect:', 'http:'));
