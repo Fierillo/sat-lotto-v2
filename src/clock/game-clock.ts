@@ -32,6 +32,8 @@ export function updateClockRings(outer?: HTMLElement, inner?: HTMLElement): void
             const rad = (i * 360 / BLOCKS - 90) * Math.PI / 180;
             marker = document.createElement('div');
             marker.className = 'block-marker';
+            marker.style.left = '50%';
+            marker.style.top = '50%';
             marker.style.transform = `translate(-50%, -50%) translate(${Math.cos(rad) * markerRadius}px, ${Math.sin(rad) * markerRadius}px)`;
             ring.appendChild(marker);
         } else marker = ring.children[i] as HTMLElement;
@@ -63,9 +65,17 @@ export function updateCenterButton(): void {
     if (!step || !btn) return;
 
     const isFrozen = state.currentBlock >= state.targetBlock - 2;
-    document.body.classList.toggle('phase-frozen', isFrozen);
+    const isResolving = state.currentBlock === state.targetBlock;
+    
+    document.body.classList.toggle('phase-frozen', isFrozen && !isResolving);
+    document.body.classList.toggle('phase-resolving', isResolving);
 
-    if (isFrozen && authState.pubkey) {
+    if (isResolving) {
+        step.style.display = 'block';
+        btn.innerHTML = `<span>FIN DE<br>RONDA</span>`;
+        btn.classList.add('frozen');
+        btn.onclick = null;
+    } else if (isFrozen && authState.pubkey) {
         step.style.display = 'block';
         btn.innerHTML = `<span>NO PODÉS<br>APOSTAR</span>`;
         btn.classList.add('frozen');

@@ -79,11 +79,22 @@ export function injectDebugButtons(): void {
     frozenBtn.style.cssText = btnStyle + 'border:1px solid #00f2ff; color:#00f2ff;';
     frozenBtn.textContent = '❄️ TEST FROZEN';
     frozenBtn.onclick = () => {
+        document.body.classList.remove('phase-resolving');
         document.body.classList.toggle('phase-frozen');
+    };
+
+    // Botón Resolving Naranja-Rojo
+    const resBtn = document.createElement('button');
+    resBtn.style.cssText = btnStyle + 'border:1px solid #ff3333; color:#ff3333;';
+    resBtn.textContent = '🔥 TEST RESOLVING';
+    resBtn.onclick = () => {
+        document.body.classList.remove('phase-frozen');
+        document.body.classList.toggle('phase-resolving');
     };
 
     container.appendChild(testBtn);
     container.appendChild(vicBtn);
     container.appendChild(frozenBtn);
+    container.appendChild(resBtn);
     document.body.appendChild(container);
 }

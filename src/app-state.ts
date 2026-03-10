@@ -5,22 +5,24 @@ const savedBets = JSON.parse(localStorage.getItem('satlotto_last_bets') || '[]')
 const savedResult = JSON.parse(localStorage.getItem('satlotto_last_result') || 'null');
 
 export const state = {
-    currentBlock: savedBlock.height || 890000,
-    targetBlock: savedBlock.target || (890000 + BLOCKS),
-    lastResultBlock: savedBlock.lastResult || 890000,
+    // Game State
+    currentBlock: savedBlock.height || 0,
+    targetBlock: savedBlock.target || 0,
+    lastResultBlock: savedBlock.lastResult || 0,
     selectedNumber: null as number | null,
     poolBalance: parseInt(localStorage.getItem('satlotto_pool') || '0'),
     
-    // UI Data Persistence
+    // Persistent UI Data
     bets: savedBets as any[],
     lastResult: savedResult as any,
     
-    // UI tracking to avoid double work
+    // Internal UI Trackers (to avoid DOM thrashing)
     lastRenderedBlock: 0,
     lastResolvedResultBlock: 0,
-    lastBetsJson: '',
+    lastBetsJson: '', 
     lastPoolBalance: -1,
     
+    // Victory Persistence
     lastVictoryBlock: parseInt(localStorage.getItem('satlotto_last_victory_block') || '0'),
     pendingVictory: JSON.parse(localStorage.getItem('satlotto_pending_victory') || 'null')
 };

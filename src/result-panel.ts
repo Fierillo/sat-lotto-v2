@@ -95,7 +95,7 @@ function showTransparencyModal(blockHash: string, blockHeight: number, winningNu
         <div class="modal" style="max-width: 450px; text-align: left">
             <h2 style="text-align: center">Transparencia</h2>
             <p style="font-size: 0.9rem; margin-bottom: 20px; color: rgba(255,255,255,0.8); line-height: 1.4">
-                El número ganador <strong>${winningNumber}</strong> se obtiene a partir del hash del último bloque objetivo (<b>${blockHeight}</b>):
+                El número ganador <strong>${winningNumber}</strong> se obtiene a partir del hash del último bloque en que se sorteo (<b>${blockHeight}</b>):
             </p>
             
             <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(255,255,212,0.05)">
@@ -147,7 +147,7 @@ export function renderResult(sorteoResult: any, blockHeight: number): void {
     checkVictory(sorteoResult, blockHeight);
 
     resultDisplayContainer.innerHTML = `
-        <h3>Último Sorteo</h3>
+        <h3>Último Sorteo: <strong class="text-orange">${state.targetBlock-21}</strong></h3>
         <p>Número ganador: <strong class="text-orange">${sorteoResult.winningNumber}</strong> <span class="help-icon" id="helpIcon">?</span></p>
         <p id="winnersListContainer">Ganadores: </p>
     `;
