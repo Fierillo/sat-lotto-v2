@@ -86,9 +86,9 @@ export async function makePayment(): Promise<void> {
             centralPayButton.innerHTML = `<span style="font-size:0.9rem">Pagando NWC...</span>`;
             await payNwcInvoice(authState.nwcUrl, paymentRequest);
             await handleSuccessfulPayment();
-        } else {
+        } else if ((window as any).webln) {
+            // Alby / WebLN Extension
             try {
-                // Alby / WebLN Extension
                 const weblnProvider = await requestProvider();
                 centralPayButton.innerHTML = `<span style="font-size:0.9rem">Confirmá en Alby</span>`;
                 console.log('[makePayment] Sending payment with WebLN...');
@@ -98,6 +98,10 @@ export async function makePayment(): Promise<void> {
                 console.warn('[makePayment] WebLN payment failed or canceled, showing modal');
                 showInvoiceModal(paymentRequest, handleSuccessfulPayment, resetInteractionStatus);
             }
+        } else {
+            // Nos2x, Bunker, or no extension: Show Modal directly
+            console.log('[makePayment] No direct payment provider found, showing invoice modal');
+            showInvoiceModal(paymentRequest, handleSuccessfulPayment, resetInteractionStatus);
         }
     } catch (paymentError: any) {
         console.error('[makePayment] Final catch:', paymentError);
