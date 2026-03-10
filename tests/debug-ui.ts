@@ -1,3 +1,5 @@
+import { showPotentialWinnerModal } from '../src/ui/help-modals';
+
 export function injectDebugButtons(): void {
     if (document.getElementById('debug-container')) return;
 
@@ -132,9 +134,19 @@ export function injectDebugButtons(): void {
         }
     };
 
+    // 5. Botón Potencial Ganador (Corona)
+    const potBtn = document.createElement('button');
+    potBtn.style.cssText = btnStyle + 'border:1px solid #00ff9d; color:#00ff9d;';
+    potBtn.textContent = '👑 TEST POTENTIAL';
+    potBtn.onclick = () => {
+        resetStates();
+        showPotentialWinnerModal();
+    };
+
     container.appendChild(testBtn);
     container.appendChild(vicBtn);
     container.appendChild(frozenBtn);
     container.appendChild(resBtn);
+    container.appendChild(potBtn);
     document.body.appendChild(container);
 }
