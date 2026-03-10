@@ -15,22 +15,81 @@ export function injectDebugButtons(): void {
 
     const btnStyle = 'font-size:0.7rem; padding:6px 12px; background:rgba(0,0,0,0.8); border-radius:6px; cursor:pointer; font-weight:bold; transition:all 0.2s;';
 
-    // Botón Flash Verde
+    // Helper para resetear estados antes de un nuevo test
+    const resetStates = () => {
+        document.body.classList.remove('phase-frozen', 'phase-resolving', 'flash-green', 'celebrating');
+        const clock = document.getElementById('clock');
+        if (clock) clock.classList.remove('victory-mode');
+        const btn = document.getElementById('centerBtn') as HTMLButtonElement;
+        if (btn) {
+            btn.disabled = false;
+            btn.classList.remove('frozen');
+            btn.innerHTML = 'APOSTAR';
+        }
+    };
+
+    // 1. Botón Flash Verde (Pago)
     const testBtn = document.createElement('button');
     testBtn.style.cssText = btnStyle + 'border:1px solid #00ff9d; color:#00ff9d;';
     testBtn.textContent = '⚡ TEST FLASH';
     testBtn.onclick = () => {
-        document.body.classList.add('flash-green');
-        setTimeout(() => document.body.classList.remove('flash-green'), 3000);
+        resetStates();
+        const btn = document.getElementById('centerBtn') as HTMLButtonElement;
+        if (btn) {
+            btn.innerHTML = '¡PAGADO!';
+            btn.disabled = true; // Simular bloqueo durante el proceso
+            document.body.classList.add('flash-green');
+            setTimeout(resetStates, 3000);
+        }
     };
 
-    // Botón Victoria Naranja
+    // 2. Botón Frozen Azul (Veda)
+    const frozenBtn = document.createElement('button');
+    frozenBtn.style.cssText = btnStyle + 'border:1px solid #00f2ff; color:#00f2ff;';
+    frozenBtn.textContent = '❄️ TEST FROZEN';
+    frozenBtn.onclick = () => {
+        const wasFrozen = document.body.classList.contains('phase-frozen');
+        resetStates();
+        if (!wasFrozen) {
+            document.body.classList.add('phase-frozen');
+            const btn = document.getElementById('centerBtn') as HTMLButtonElement;
+            if (btn) {
+                btn.innerHTML = `<span>NO PODÉS<br>APOSTAR</span>`;
+                btn.classList.add('frozen');
+                btn.disabled = true;
+            }
+        }
+    };
+
+    // 3. Botón Resolving Naranja (Fin de Ronda)
+    const resBtn = document.createElement('button');
+    resBtn.style.cssText = btnStyle + 'border:1px solid #f7931a; color:#f7931a;';
+    resBtn.textContent = '🔥 TEST RESOLVING';
+    resBtn.onclick = () => {
+        const wasRes = document.body.classList.contains('phase-resolving');
+        resetStates();
+        if (!wasRes) {
+            document.body.classList.add('phase-resolving');
+            const btn = document.getElementById('centerBtn') as HTMLButtonElement;
+            if (btn) {
+                btn.innerHTML = `<span>FIN DE<br>RONDA</span>`;
+                btn.classList.add('frozen');
+                btn.disabled = true;
+            }
+        }
+    };
+
+    // 4. Botón Victoria Naranja (Campeón)
     const vicBtn = document.createElement('button');
     vicBtn.style.cssText = btnStyle + 'border:1px solid #f7931a; color:#f7931a;';
     vicBtn.textContent = '🏆 TEST VICTORY';
     vicBtn.onclick = () => {
+        resetStates();
         const clock = document.getElementById('clock');
-        if (clock) {
+        const btn = document.getElementById('centerBtn') as HTMLButtonElement;
+        if (clock && btn) {
+            btn.innerHTML = '¡GANASTE!';
+            btn.disabled = true;
             clock.classList.add('victory-mode');
             document.body.classList.add('celebrating');
             
@@ -66,30 +125,11 @@ export function injectDebugButtons(): void {
             }
 
             setTimeout(() => {
-                clock.classList.remove('victory-mode');
-                document.body.classList.remove('celebrating');
+                resetStates();
                 overlay.remove();
                 msg.remove();
             }, 4500);
         }
-    };
-
-    // Botón Frozen Azul
-    const frozenBtn = document.createElement('button');
-    frozenBtn.style.cssText = btnStyle + 'border:1px solid #00f2ff; color:#00f2ff;';
-    frozenBtn.textContent = '❄️ TEST FROZEN';
-    frozenBtn.onclick = () => {
-        document.body.classList.remove('phase-resolving');
-        document.body.classList.toggle('phase-frozen');
-    };
-
-    // Botón Resolving Naranja-Rojo
-    const resBtn = document.createElement('button');
-    resBtn.style.cssText = btnStyle + 'border:1px solid #ff3333; color:#ff3333;';
-    resBtn.textContent = '🔥 TEST RESOLVING';
-    resBtn.onclick = () => {
-        document.body.classList.remove('phase-frozen');
-        document.body.classList.toggle('phase-resolving');
     };
 
     container.appendChild(testBtn);
