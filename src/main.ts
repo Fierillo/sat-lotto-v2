@@ -31,12 +31,22 @@ export async function updateUI(): Promise<void> {
     }
 
     Promise.all(promises).then(([bets, res]) => {
-        renderBetsTable(bets);
+        if (bets) {
+            state.bets = bets;
+            localStorage.setItem('satlotto_last_bets', JSON.stringify(bets));
+            renderBetsTable(bets);
+        }
+        
         updatePool(state.poolBalance);
         
         if (shouldFetchResult && res?.resolved) {
+            state.lastResult = res;
+            localStorage.setItem('satlotto_last_result', JSON.stringify(res));
             renderResult(res, resBlock);
             state.lastResolvedResultBlock = resBlock;
+        } else if (state.lastResult) {
+            // Render cached result if no new one
+            renderResult(state.lastResult, Math.floor(state.lastResult.targetBlock));
         }
         
         state.lastRenderedBlock = state.currentBlock;
@@ -52,6 +62,7 @@ async function syncBlocks(): Promise<void> {
             state.targetBlock = data.target;
             state.poolBalance = data.poolBalance || 0;
             localStorage.setItem('satlotto_blocks', JSON.stringify(data));
+            localStorage.setItem('satlotto_pool', state.poolBalance.toString());
         }
     } catch {}
 }
