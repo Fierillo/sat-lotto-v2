@@ -1,5 +1,3 @@
-# ESTE ARCHIVO NO SE COMITEA
-
 # Convenciones del Proyecto
 
 ## Commits
