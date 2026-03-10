@@ -5,15 +5,16 @@ export function renderBetsTable(activeBets: Array<{ pubkey: string; selected_num
     const betsTableContainer = document.getElementById('betsTable');
     if (!betsTableContainer) return;
 
-    // Redundancy Check: Compare JSON strings to avoid touching the DOM
-    const currentBetsJson = JSON.stringify(activeBets);
-    if (currentBetsJson === state.lastBetsJson) return;
-    state.lastBetsJson = currentBetsJson;
-
     if (!activeBets.length) {
-        betsTableContainer.innerHTML = '<p class="empty-bets">Sin apuestas en este ciclo</p>';
+        betsTableContainer.innerHTML = '<h3>Apuestas Activas</h3><p class="empty-bets">Sin apuestas en este ciclo</p>';
+        state.lastBetsJson = '[]';
         return;
     }
+
+    // Redundancy Check: Only skip if we already have content and it's identical
+    const currentBetsJson = JSON.stringify(activeBets);
+    if (currentBetsJson === state.lastBetsJson && betsTableContainer.children.length > 0) return;
+    state.lastBetsJson = currentBetsJson;
 
     const tableBody = document.createElement('tbody');
     activeBets.forEach(bet => {

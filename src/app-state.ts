@@ -18,7 +18,7 @@ export const state = {
     // UI tracking to avoid double work
     lastRenderedBlock: 0,
     lastResolvedResultBlock: 0,
-    lastBetsJson: localStorage.getItem('satlotto_last_bets') || '',
+    lastBetsJson: '',
     lastPoolBalance: -1,
     
     lastVictoryBlock: parseInt(localStorage.getItem('satlotto_last_victory_block') || '0'),
