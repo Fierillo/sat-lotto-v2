@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
-import { handleBet, handleGetBets, handleGetResult, handleConfirm, handleVerifyIdentity, getPoolBalance } from './api.ts';
+import { handleBet, handleGetBets, handleGetResult, handleConfirm, handleVerifyIdentity, getPoolBalance, processPayouts, startBotListener } from './api.ts';
 import { queryNeon } from './db.ts';
 
 // Console overrides to reduce noise
@@ -72,16 +72,28 @@ async function syncData() {
         }
     } catch (e) {
         // ERROR: If NWC fails (timeout), we KEEP the previous balance.
-        // We do NOT update to 0.
         console.error('[Sync] Pool balance fetch failed (keeping last known balance)');
+    }
+
+    // Payout Worker: Check for confirmed rounds (target + 2)
+    try {
+        await processPayouts(cachedBlock.height);
+    } catch (e) {
+        console.error('[PayoutWorker] Error:', e);
     }
 }
 
 setInterval(syncData, 21000);
 syncData();
+startBotListener(); // Iniciar el "oído" del bot
 
 // API Routes
-app.get('/api/blocks/tip', (_req, res) => res.json(cachedBlock));
+app.get('/api/blocks/tip', (_req, res) => {
+    // Return net balance (post-fee)
+    const netBalance = Math.floor(cachedBlock.poolBalance * 0.958);
+    res.json({ ...cachedBlock, poolBalance: netBalance });
+});
+
 app.post('/api/bet', (req, res) => handleBet(req, res, cachedBlock));
 app.get('/api/bets', handleGetBets);
 app.get('/api/result', handleGetResult);

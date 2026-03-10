@@ -1,12 +1,94 @@
 import { queryNeon } from './db.ts';
-import { verifyEvent } from 'nostr-tools';
+import { verifyEvent, nip04 } from 'nostr-tools';
 import { createNwcInvoice } from '../src/utils/create-invoice.ts';
 import { lookupNwcInvoice } from '../src/utils/pay-invoice.ts';
 import { nwc } from '@getalby/sdk';
+import NDK, { NDKPrivateKeySigner, NDKEvent } from '@nostr-dev-kit/ndk';
 
 const blockHashCache: Record<number, string> = {};
 
+// Bot Identity
+const botNdk = new NDK({
+    explicitRelayUrls: ['wss://relay.primal.net', 'wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.snort.social']
+});
+const botPrivkey = process.env.NOSTR_PRIVKEY;
+if (botPrivkey) {
+    botNdk.signer = new NDKPrivateKeySigner(botPrivkey);
+}
+botNdk.connect().catch(() => console.error('[BotNDK] Connection failed'));
+
+async function getInvoiceFromLNAddress(address: string, amountSats: number): Promise<string | null> {
+    try {
+        const [user, domain] = address.split('@');
+        const lnurlRes = await fetch(`https://${domain}/.well-known/lnurlp/${user}`);
+        const lnurlData = await lnurlRes.json();
+        const callback = lnurlData.callback;
+        const amountMsats = amountSats * 1000;
+        const invRes = await fetch(`${callback}?amount=${amountMsats}`);
+        const invData = await invRes.json();
+        return invData.pr || invData.payment_request;
+    } catch (e) {
+        console.error(`[LNURL] Failed to get invoice for ${address}:`, e);
+        return null;
+    }
+}
+
+async function sendDM(pubkey: string, message: string) {
+    if (!botPrivkey) return;
+    try {
+        const dm = new NDKEvent(botNdk);
+        dm.kind = 4;
+        dm.tags = [['p', pubkey]];
+        
+        // Use explicit NIP-04 for compatibility with Primal/Amethyst
+        dm.content = await nip04.encrypt(botPrivkey, pubkey, message);
+        await dm.publish();
+    } catch (e) {
+        console.error(`[DM] Failed to send to ${pubkey}:`, e);
+    }
+}
+
+export async function startBotListener() {
+    if (!botPrivkey || !botNdk.signer) return;
+    
+    const botUser = await botNdk.signer.user();
+    console.log(`[Bot] Listening for DMs at: ${botUser.pubkey}`);
+
+    const sub = botNdk.subscribe({
+        kinds: [4],
+        '#p': [botUser.pubkey]
+    });
+
+    sub.on('event', async (event: NDKEvent) => {
+        try {
+            // Decrypt using explicit NIP-04
+            const decryptedContent = await nip04.decrypt(botPrivkey, event.pubkey, event.content);
+            const content = decryptedContent.trim();
+            const pubkey = event.pubkey;
+
+            // Regex simple para Lightning Address
+            const lnAddressMatch = content.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+            if (lnAddressMatch) {
+                const newLud16 = lnAddressMatch[0];
+                console.log(`[Bot] Received Lightning Address from ${pubkey}: ${newLud16}`);
+
+                await queryNeon(`
+                    UPDATE lotto_identities 
+                    SET lud16 = $1, last_updated = NOW() 
+                    WHERE pubkey = $2
+                `, [newLud16, pubkey]);
+
+                await sendDM(pubkey, `¡Recibido! Guardé tu dirección: ${newLud16}. En el próximo ciclo del servidor intentaremos procesar tus premios pendientes. ⚡`);
+            }
+        } catch (e) {
+            console.error('[Bot] Error processing incoming DM:', e);
+        }
+    });
+}
+
 export const handleBet = async (req: any, res: any, cachedBlock: any) => {
+// ...
+// ... existing handleBet ...
     try {
         let { signedEvent } = req.body;
         
@@ -156,26 +238,171 @@ export const handleGetBets = async (req: any, res: any) => {
 
 export const handleGetResult = async (req: any, res: any) => {
     const block = parseInt(req.query.block as string);
+    if (!block) return res.status(400).json({ error: 'Missing block' });
     
-    // Cache check to avoid redundant Mempool calls
-    let hash = blockHashCache[block];
-    if (!hash) {
-        console.log(`[Backend] Fetching hash for block ${block} from Mempool...`);
-        const resp = await fetch(`https://mempool.space/api/block-height/${block}`);
-        if (!resp.ok) return res.json({ resolved: false });
-        hash = (await resp.text()).trim();
-        blockHashCache[block] = hash; // Store forever
-    }
+    const result = await calculateResult(block);
+    if (!result) return res.json({ resolved: false });
 
-    const winningNumber = Number((BigInt('0x' + hash) % 21n) + 1n);
     const winners = await queryNeon(`
         SELECT b.pubkey, b.selected_number, COALESCE(i.alias, b.alias) as alias
         FROM lotto_bets b
         LEFT JOIN lotto_identities i ON b.pubkey = i.pubkey
         WHERE b.target_block = $1 AND b.selected_number = $2 AND b.is_paid = TRUE AND b.betting_block >= ($1 - 21)
-    `, [block, winningNumber]);
-    res.json({ resolved: true, blockHash: hash, winningNumber, winners, targetBlock: block });
+    `, [block, result.winningNumber]);
+    
+    res.json({ resolved: true, blockHash: result.hash, winningNumber: result.winningNumber, winners, targetBlock: block });
 };
+
+const calculateResult = async (block: number) => {
+    let hash = blockHashCache[block];
+    if (!hash) {
+        try {
+            const resp = await fetch(`https://mempool.space/api/block-height/${block}`);
+            if (!resp.ok) return null;
+            hash = (await resp.text()).trim();
+            blockHashCache[block] = hash;
+        } catch { return null; }
+    }
+    const winningNumber = Number((BigInt('0x' + hash) % 21n) + 1n);
+    return { hash, winningNumber };
+};
+
+export const processPayouts = async (currentHeight: number) => {
+    const lastResolvedTarget = Math.floor(currentHeight / 21) * 21;
+    
+    // 1. Detección de nueva ronda confirmada (2 confirmaciones)
+    if (currentHeight >= lastResolvedTarget + 2) {
+        const feeProcessed = await queryNeon('SELECT count(*) FROM lotto_payouts WHERE block_height = $1 AND type = $2', [lastResolvedTarget, 'fee']);
+        if (parseInt(feeProcessed[0].count) === 0) {
+            await runFullPayoutCycle(lastResolvedTarget);
+        }
+    }
+
+    // 2. Reintento de pagos fallidos (Cualquier bloque anterior)
+    await retryFailedPayouts();
+};
+
+async function runFullPayoutCycle(targetBlock: number) {
+    console.log(`[PayoutWorker] Resolving confirmed block ${targetBlock}...`);
+    const result = await calculateResult(targetBlock);
+    if (!result) return;
+
+    const nwcUrl = process.env.NWC_URL;
+    if (!nwcUrl) return;
+    const nwcClient = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
+    
+    try {
+        const balanceData = await nwcClient.getBalance();
+        const totalSats = Math.floor(balanceData.balance / 1000);
+
+        const winners = await queryNeon(`
+            SELECT b.pubkey, b.alias, i.alias as identity_alias, i.lud16
+            FROM lotto_bets b
+            LEFT JOIN lotto_identities i ON b.pubkey = i.pubkey
+            WHERE b.target_block = $1 AND b.selected_number = $2 AND b.is_paid = TRUE AND b.betting_block >= ($1 - 21)
+        `, [targetBlock, result.winningNumber]);
+
+        const feeAmount = Math.floor(totalSats * 0.042);
+        const netPool = totalSats - feeAmount;
+        const prizePerWinner = winners.length > 0 ? Math.floor(netPool / winners.length) : 0;
+
+        // --- PAGO DE COMISIÓN ---
+        if (feeAmount > 0) {
+            const feeInvoice = await getInvoiceFromLNAddress('fierillo@lawalletilla.vercel.app', feeAmount);
+            if (feeInvoice) {
+                try {
+                    await nwcClient.payInvoice({ invoice: feeInvoice });
+                    await queryNeon('INSERT INTO lotto_payouts (pubkey, block_height, amount, type, status) VALUES ($1, $2, $3, $4, $5)', 
+                        ['ADMIN', targetBlock, feeAmount, 'fee', 'paid']);
+                } catch (e) { console.error('[PayoutWorker] Fee payment failed', e); }
+            }
+        }
+
+        // --- PAGO A GANADORES ---
+        const winnerNames: string[] = [];
+        for (const winner of winners) {
+            const winnerName = winner.identity_alias || winner.alias || winner.pubkey.slice(0, 8);
+            winnerNames.push(winnerName);
+
+            let paid = false;
+            let lud16 = winner.lud16;
+            
+            if (!lud16) {
+                const user = botNdk.getUser({ pubkey: winner.pubkey });
+                const profile = await user.fetchProfile();
+                lud16 = profile?.lud16 || profile?.lud06;
+            }
+
+            if (lud16) {
+                const winnerInvoice = await getInvoiceFromLNAddress(lud16, prizePerWinner);
+                if (winnerInvoice) {
+                    try {
+                        await nwcClient.payInvoice({ invoice: winnerInvoice });
+                        paid = true;
+                    } catch (e) { console.error(`[PayoutWorker] Payment execution failed for ${winner.pubkey}`, e); }
+                }
+            }
+
+            await queryNeon(`
+                INSERT INTO lotto_payouts (pubkey, block_height, amount, type, status) 
+                VALUES ($1, $2, $3, $4, $5) 
+                ON CONFLICT (pubkey, block_height, type) DO UPDATE SET status = EXCLUDED.status
+            `, [winner.pubkey, targetBlock, prizePerWinner, 'winner', paid ? 'paid' : 'failed']);
+
+            if (!paid) {
+                await sendDM(winner.pubkey, `¡FELICITACIONES CAMPEÓN! 🏆\n\nGanaste ${prizePerWinner} sats en SatLotto (Bloque ${targetBlock}).\nNo pudimos pagarte automáticamente. Pasame por acá tu Lightning Address o entrá a la web para cobrar.`);
+            }
+        }
+
+        // --- ANUNCIO PÚBLICO ---
+        if (botNdk.signer) {
+            const announcement = winners.length > 0 
+                ? `¡Ronda ${targetBlock} confirmada! 🏆\n\nCampeones: ${winnerNames.join(', ')}\nPremio repartido: ${prizePerWinner} sats c/u.\n\nFelicidades a los ganadores. ¡La suerte está echada!\n\nJugá vos también en: ${process.env.APP_URL || 'https://satlotto.ar'}`
+                : `¡Ronda ${targetBlock} confirmada!\n\nEsta vez el azar fue esquivo y no hubo ganadores. 🎲\n\nEl pozo de ${totalSats} sats se acumula para el próximo sorteo. ¡Aprovechá la oportunidad!\n\nParticipá en: ${process.env.APP_URL || 'https://satlotto.ar'}`;
+            
+            const ev = new NDKEvent(botNdk);
+            ev.kind = 1;
+            ev.content = announcement;
+            await ev.publish().catch(e => console.error('[PayoutWorker] Announcement failed', e));
+        }
+    } finally {
+        try { nwcClient.close(); } catch {}
+    }
+}
+
+async function retryFailedPayouts() {
+    const failedOnes = await queryNeon(`
+        SELECT p.pubkey, p.block_height, p.amount, i.lud16 
+        FROM lotto_payouts p
+        JOIN lotto_identities i ON p.pubkey = i.pubkey
+        WHERE p.status = 'failed' AND p.type = 'winner' AND i.lud16 IS NOT NULL
+    `);
+
+    if (failedOnes.length === 0) return;
+
+    const nwcUrl = process.env.NWC_URL;
+    if (!nwcUrl) return;
+    const nwcClient = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
+
+    try {
+        for (const p of failedOnes) {
+            console.log(`[PayoutWorker] Retrying payout for ${p.pubkey} (Block ${p.block_height})...`);
+            const invoice = await getInvoiceFromLNAddress(p.lud16, p.amount);
+            if (invoice) {
+                try {
+                    await nwcClient.payInvoice({ invoice });
+                    await queryNeon('UPDATE lotto_payouts SET status = $1 WHERE pubkey = $2 AND block_height = $3 AND type = $4', 
+                        ['paid', p.pubkey, p.block_height, 'winner']);
+                    await sendDM(p.pubkey, `¡Listo! Ya te envié tus ${p.amount} sats del bloque ${p.block_height} a ${p.lud16}. ¡Gracias por jugar! ⚡`);
+                } catch (e) {
+                    console.error(`[PayoutWorker] Retry failed for ${p.pubkey}:`, e);
+                }
+            }
+        }
+    } finally {
+        nwcClient.close();
+    }
+}
 
 export const handleConfirm = async (req: any, res: any) => {
     const { paymentHash } = req.body;
@@ -207,7 +434,7 @@ export const getPoolBalance = async (): Promise<number> => {
 
 export const handleVerifyIdentity = async (req: any, res: any) => {
     try {
-        const { event, blockHeight } = req.body;
+        const { event, blockHeight, lud16 } = req.body;
         if (!event) return res.status(400).json({ error: 'Missing event' });
         
         const parsedEvent = typeof event === 'string' ? JSON.parse(event) : event;
@@ -220,18 +447,20 @@ export const handleVerifyIdentity = async (req: any, res: any) => {
         const pubkey = parsedEvent.pubkey;
         const createdAt = parsedEvent.created_at;
 
-        // 1. Update Identity / Alias
+        // 1. Update Identity / Alias / LUD16
         const content = JSON.parse(parsedEvent.content);
         const alias = content.nip05 || content.name || content.display_name;
+        const profileLud16 = lud16 || content.lud16 || content.lud06;
         
-        if (alias) {
+        if (alias || profileLud16) {
             await queryNeon(`
-                INSERT INTO lotto_identities (pubkey, alias, last_updated) 
-                VALUES ($1, $2, TO_TIMESTAMP($3)) 
+                INSERT INTO lotto_identities (pubkey, alias, last_updated, lud16) 
+                VALUES ($1, $2, TO_TIMESTAMP($3), $4) 
                 ON CONFLICT (pubkey) DO UPDATE SET 
-                    alias = EXCLUDED.alias, 
+                    alias = COALESCE(EXCLUDED.alias, lotto_identities.alias), 
+                    lud16 = COALESCE(EXCLUDED.lud16, lotto_identities.lud16),
                     last_updated = GREATEST(lotto_identities.last_updated, EXCLUDED.last_updated)
-            `, [pubkey, alias, createdAt]);
+            `, [pubkey, alias, createdAt, profileLud16]);
         }
 
         // 2. Update Celebration Record (if provided)
