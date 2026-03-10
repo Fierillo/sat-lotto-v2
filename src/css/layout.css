@@ -78,3 +78,32 @@
         max-width: 100%;
     }
 }
+
+.footer {
+    margin-top: 60px;
+    margin-bottom: 30px;
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    opacity: 0.6;
+    transition: opacity 0.3s;
+}
+
+.footer:hover {
+    opacity: 1;
+}
+
+.footer a {
+    color: var(--neon-orange);
+    text-decoration: none;
+    font-weight: bold;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s;
+}
+
+.footer a:hover {
+    color: #fff;
+    border-bottom-color: var(--neon-orange);
+    text-shadow: 0 0 8px var(--neon-orange);
+}

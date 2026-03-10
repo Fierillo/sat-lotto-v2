@@ -114,6 +114,11 @@ async function init(): Promise<void> {
     drawDashboardElements(game);
     app.appendChild(game);
 
+    const footer = document.createElement('div');
+    footer.className = 'footer';
+    footer.innerHTML = `<a href="https://github.com/fierillo/sat-lotto-v2" target="_blank">SatLotto</a> fue creado con amor por <a href="https://github.com/fierillo" target="_blank">Fierillo</a>`;
+    app.appendChild(footer);
+
     updateAuthUI();
     await syncBlocks(); // Fetch block and balance BEFORE first UI update
     await updateUI();
