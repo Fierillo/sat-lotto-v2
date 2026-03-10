@@ -193,7 +193,7 @@ export const getPoolBalance = async (): Promise<number> => {
         return Math.floor(balanceData.balance / 1000);
     } catch (e: any) {
         console.error('[getPoolBalance] Error:', e.message);
-        return 0;
+        throw e; // Lanzar error para no pisar con 0
     } finally {
         try { client.close(); } catch {}
     }
@@ -201,7 +201,7 @@ export const getPoolBalance = async (): Promise<number> => {
 
 export const handleVerifyIdentity = async (req: any, res: any) => {
     try {
-        const { event } = req.body;
+        const { event, blockHeight } = req.body;
         if (!event) return res.status(400).json({ error: 'Missing event' });
         
         const parsedEvent = typeof event === 'string' ? JSON.parse(event) : event;
@@ -214,32 +214,33 @@ export const handleVerifyIdentity = async (req: any, res: any) => {
         const pubkey = parsedEvent.pubkey;
         const createdAt = parsedEvent.created_at;
 
-        // 1. Insurance of Date: Check if this event is newer than the stored one
-        const existing = await queryNeon('SELECT last_updated FROM lotto_identities WHERE pubkey = $1', [pubkey]);
-        if (existing[0] && existing[0].last_updated) {
-            const lastUpdated = Math.floor(new Date(existing[0].last_updated).getTime() / 1000);
-            if (createdAt <= lastUpdated) {
-                return res.json({ ok: true, message: 'Existing identity is newer or same age' });
-            }
-        }
-
+        // 1. Update Identity / Alias
         const content = JSON.parse(parsedEvent.content);
         const alias = content.nip05 || content.name || content.display_name;
         
         if (alias) {
-            // Update with last_updated to prevent old event replays
             await queryNeon(`
                 INSERT INTO lotto_identities (pubkey, alias, last_updated) 
                 VALUES ($1, $2, TO_TIMESTAMP($3)) 
                 ON CONFLICT (pubkey) DO UPDATE SET 
                     alias = EXCLUDED.alias, 
-                    last_updated = EXCLUDED.last_updated
+                    last_updated = GREATEST(lotto_identities.last_updated, EXCLUDED.last_updated)
             `, [pubkey, alias, createdAt]);
-            return res.json({ ok: true, alias });
+        }
+
+        // 2. Update Celebration Record (if provided)
+        if (blockHeight) {
+            await queryNeon(`
+                UPDATE lotto_identities 
+                SET last_celebrated_block = GREATEST(last_celebrated_block, $1)
+                WHERE pubkey = $2
+            `, [parseInt(blockHeight), pubkey]);
         }
         
-        return res.json({ ok: true, message: 'No alias found' });
+        return res.json({ ok: true, alias });
     } catch (err: any) {
         return res.status(500).json({ error: err.message });
     }
 };
+
+// Eliminar handleCelebrate ya que unificamos en verify

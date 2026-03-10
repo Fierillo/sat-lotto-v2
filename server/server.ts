@@ -71,7 +71,9 @@ async function syncData() {
             cachedBlock.poolBalance = bal;
         }
     } catch (e) {
-        console.error('[Sync] Pool balance fetch failed');
+        // ERROR: If NWC fails (timeout), we KEEP the previous balance.
+        // We do NOT update to 0.
+        console.error('[Sync] Pool balance fetch failed (keeping last known balance)');
     }
 }
 
@@ -94,14 +96,17 @@ app.post('/api/identity/verify', (req, res) => {
 app.get('/api/identity/:pubkey', async (req, res) => {
     try {
         const rows = await queryNeon(`
-            SELECT alias FROM lotto_identities WHERE pubkey = $1 AND alias IS NOT NULL
-            UNION
-            SELECT alias FROM lotto_bets WHERE pubkey = $1 AND alias IS NOT NULL
+            SELECT alias, last_celebrated_block 
+            FROM lotto_identities WHERE pubkey = $1
             LIMIT 1
         `, [req.params.pubkey]);
-        res.json({ alias: rows[0]?.alias || null });
+
+        res.json({ 
+            alias: rows[0]?.alias || null,
+            lastCelebrated: rows[0]?.last_celebrated_block || 0 
+        });
     } catch {
-        res.json({ alias: null });
+        res.json({ alias: null, lastCelebrated: 0 });
     }
 });
 
@@ -114,8 +119,6 @@ app.get('/:hex', (req, res, next) => {
 
 import { appendFileSync } from 'fs';
 import { join } from 'path';
-
-// ... existing code ...
 
 app.post('/api/debug', (req, res) => {
     const { msg, ...rest } = req.body;
