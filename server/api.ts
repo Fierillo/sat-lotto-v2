@@ -12,6 +12,7 @@ const botNdk = new NDK({
     explicitRelayUrls: ['wss://relay.primal.net', 'wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.snort.social']
 });
 const botPrivkey = process.env.NOSTR_PRIVKEY;
+const nostrEnabled = process.env.NOSTR_ENABLED === 'true';
 if (botPrivkey) {
     botNdk.signer = new NDKPrivateKeySigner(botPrivkey);
 }
@@ -34,7 +35,10 @@ async function getInvoiceFromLNAddress(address: string, amountSats: number): Pro
 }
 
 async function sendDM(pubkey: string, message: string) {
-    if (!botPrivkey) return;
+    if (!nostrEnabled || !botPrivkey) {
+        console.log(`[DM] Disabled. Would send to ${pubkey}: ${message.slice(0, 50)}...`);
+        return;
+    }
     try {
         const dm = new NDKEvent(botNdk);
         dm.kind = 4;
@@ -49,7 +53,10 @@ async function sendDM(pubkey: string, message: string) {
 }
 
 export async function startBotListener() {
-    if (!botPrivkey || !botNdk.signer) return;
+    if (!nostrEnabled || !botPrivkey || !botNdk.signer) {
+        console.log('[Bot] Listener disabled (NOSTR_ENABLED=false)');
+        return;
+    }
     
     const botUser = await botNdk.signer.user();
     console.log(`[Bot] Listening for DMs at: ${botUser.pubkey}`);
@@ -363,7 +370,11 @@ async function runFullPayoutCycle(targetBlock: number) {
             const ev = new NDKEvent(botNdk);
             ev.kind = 1;
             ev.content = announcement;
-            await ev.publish().catch(e => console.error('[PayoutWorker] Announcement failed', e));
+            if (nostrEnabled) {
+                await ev.publish().catch(e => console.error('[PayoutWorker] Announcement failed', e));
+            } else {
+                console.log(`[PayoutWorker] Announcement disabled: ${announcement.slice(0, 50)}...`);
+            }
         }
     } finally {
         try { nwcClient.close(); } catch {}
