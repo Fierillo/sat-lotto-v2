@@ -74,7 +74,16 @@ export function injectDebugButtons(): void {
         }
     };
 
+    // Botón Frozen Azul
+    const frozenBtn = document.createElement('button');
+    frozenBtn.style.cssText = btnStyle + 'border:1px solid #00f2ff; color:#00f2ff;';
+    frozenBtn.textContent = '❄️ TEST FROZEN';
+    frozenBtn.onclick = () => {
+        document.body.classList.toggle('phase-frozen');
+    };
+
     container.appendChild(testBtn);
     container.appendChild(vicBtn);
+    container.appendChild(frozenBtn);
     document.body.appendChild(container);
 }

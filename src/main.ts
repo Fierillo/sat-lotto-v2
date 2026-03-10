@@ -106,7 +106,7 @@ async function init(): Promise<void> {
     app.prepend(header);
     app.appendChild(createPool());
     
-    injectDebugButtons();
+    // injectDebugButtons(); // Hidden for production
 
     const game = document.createElement('div');
     game.className = 'game-container';
