@@ -1,172 +1,61 @@
-# ⚡ Lightning Starter Kit
+# SatLotto ⚡
 
-Starter kit oficial para las **Lightning Hackathons 2026** de La Crypta.
+**La lotería de Bitcoin en Lightning Network**
 
-Incluye ejemplos, utilidades y guía asistida con AI para construir tu proyecto.
+Cada 21 bloques de Bitcoin, el azar decide quién se lleva el pozo acumulado. 
+Vos apostás 21 sats, elegís un número del 1 al 21, y si tu número sale... 
+te llevás TODOS LOS SATS.
 
-## 🚀 Inicio rápido
+## ¿Cómo funciona?
 
-### Opción 1: Con Claude Code (recomendado)
+1. **Conectá** tu wallet Nostr (Alby, nos2x, Bunker, NWC, etc...)
+2. **Apostá** 21 sats en el número que elijas (1-21)
+3. **Esperá** 21 bloques hasta que se resuelva la ronda
+4. **Ganá** si tu número es el elegido por el azar, y recibí tu premio automáticamente en tu Lightning Address
 
-```bash
-# Clonar el repositorio
-git clone https://github.com/lacrypta/lightning-starter.git
-cd lightning-starter
-
-# Abrir con Claude Code
-claude
-
-# El asistente te guía para construir tu proyecto
+El número ganador se calcula del hash del bloque de Bitcoin siguiendo una sencilla formula que cualquiera puede verificar:
+```
+winningNumber = (blockHash % 21) + 1
 ```
 
-Claude va a:
-- Preguntarte qué querés construir
-- Proponerte ideas si no tenés
-- Guiarte paso a paso
-- Ayudarte a ganar la hackathon
-
-### Opción 2: Manual
+## Desarrollo
 
 ```bash
-# Clonar el repositorio
-git clone https://github.com/lacrypta/lightning-starter.git
-cd lightning-starter
-
-# Instalar dependencias
 npm install
-
-# Ejecutar el frontend de demo
 npm run dev
 ```
 
-Abrir http://localhost:5173 en el navegador.
+Abrí http://localhost:5173
 
-## 📦 Herramientas principales
+## Configuración
 
-| Herramienta | Descripción | Docs |
-|-------------|-------------|------|
-| **@getalby/sdk** | SDK de Alby para NWC y pagos | [Docs](https://github.com/getAlby/js-sdk) |
-| **@neondatabase/serverless** | Driver para Neon (Postgres) | [Docs](https://neon.tech) |
-| **@nostr-dev-kit/ndk** | SDK para Nostr (identidad, eventos) | [Docs](https://github.com/nostr-dev-kit/ndk) |
-| **webln** | Standard para wallets Lightning | [Docs](https://webln.dev) |
-
-## 🔌 Nostr Wallet Connect (NWC)
-
-NWC permite conectar tu app a cualquier wallet Lightning compatible.
-
-```javascript
-import { nwc } from "@getalby/sdk";
-
-// Conectar con string NWC
-const client = new nwc.NWCClient({
-  nostrWalletConnectUrl: "nostr+walletconnect://..."
-});
-
-// Crear invoice
-const invoice = await client.makeInvoice({
-  amount: 1000, // sats
-  description: "Pago de prueba"
-});
-
-console.log(invoice.paymentRequest); // bolt11 invoice
-
-// Pagar invoice
-const response = await client.payInvoice({
-  invoice: "lnbc..."
-});
-```
-
-## 🌐 WebLN (Browser)
-
-Para apps en el navegador con extensión de wallet:
-
-```javascript
-import { requestProvider } from "webln";
-
-// Conectar con wallet del navegador (Alby, etc)
-const webln = await requestProvider();
-
-// Enviar pago
-await webln.sendPayment("lnbc...");
-
-// Crear invoice
-const invoice = await webln.makeInvoice({
-  amount: 1000,
-  defaultMemo: "Pago desde mi app"
-});
-```
-
-## 📁 Estructura del proyecto
-
-```
-sat-lotto-v2/
-├── server/             # Backend (API, DB)
-├── src/                # Frontend (Vite)
-│   ├── utils/          # Utilidades (NWC, Nostr)
-│   └── ui/             # Componentes UI
-├── tests/              # Scripts de test y migración
-├── package.json
-└── README.md
-```
-
-## 🏃 Ejecución de Tests
-
-```bash
-# Probar conexión NWC
-npm run test:nwc
-
-# Ejecutar todos los tests (excepto UI)
-npm run test:all
-```
-
-> ⚠️ Para los ejemplos que usan NWC, necesitás configurar tu connection string en `.env`
-
-## ⚙️ Configuración
-
-Crear archivo `.env`:
+Creá `.env`:
 
 ```env
-# Tu Nostr Wallet Connect URL (desde Alby u otra wallet)
+NEON_URL=postgres://...
 NWC_URL=nostr+walletconnect://...
 
-# Opcional: tu Lightning Address para testing
-LIGHTNING_ADDRESS=tu@email.com
+# Habilita para que el juego pueda usar NOSTR.
+NOSTR_PRIVKEY=nsec...
+NOSTR_ENABLED=true
 ```
 
-## 📚 Recursos
+## Stack
 
-- [Lightning Network Docs](https://lightning.network/)
-- [Alby Developer Portal](https://guides.getalby.com/developer-guide)
-- [LNURL Specs](https://github.com/lnurl/luds)
-- [NWC Spec (NIP-47)](https://github.com/nostr-protocol/nips/blob/master/47.md)
-- [WebLN Docs](https://webln.dev)
+- **Nostr** - Identidad (NIP-26, NIP-46 Bunker)
+- **NWC** - Pagos Lightning (NIP-47)
+- **Neon** - Base de datos PostgreSQL
+- **Vite** - Frontend
+- **Typescript** - Base
 
-## 🎯 Ideas para la hackathon
+## Reglas del juego
 
-- **POS simple**: Terminal de punto de venta
-- **Tipping widget**: Botón de propinas para sitios web
-- **Pay-per-content**: Paywall para artículos/videos
-- **Split payments**: Dividir pagos entre múltiples wallets
-- **Subscriptions**: Pagos recurrentes con NWC
-- **Social payments**: Integrar zaps en tu app
-
-## 🏆 Hackathon FOUNDATIONS - Marzo 2026
-
-Este starter es para la primera hackathon del programa:
-
-- **Fechas**: 3-31 de Marzo 2026
-- **Tema**: Lightning Payments Basics
-- **Premio**: 1,000,000 sats
-- **Info**: [hackaton.lacrypta.ar](https://hackaton.lacrypta.ar)
-
-## 🤝 Contribuir
-
-1. Fork este repo
-2. Creá tu feature branch (`git checkout -b mi-feature`)
-3. Commit tus cambios (`git commit -m 'Agregar feature'`)
-4. Push a la branch (`git push origin mi-feature`)
-5. Abrí un Pull Request
+- **Apuesta**: 21 sats por número
+- **Premio**: El pozo completo dividido entre los ganadores
+- **Ronda**: 21 bloques de Bitcoin (lo que el destino diga)
+- **Ventana**: Podés apostar hasta el bloque 18
+- **Pago**: Automático a tu Lightning Address (configurala en tu perfil de Nostr)
 
 ---
 
-Hecho con ⚡ por [La Crypta](https://lacrypta.ar)
+🏆 Construido para La Crypta Lightning Hackathon 2026
