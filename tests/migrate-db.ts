@@ -27,13 +27,31 @@ async function migrate() {
         await client.query(`
             ALTER TABLE lotto_identities 
             ADD COLUMN IF NOT EXISTS last_updated TIMESTAMP WITH TIME ZONE,
-            ADD COLUMN IF NOT EXISTS last_celebrated_block INTEGER DEFAULT 0;
+            ADD COLUMN IF NOT EXISTS last_celebrated_block INTEGER DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS lud16 TEXT;
         `);
-        console.log('✅ Columnas last_updated y last_celebrated_block verificadas en lotto_identities');
+        console.log('✅ Columnas last_updated, last_celebrated_block y lud16 verificadas en lotto_identities');
 
         // 4. Limpieza (Opcional: borrar tabla compleja anterior si existía)
         await client.query(`DROP TABLE IF EXISTS lotto_celebrations;`);
         console.log('✅ Tabla lotto_celebrations eliminada (simplificación)');
+
+        // 5. Tabla de Pagos (Payouts)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS lotto_payouts (
+                id SERIAL PRIMARY KEY,
+                pubkey TEXT NOT NULL,
+                block_height INTEGER NOT NULL,
+                amount INTEGER NOT NULL,
+                type TEXT NOT NULL, -- 'winner', 'fee'
+                status TEXT DEFAULT 'pending', -- 'pending', 'paid', 'failed'
+                tx_hash TEXT,
+                error_log TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(pubkey, block_height, type)
+            );
+        `);
+        console.log('✅ Tabla lotto_payouts creada');
 
     } catch (err) {
         console.error('❌ Error en migración:', err.message);
