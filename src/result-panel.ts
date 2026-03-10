@@ -2,6 +2,7 @@ import { resolveName } from './utils/nostr-service';
 import { copyToClipboard } from './utils/clipboard-utils';
 import { state } from './app-state';
 import { authState } from './auth/auth-state';
+import { showPotentialWinnerModal } from './ui/help-modals';
 
 async function triggerVictoryCelebration(_winningNumber: number, blockHeight: number): Promise<void> {
     const clock = document.getElementById('clock');
@@ -77,13 +78,26 @@ function checkVictory(sorteoResult: any, blockHeight: number): void {
         w.pubkey.toLowerCase() === authState.pubkey?.toLowerCase()
     );
 
+    if (!isWinner) return;
+
+    // REORG PROTECTION: Only celebrate if block has 2 confirmations
+    const confirmations = state.currentBlock - blockHeight;
+    const isConfirmed = confirmations >= 2;
+
     const effectiveLastCelebrated = Math.max(state.lastVictoryBlock, authState.lastCelebratedBlock || 0);
 
-    if (isWinner && blockHeight > effectiveLastCelebrated) {
-        console.log(`🎉 [VICTORIA] ¡Ganaste en el bloque ${blockHeight}!`);
+    if (isConfirmed && blockHeight > effectiveLastCelebrated) {
+        console.log(`🎉 [VICTORIA] ¡Ganaste y está confirmado en el bloque ${blockHeight}!`);
         state.lastVictoryBlock = blockHeight;
         localStorage.setItem('satlotto_last_victory_block', blockHeight.toString());
         triggerVictoryCelebration(sorteoResult.winningNumber, blockHeight);
+    } else if (!isConfirmed && blockHeight > effectiveLastCelebrated) {
+        // Potential winner: show modal once per session/block
+        const modalKey = `notified_potential_${blockHeight}`;
+        if (!localStorage.getItem(modalKey)) {
+            showPotentialWinnerModal();
+            localStorage.setItem(modalKey, 'true');
+        }
     }
 }
 
@@ -92,7 +106,7 @@ function showTransparencyModal(blockHash: string, blockHeight: number, winningNu
     transparencyModalElement.className = 'modal-bg';
     transparencyModalElement.style.display = 'flex';
     transparencyModalElement.innerHTML = `
-        <div class="modal" style="max-width: 450px; text-align: left">
+        <div class="modal auth-modal" style="max-width: 450px; text-align: left">
             <h2 style="text-align: center">Transparencia</h2>
             <p style="font-size: 0.9rem; margin-bottom: 20px; color: rgba(255,255,255,0.8); line-height: 1.4">
                 El número ganador <strong>${winningNumber}</strong> se obtiene a partir del hash del último bloque en que se sorteo (<b>${blockHeight}</b>):

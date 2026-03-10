@@ -33,3 +33,77 @@ export function showFrozenHelpModal(): void {
         if (e.target === modal) modal.remove();
     });
 }
+
+export function showTransparencyHelpModal(): void {
+    const modal = document.createElement('div');
+    modal.className = 'modal-bg';
+    modal.style.display = 'flex';
+    modal.innerHTML = `
+        <div class="modal auth-modal" style="max-width: 400px; text-align: left;">
+            <h2 style="color: var(--neon-orange); text-shadow: 0 0 10px rgba(247, 147, 26, 0.5);">Transparencia del Pozo</h2>
+            <div style="font-size: 0.9rem; line-height: 1.6; color: #ccc; margin: 20px 0;">
+                <p>El pozo mostrado es el <strong>Premio Neto (95.8%)</strong> que recibirán los ganadores.</p>
+                <p>El <strong>4.2% restante</strong> se destina a comisiones de mantenimiento, desarrollo y amor al código.</p>
+                <p style="margin-top: 15px; color: #aaa; font-style: italic;">Los decimales sobrantes de cada sorteo se acumulan automáticamente para el próximo pozo.</p>
+            </div>
+            <button class="close-btn" id="closeTransModal" style="width: 100%;">Entendido</button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    modal.querySelector('#closeTransModal')?.addEventListener('click', () => modal.remove());
+}
+
+export function showPotentialWinnerModal(): void {
+    const modal = document.createElement('div');
+    modal.className = 'modal-bg';
+    modal.style.display = 'flex';
+    
+    const currentLud16 = localStorage.getItem('satlotto_lud16') || '';
+
+    modal.innerHTML = `
+        <div class="modal auth-modal" style="max-width: 400px; text-align: center;">
+            <h2 style="color: var(--neon-green); text-shadow: 0 0 15px rgba(0, 255, 157, 0.5);">EL AZAR TE HA ELEGIDO... 🏆</h2>
+            <div style="font-size: 0.95rem; line-height: 1.6; color: #ccc; margin: 20px 0;">
+                <p>Las estrellas se están alineando en la red Bitcoin. Estamos esperando <strong>2 confirmaciones</strong> para sellar tu destino.</p>
+                <p>Algo grande está por suceder. Asegurate de que tengamos dónde enviarte el botín:</p>
+                
+                <div style="margin-top: 20px; text-align: left;">
+                    <label style="font-size: 0.75rem; color: var(--neon-orange); text-transform: uppercase;">Tu Lightning Address:</label>
+                    <input type="text" id="lud16Input" value="${currentLud16}" placeholder="usuario@dominio.com" 
+                        style="width: 100%; padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: #fff; border-radius: 4px; margin-top: 5px; outline: none; font-family: inherit;">
+                    <p id="claimStatus" style="font-size: 0.7rem; margin-top: 5px; color: var(--neon-green); opacity: 0; transition: opacity 0.3s; font-weight: bold;">¡Dirección guardada! ⚡</p>
+                </div>
+            </div>
+            <button class="close-btn" id="closePotModal" style="width: 100%;">Mantenerme a la espera</button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    const input = modal.querySelector('#lud16Input') as HTMLInputElement;
+    const status = modal.querySelector('#claimStatus') as HTMLElement;
+
+    input.addEventListener('change', async () => {
+        const val = input.value.trim();
+        if (val.includes('@')) {
+            localStorage.setItem('satlotto_lud16', val);
+            status.style.opacity = '1';
+            
+            // Sincronizar con el servidor "bajo tierra"
+            const { authState } = await import('../auth/auth-state');
+            if (authState.loginEvent) {
+                fetch('/api/identity/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        event: authState.loginEvent, 
+                        lud16: val 
+                    })
+                }).catch(() => {});
+            }
+            
+            setTimeout(() => { status.style.opacity = '0'; }, 3000);
+        }
+    });
+
+    modal.querySelector('#closePotModal')?.addEventListener('click', () => modal.remove());
+}
