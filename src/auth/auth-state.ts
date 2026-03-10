@@ -4,7 +4,9 @@ export const authState = {
     nwcUrl: localStorage.getItem('satlotto_nwc'),
     bunkerTarget: localStorage.getItem('satlotto_bunker'),
     localPrivkey: localStorage.getItem('satlotto_local_privkey'),
-    nip05: localStorage.getItem('satlotto_alias')
+    nip05: localStorage.getItem('satlotto_alias'),
+    loginEvent: null as any | null, // Evento firmado (Pasaporte)
+    lastCelebratedBlock: 0
 };
 
 export const logRemote = (data: any) => {

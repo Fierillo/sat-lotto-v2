@@ -50,7 +50,11 @@ export async function finishLogin(): Promise<void> {
     }
 
     // Resolve identity (Future-proof: this is our only update factor)
-    const apiAlias = await fetchIdentity(authState.pubkey);
+    const res = await fetch(`/api/identity/${authState.pubkey}`);
+    const data = res.ok ? await res.json() : { alias: null, lastCelebrated: 0 };
+    authState.lastCelebratedBlock = data.lastCelebrated || 0;
+    
+    const apiAlias = data.alias || await fetchIdentity(authState.pubkey);
     const user = ndk.getUser({ pubkey: authState.pubkey });
     const profile = await user.fetchProfile();
     const ndkAlias = profile?.nip05 || null;
@@ -58,10 +62,12 @@ export async function finishLogin(): Promise<void> {
     // Securely verify identity on server using the signed event (Kind 0)
     ndk.fetchEvent({ kinds: [0], authors: [authState.pubkey] }).then(ev => {
         if (ev) {
+            const raw = ev.rawEvent();
+            authState.loginEvent = raw; // Guardamos el pasaporte para festejos
             fetch('/api/identity/verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ event: ev.rawEvent() })
+                body: JSON.stringify({ event: raw })
             }).catch(() => {});
         }
     });
