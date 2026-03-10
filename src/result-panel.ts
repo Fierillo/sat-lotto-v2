@@ -3,26 +3,42 @@ import { copyToClipboard } from './utils/clipboard-utils';
 import { state } from './app-state';
 import { authState } from './auth/auth-state';
 
-function triggerVictoryCelebration(_winningNumber: number): void {
+async function triggerVictoryCelebration(_winningNumber: number, blockHeight: number): Promise<void> {
     const clock = document.getElementById('clock');
     if (!clock) return;
 
-    // 1. Iniciar animación del reloj y el cuerpo
+    // 1. Sincronizar victoria "Bajo Tierra" (usando el pasaporte del login)
+    if (authState.loginEvent) {
+        try {
+            await fetch('/api/identity/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    event: authState.loginEvent, 
+                    blockHeight 
+                })
+            });
+        } catch (e) {
+            console.error('[Celebration] Sync failed:', e);
+        }
+    }
+
+    // 2. Iniciar animación del reloj y el cuerpo
     clock.classList.add('victory-mode');
     document.body.classList.add('celebrating');
     
-    // 2. Overlay de resplandor
+    // 3. Overlay de resplandor
     const overlay = document.createElement('div');
     overlay.className = 'winner-overlay';
     document.body.appendChild(overlay);
 
-    // 3. Mostrar mensaje épico flotante
+    // 4. Mostrar mensaje épico flotante (¡CAMPEÓN!)
     const msg = document.createElement('div');
     msg.className = 'victory-text-animation';
     msg.innerHTML = '¡CAMPEÓN!';
     document.body.appendChild(msg);
 
-    // Estilo de la animación del texto
+    // Asegurar que los estilos existan
     if (!document.getElementById('victory-styles')) {
         const style = document.createElement('style');
         style.id = 'victory-styles';
@@ -36,10 +52,10 @@ function triggerVictoryCelebration(_winningNumber: number): void {
                 font-family: 'JetBrains Mono', monospace;
             }
             @keyframes winnerTextPop {
-                0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); filter: blur(20px); }
-                15% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); filter: blur(0); }
+                0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); filter: blur(10px); }
+                15% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); filter: blur(0); }
                 85% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-                100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); filter: blur(40px); }
+                100% { opacity: 0; transform: translate(-50%, -50%) scale(1.3); filter: blur(20px); }
             }
         `;
         document.head.appendChild(style);
@@ -61,20 +77,17 @@ function checkVictory(sorteoResult: any, blockHeight: number): void {
         w.pubkey.toLowerCase() === authState.pubkey?.toLowerCase()
     );
 
-    if (isWinner && blockHeight > state.lastVictoryBlock) {
+    const effectiveLastCelebrated = Math.max(state.lastVictoryBlock, authState.lastCelebratedBlock || 0);
+
+    if (isWinner && blockHeight > effectiveLastCelebrated) {
         console.log(`🎉 [VICTORIA] ¡Ganaste en el bloque ${blockHeight}!`);
-        
-        // Persistir que ya festejamos este bloque
         state.lastVictoryBlock = blockHeight;
         localStorage.setItem('satlotto_last_victory_block', blockHeight.toString());
-        
-        // Festejar
-        triggerVictoryCelebration(sorteoResult.winningNumber);
+        triggerVictoryCelebration(sorteoResult.winningNumber, blockHeight);
     }
 }
 
 function showTransparencyModal(blockHash: string, blockHeight: number, winningNumber: number): void {
-// ... resto del código ...
     const transparencyModalElement = document.createElement('div');
     transparencyModalElement.className = 'modal-bg';
     transparencyModalElement.style.display = 'flex';
