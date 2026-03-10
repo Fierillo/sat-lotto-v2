@@ -78,7 +78,7 @@ export async function startBotListener() {
                     WHERE pubkey = $2
                 `, [newLud16, pubkey]);
 
-                await sendDM(pubkey, `¡Recibido! Guardé tu dirección: ${newLud16}. En el próximo ciclo del servidor intentaremos procesar tus premios pendientes. ⚡`);
+                await sendDM(pubkey, `¡Recibido! 🇦🇷 Guardé tu dirección: ${newLud16}. En el próximo ciclo del servidor intentaremos procesar tus premios pendientes. ⚡\n\nReceived! I saved your address: ${newLud16}. In the next server cycle we will try to process your pending prizes. ⚡`);
             }
         } catch (e) {
             console.error('[Bot] Error processing incoming DM:', e);
@@ -350,7 +350,7 @@ async function runFullPayoutCycle(targetBlock: number) {
             `, [winner.pubkey, targetBlock, prizePerWinner, 'winner', paid ? 'paid' : 'failed']);
 
             if (!paid) {
-                await sendDM(winner.pubkey, `¡FELICITACIONES CAMPEÓN! 🏆\n\nGanaste ${prizePerWinner} sats en SatLotto (Bloque ${targetBlock}).\nNo pudimos pagarte automáticamente. Pasame por acá tu Lightning Address o entrá a la web para cobrar.`);
+                await sendDM(winner.pubkey, `¡FELICITACIONES CAMPEÓN! 🏆🇦🇷\n\nGanaste ${prizePerWinner} sats en SatLotto (Bloque ${targetBlock}). No pudimos pagarte automáticamente. Pasame por acá tu Lightning Address o entrá a la web para cobrar.\n\nCONGRATULATIONS CHAMPION! 🏆\n\nYou won ${prizePerWinner} sats in SatLotto (Block ${targetBlock}). We couldn't pay you automatically. Send me your Lightning Address here or visit the web to claim.`);
             }
         }
 
@@ -393,7 +393,7 @@ async function retryFailedPayouts() {
                     await nwcClient.payInvoice({ invoice });
                     await queryNeon('UPDATE lotto_payouts SET status = $1 WHERE pubkey = $2 AND block_height = $3 AND type = $4', 
                         ['paid', p.pubkey, p.block_height, 'winner']);
-                    await sendDM(p.pubkey, `¡Listo! Ya te envié tus ${p.amount} sats del bloque ${p.block_height} a ${p.lud16}. ¡Gracias por jugar! ⚡`);
+                    await sendDM(p.pubkey, `¡Listo! 🇦🇷 Ya te envié tus ${p.amount} sats del bloque ${p.block_height} a ${p.lud16}. ¡Gracias por jugar! ⚡\n\nDone! I've sent your ${p.amount} sats from block ${p.block_height} to ${p.lud16}. Thanks for playing! ⚡`);
                 } catch (e) {
                     console.error(`[PayoutWorker] Retry failed for ${p.pubkey}:`, e);
                 }
