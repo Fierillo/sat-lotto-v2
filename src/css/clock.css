@@ -21,53 +21,10 @@ body.phase-frozen #clock {
 }
 
 body.phase-resolving #clock {
-    animation: resolvingClockPulse 4.2s ease-in-out infinite;
-    border-color: rgba(247, 147, 26, 0.4);
-}
-
-@keyframes resolvingClockPulse {
-    0%, 100% { 
-        background: radial-gradient(circle at center, rgba(247, 147, 26, 0.1) 0%, rgba(10, 15, 30, 0.95) 100%);
-        box-shadow: 0 0 80px rgba(247, 147, 26, 0.15), inset 0 0 30px rgba(247, 147, 26, 0.05);
-    }
-    50% { 
-        background: radial-gradient(circle at center, rgba(247, 147, 26, 0.25) 0%, rgba(10, 15, 30, 0.95) 100%);
-        box-shadow: 0 0 120px rgba(247, 147, 26, 0.3), inset 0 0 50px rgba(247, 147, 26, 0.1);
-    }
-}
-
-.block-marker.target {
-    color: var(--neon-orange);
-    text-shadow: 0 0 10px var(--neon-orange);
-    font-size: 1rem;
-}
-
-body.phase-resolving .block-marker.target {
-    animation: targetResolvingPulse 2.1s ease-in-out infinite !important;
-    z-index: 200;
-}
-
-@keyframes targetResolvingPulse {
-    0%, 100% { 
-        color: #f7931a; 
-        text-shadow: 0 0 10px #f7931a, 0 0 20px rgba(247, 147, 26, 0.5);
-    }
-    50% { 
-        color: #ff3333; 
-        text-shadow: 0 0 20px #ff3333, 0 0 40px rgba(255, 51, 51, 0.8);
-    }
-}
-
-
-@keyframes resolvingClockPulse {
-    0%, 100% { 
-        background: radial-gradient(circle at center, rgba(247, 147, 26, 0.1) 0%, rgba(10, 15, 30, 0.95) 100%);
-        box-shadow: 0 0 80px rgba(247, 147, 26, 0.15), inset 0 0 30px rgba(247, 147, 26, 0.05);
-    }
-    50% { 
-        background: radial-gradient(circle at center, rgba(247, 147, 26, 0.2) 0%, rgba(10, 15, 30, 0.95) 100%);
-        box-shadow: 0 0 120px rgba(247, 147, 26, 0.3), inset 0 0 50px rgba(247, 147, 26, 0.1);
-    }
+    background: radial-gradient(circle at center, rgba(247, 147, 26, 0.05) 0%, rgba(10, 15, 30, 0.95) 100%) !important;
+    border-color: rgba(247, 147, 26, 0.2) !important;
+    box-shadow: 0 0 60px rgba(247, 147, 26, 0.1) !important;
+    animation: none !important; /* Quitamos el palpito excesivo */
 }
 
 .ring {
@@ -111,7 +68,7 @@ body:not(.logged-out) .block-marker:not(.target):not(.current):not(.neon-blue) {
 }
 
 body.phase-resolving .block-marker.target {
-    animation: targetResolvingPulse 1s ease-in-out infinite !important;
+    animation: targetResolvingPulse 2.1s ease-in-out infinite !important;
     z-index: 200;
 }
 
@@ -119,12 +76,10 @@ body.phase-resolving .block-marker.target {
     0%, 100% { 
         color: #f7931a; 
         text-shadow: 0 0 10px #f7931a, 0 0 20px rgba(247, 147, 26, 0.5);
-        transform: scale(1);
     }
     50% { 
         color: #ff3333; 
         text-shadow: 0 0 20px #ff3333, 0 0 40px rgba(255, 51, 51, 0.8);
-        transform: scale(1.2);
     }
 }
 
@@ -210,6 +165,20 @@ body.logged-out .block-marker:not(.target):not(.current) {
     z-index: 10;
 }
 
+body.phase-frozen .number-segment.selected {
+    background: rgba(0, 242, 255, 0.2);
+    color: var(--neon-blue);
+    box-shadow: inset 0 0 20px rgba(0, 242, 255, 0.4);
+    border-top-color: var(--neon-blue);
+}
+
+body.phase-resolving .number-segment.selected {
+    background: rgba(247, 147, 26, 0.25);
+    color: var(--neon-orange);
+    box-shadow: inset 0 0 20px rgba(247, 147, 26, 0.5);
+    border-top-color: var(--neon-orange);
+}
+
 .number-segment.selected.error-selected {
     background: rgba(255, 51, 51, 0.3);
     color: var(--neon-red);
@@ -239,7 +208,7 @@ body.logged-out .block-marker:not(.target):not(.current) {
     width: 130px;
     height: 130px;
     border-radius: 50%;
-    font-size: 1.5rem;
+    font-size: 1.2rem; /* Achicado de 1.5rem */
     font-weight: 800;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -276,12 +245,7 @@ body.logged-out .block-marker:not(.target):not(.current) {
 }
 
 @keyframes blinkPurple {
-
-    0%,
-    100% {
-        box-shadow: 0 0 0 transparent;
-    }
-
+    0%, 100% { box-shadow: 0 0 0 transparent; }
     50% {
         background: rgba(176, 38, 255, 0.3);
         border-color: var(--neon-purple);
@@ -357,11 +321,6 @@ body.phase-frozen .block-marker.current {
     position: absolute;
     top: 50%;
     left: 50%;
-    /* Positioned between block 19 and 20, adjusted CW */
-    /* Angle = 239.28 + 2 = 241.28 deg */
-    /* Rad = 241.28 * PI / 180 = 4.211 */
-    /* Radius = 255px */
-    /* x = cos(4.211) * 255 = -123px, y = sin(4.211) * 255 = -223px */
     transform: translate(-50%, -50%) translate(-123px, -223px);
     z-index: 200;
     margin: 0;
@@ -389,9 +348,39 @@ body.logged-out #frozenHelp {
     font-weight: bold;
 }
 
-.help-icon:hover {
-    background: var(--neon-orange);
-    color: #000;
+body.phase-frozen #centerBtn {
+    background: #0a1a2a !important;
+    border: 1px solid #00f2ff !important; /* Borde igual al color neón */
+    color: #00f2ff !important;
+    box-shadow: 0 0 25px rgba(0, 242, 255, 0.4), inset 0 0 15px rgba(0, 242, 255, 0.1) !important;
+    text-shadow: 0 0 8px rgba(0, 242, 255, 0.6);
+    font-size: 0.85rem !important;
+}
+
+body.phase-resolving #centerBtn {
+    background: #f7931a !important;
+    border: 1px solid #f7931a !important; /* Borde igual al relleno */
+    color: #fff !important;
+    box-shadow: 0 0 40px rgba(247, 147, 26, 0.6) !important;
+    text-shadow: 0 0 5px rgba(0,0,0,0.3) !important;
+    font-size: 1.1rem !important;
+}
+
+#clock.victory-mode #centerBtn {
+    background: #f7931a !important;
+    border: 1px solid #f7931a !important; /* Borde igual al relleno */
+    color: #fff !important;
+    box-shadow: 0 0 80px #f7931a, inset 0 0 30px rgba(255,255,255,0.4) !important;
+    transition: none !important;
+    font-size: 1.1rem !important;
+}
+
+body.flash-green #centerBtn {
+    background: #00ff9d !important;
+    border: 1px solid #00ff9d !important; /* Borde igual al relleno */
+    color: #000 !important;
+    box-shadow: 0 0 50px #00ff9d !important;
+    font-size: 1.1rem !important;
 }
 
 /* --- ANIMACION DE VICTORIA EPICA (4.2s) --- */
@@ -413,8 +402,8 @@ body.logged-out #frozenHelp {
     }
     85% {
         background: radial-gradient(circle at center, rgba(247, 147, 26, 0.2) 0%, var(--bg-panel) 80%);
-        box-shadow: 0 0 80px rgba(247, 147, 26, 0.4);
-        border-color: rgba(247, 147, 26, 0.5);
+        box-shadow: 0 0 100px rgba(247, 147, 26, 0.5);
+        border-color: rgba(247, 147, 26, 0.7);
     }
     100% {
         background: var(--bg-panel);
@@ -441,13 +430,32 @@ body.celebrating .block-marker {
     transition: all 1s ease;
 }
 
+body.celebrating .number-segment {
+    background: rgba(247, 147, 26, 0.2) !important;
+    box-shadow: inset 0 0 25px rgba(247, 147, 26, 0.4) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    transition: all 1s ease;
+}
+
+body.celebrating .number-text {
+    color: #fff !important;
+    text-shadow: 0 0 10px #f7931a, 0 0 20px rgba(247, 147, 26, 0.8) !important;
+    font-size: 1.4rem !important; /* Aumentamos tamaño sin romper el transform de rotación */
+    transition: all 1s ease;
+}
+
 #clock.victory-mode {
     animation: victoryGlow 4.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     z-index: 1000;
 }
 
 #clock.victory-mode .inner-ring-container {
-    filter: brightness(1.5) saturate(1.2);
+    animation: innerRingVictory 4.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes innerRingVictory {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); filter: brightness(1); }
+    40%, 60% { transform: translate(-50%, -50%) scale(1.08); filter: brightness(1.3) saturate(1.2); }
 }
 
 .winner-overlay {
@@ -456,7 +464,7 @@ body.celebrating .block-marker {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(247, 147, 26, 0.08); /* Much more subtle */
+    background: rgba(247, 147, 26, 0.08);
     pointer-events: none;
     z-index: 999;
     animation: fadeInOut 4.2s forwards;
