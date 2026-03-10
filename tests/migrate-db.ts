@@ -26,9 +26,14 @@ async function migrate() {
         // 3. Verificar lotto_identities por si acaso
         await client.query(`
             ALTER TABLE lotto_identities 
-            ADD COLUMN IF NOT EXISTS last_updated TIMESTAMP WITH TIME ZONE;
+            ADD COLUMN IF NOT EXISTS last_updated TIMESTAMP WITH TIME ZONE,
+            ADD COLUMN IF NOT EXISTS last_celebrated_block INTEGER DEFAULT 0;
         `);
-        console.log('✅ Columna last_updated verificada en lotto_identities');
+        console.log('✅ Columnas last_updated y last_celebrated_block verificadas en lotto_identities');
+
+        // 4. Limpieza (Opcional: borrar tabla compleja anterior si existía)
+        await client.query(`DROP TABLE IF EXISTS lotto_celebrations;`);
+        console.log('✅ Tabla lotto_celebrations eliminada (simplificación)');
 
     } catch (err) {
         console.error('❌ Error en migración:', err.message);
