@@ -164,6 +164,14 @@ async function runFullPayoutCycle(targetBlock: number) {
                 ON CONFLICT (pubkey, block_height, type) DO UPDATE SET status = EXCLUDED.status
             `, [winner.pubkey, targetBlock, prizePerWinner, 'winner', paid ? 'paid' : 'failed']);
 
+            if (paid) {
+                await queryNeon(`
+                    INSERT INTO lotto_identities (pubkey, sats_earned) 
+                    VALUES ($1, $2) 
+                    ON CONFLICT (pubkey) DO UPDATE SET sats_earned = lotto_identities.sats_earned + EXCLUDED.sats_earned
+                `, [winner.pubkey, prizePerWinner]);
+            }
+
             if (!paid) {
                 const appUrl = process.env.APP_URL || 'https://satlotto.vercel.app';
                 await sendDM(winner.pubkey, `¡FELICITACIONES CAMPEÓN! 🏆\n\nEl azar estuvo de tu lado y ganaste ${prizePerWinner} sats en SatLotto (Bloque ${targetBlock}). 🎲\n\nNo pudimos pagarte automáticamente porque no tenés una Lightning Address configurada.\n\nEntrá a ${appUrl} para reclamar tu premio.\n\n---\n\nCONGRATULATIONS CHAMPION! 🏆\n\nLuck was on your side and you won ${prizePerWinner} sats in SatLotto (Block ${targetBlock}). 🎲\n\nWe couldn't pay you automatically because you don't have a Lightning Address configured.\n\nVisit ${appUrl} to claim your prize.`);
@@ -211,6 +219,11 @@ async function retryFailedPayouts() {
                     await nwcClient.payInvoice({ invoice });
                     await queryNeon('UPDATE lotto_payouts SET status = $1 WHERE pubkey = $2 AND block_height = $3 AND type = $4', 
                         ['paid', p.pubkey, p.block_height, 'winner']);
+                    
+                    await queryNeon(`
+                        UPDATE lotto_identities SET sats_earned = sats_earned + $1 WHERE pubkey = $2
+                    `, [p.amount, p.pubkey]);
+
                     await sendDM(p.pubkey, `¡Listo! 🇦🇷 Ya te envié tus ${p.amount} sats del bloque ${p.block_height} a ${p.lud16}. ¡Gracias por jugar! ⚡\n\nDone! I've sent your ${p.amount} sats from block ${p.block_height} to ${p.lud16}. Thanks for playing! ⚡`);
                 } catch (e: any) {
                     console.error('[PayoutWorker] Retry failed:', e.message?.slice(0, 40));
