@@ -4,6 +4,13 @@ import { queryNeon } from './db';
 import { nip04 } from 'nostr-tools';
 import { blockHashCache } from './cache';
 
+// Silence NIP-04 deprecation warning
+const originalWarn = console.warn;
+console.warn = (...args: any[]) => {
+    if (args[0]?.includes?.('NIP-04')) return;
+    originalWarn.apply(console, args);
+};
+
 // Bot Identity
 const botNdk = new NDK({
     explicitRelayUrls: ['wss://relay.primal.net', 'wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.snort.social']
@@ -36,8 +43,8 @@ export const getPoolBalance = async (): Promise<number> => {
         const balanceData = await client.getBalance();
         return Math.floor(balanceData.balance / 1000);
     } catch (e: any) {
-        console.error('[getPoolBalance] Error:', e.message);
-        throw e;
+        console.error('[getPoolBalance] NWC timeout');
+        throw new Error('NWC timeout');
     } finally {
         try { client.close(); } catch {}
     }
@@ -53,8 +60,8 @@ async function getInvoiceFromLNAddress(address: string, amountSats: number): Pro
         const invRes = await fetch(`${callback}?amount=${amountMsats}`);
         const invData = await invRes.json();
         return invData.pr || invData.payment_request;
-    } catch (e) {
-        console.error(`[LNURL] Failed to get invoice for ${address}:`, e);
+    } catch (e: any) {
+        console.error(`[LNURL] Failed: ${address}`, e.message?.slice(0, 50));
         return null;
     }
 }
@@ -71,8 +78,8 @@ async function sendDM(pubkey: string, message: string) {
         dm.tags = [['p', pubkey]];
         dm.content = await nip04.encrypt(botPrivkey, pubkey, message);
         await dm.publish();
-    } catch (e) {
-        console.error(`[DM] Failed to send to ${pubkey}:`, e);
+    } catch (e: any) {
+        console.error(`[DM] Failed: ${pubkey.slice(0, 8)}...`, e.message?.slice(0, 30));
     }
 }
 
@@ -134,7 +141,7 @@ async function runFullPayoutCycle(targetBlock: number) {
                     await nwcClient.payInvoice({ invoice: feeInvoice });
                     await queryNeon('INSERT INTO lotto_payouts (pubkey, block_height, amount, type, status) VALUES ($1, $2, $3, $4, $5)', 
                         ['ADMIN', targetBlock, feeAmount, 'fee', 'paid']);
-                } catch (e) { console.error('[PayoutWorker] Fee payment failed', e); }
+                } catch (e: any) { console.error('[PayoutWorker] Fee failed:', e.message?.slice(0, 40)); }
             }
         }
 
@@ -159,7 +166,7 @@ async function runFullPayoutCycle(targetBlock: number) {
                     try {
                         await nwcClient.payInvoice({ invoice: winnerInvoice });
                         paid = true;
-                    } catch (e) { console.error(`[PayoutWorker] Payment execution failed for ${winner.pubkey}`, e); }
+                    } catch (e: any) { console.error('[PayoutWorker] Winner payment failed:', e.message?.slice(0, 40)); }
                 }
             }
 
@@ -185,7 +192,7 @@ async function runFullPayoutCycle(targetBlock: number) {
             ev.kind = 1;
             ev.content = announcement;
             if (nostrEnabled) {
-                await ev.publish().catch(e => console.error('[PayoutWorker] Announcement failed', e));
+                await ev.publish().catch(e => console.error('[PayoutWorker] Announcement failed:', e.message?.slice(0, 30)));
             } else {
                 console.log(`[PayoutWorker] Announcement disabled: ${announcement.slice(0, 50)}...`);
             }
@@ -219,8 +226,8 @@ async function retryFailedPayouts() {
                     await queryNeon('UPDATE lotto_payouts SET status = $1 WHERE pubkey = $2 AND block_height = $3 AND type = $4', 
                         ['paid', p.pubkey, p.block_height, 'winner']);
                     await sendDM(p.pubkey, `¡Listo! 🇦🇷 Ya te envié tus ${p.amount} sats del bloque ${p.block_height} a ${p.lud16}. ¡Gracias por jugar! ⚡\n\nDone! I've sent your ${p.amount} sats from block ${p.block_height} to ${p.lud16}. Thanks for playing! ⚡`);
-                } catch (e) {
-                    console.error(`[PayoutWorker] Retry failed for ${p.pubkey}:`, e);
+                } catch (e: any) {
+                    console.error('[PayoutWorker] Retry failed:', e.message?.slice(0, 40));
                 }
             }
         }

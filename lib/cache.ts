@@ -27,7 +27,7 @@ export async function syncData() {
 
     try {
         await processPayouts(cachedBlock.height);
-    } catch (e) {
-        console.error('[PayoutWorker] Error:', e);
+    } catch (e: any) {
+        console.error('[PayoutWorker] Error:', e.message || 'unknown');
     }
 }
