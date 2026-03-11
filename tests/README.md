@@ -17,6 +17,7 @@ npm run test:nwc
 ```
 
 ### Tests disponibles:
+- `init-db.ts`: Crea las tablas necesarias en Neon (bet, identities, payouts). Ejecutar al configurar DB por primera vez.
 - `test-nwc.ts`: Verifica la conexión NWC del servidor y capacidad de generar invoices.
 - `test-submit-bet.ts`: Simula una apuesta completa contra la API.
 - `test-db.ts`: Prueba básica de query a la base Neon.
