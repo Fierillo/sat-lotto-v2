@@ -42,9 +42,8 @@ export function showTransparencyHelpModal(): void {
         <div class="modal auth-modal" style="max-width: 400px; text-align: left;">
             <h2 style="color: var(--neon-orange); text-shadow: 0 0 10px rgba(247, 147, 26, 0.5);">Transparencia del Pozo</h2>
             <div style="font-size: 0.9rem; line-height: 1.6; color: #ccc; margin: 20px 0;">
-                <p>El pozo mostrado es el <strong>Premio Neto (95.8%)</strong> que recibirán los ganadores.</p>
-                <p>El <strong>4.2% restante</strong> se destina a comisiones de mantenimiento, desarrollo y amor al código.</p>
-                <p style="margin-top: 15px; color: #aaa; font-style: italic;">Los decimales sobrantes de cada sorteo se acumulan automáticamente para el próximo pozo.</p>
+                <p>¿Por que si mande 21 sats, el pozo suma menos?</p>
+                <p>Los <strong>2 sats restantes</strong> son la comisión para seguir dándole amor al código.</p>
             </div>
             <button class="close-btn" id="closeTransModal" style="width: 100%;">Entendido</button>
         </div>
