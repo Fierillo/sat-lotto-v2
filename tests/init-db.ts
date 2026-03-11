@@ -35,10 +35,17 @@ async function migrate() {
                 lud16 TEXT,
                 last_updated TIMESTAMP WITH TIME ZONE,
                 last_celebrated_block INTEGER DEFAULT 0,
+                sats_earned INTEGER DEFAULT 0,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
         `);
         console.log('✅ lotto_identities table created');
+
+        // Ensure sats_earned exists even if table already existed
+        await client.query(`
+            ALTER TABLE lotto_identities ADD COLUMN IF NOT EXISTS sats_earned INTEGER DEFAULT 0;
+        `);
+        console.log('✅ sats_earned column verified');
 
         await client.query(`
             CREATE TABLE IF NOT EXISTS lotto_payouts (
@@ -61,6 +68,7 @@ async function migrate() {
             CREATE INDEX IF NOT EXISTS idx_bets_pubkey ON lotto_bets(pubkey);
             CREATE INDEX IF NOT EXISTS idx_bets_event ON lotto_bets(nostr_event_id);
             CREATE INDEX IF NOT EXISTS idx_payouts_pubkey ON lotto_payouts(pubkey);
+            CREATE INDEX IF NOT EXISTS idx_payouts_block_type ON lotto_payouts(block_height, type);
         `);
         console.log('✅ Indexes created');
 
