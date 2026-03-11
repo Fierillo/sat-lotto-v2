@@ -43,7 +43,7 @@ export function showTransparencyHelpModal(): void {
             <h2 style="color: var(--neon-orange); text-shadow: 0 0 10px rgba(247, 147, 26, 0.5);">Transparencia del Pozo</h2>
             <div style="font-size: 0.9rem; line-height: 1.6; color: #ccc; margin: 20px 0;">
                 <p>¿Por que si mande 21 sats, el pozo suma menos?</p>
-                <p>Los <strong>2 sats restantes</strong> son la comisión para seguir dándole amor al código.</p>
+                <p>El juego se cobra <strong>2 sats</strong> como comisión, para seguir dándole amor al proyecto.</p>
             </div>
             <button class="close-btn" id="closeTransModal" style="width: 100%;">Entendido</button>
         </div>
