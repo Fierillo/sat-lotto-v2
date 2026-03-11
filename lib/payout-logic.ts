@@ -129,20 +129,7 @@ async function runFullPayoutCycle(targetBlock: number) {
             WHERE b.target_block = $1 AND b.selected_number = $2 AND b.is_paid = TRUE AND b.betting_block >= ($1 - 21)
         `, [targetBlock, result.winningNumber]);
 
-        const feeAmount = Math.floor(totalSats * 0.042);
-        const netPool = totalSats - feeAmount;
-        const prizePerWinner = winners.length > 0 ? Math.floor(netPool / winners.length) : 0;
-
-        if (feeAmount > 0) {
-            const feeInvoice = await getInvoiceFromLNAddress('fierillo@lawalletilla.vercel.app', feeAmount);
-            if (feeInvoice) {
-                try {
-                    await nwcClient.payInvoice({ invoice: feeInvoice });
-                    await queryNeon('INSERT INTO lotto_payouts (pubkey, block_height, amount, type, status) VALUES ($1, $2, $3, $4, $5)', 
-                        ['ADMIN', targetBlock, feeAmount, 'fee', 'paid']);
-                } catch (e: any) { console.error('[PayoutWorker] Fee failed:', e.message?.slice(0, 40)); }
-            }
-        }
+        const prizePerWinner = winners.length > 0 ? Math.floor(totalSats / winners.length) : 0;
 
         const winnerNames: string[] = [];
         for (const winner of winners) {
