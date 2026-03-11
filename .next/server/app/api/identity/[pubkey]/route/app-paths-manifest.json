@@ -1,0 +1,3 @@
+{
+  "/api/identity/[pubkey]/route": "app/api/identity/[pubkey]/route.js"
+}

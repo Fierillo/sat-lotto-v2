@@ -1,0 +1,12 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/api/bet/route": "/api/bet",
+  "/api/bets/route": "/api/bets",
+  "/api/blocks/tip/route": "/api/blocks/tip",
+  "/api/confirm/route": "/api/confirm",
+  "/api/identity/[pubkey]/route": "/api/identity/[pubkey]",
+  "/api/identity/verify/route": "/api/identity/verify",
+  "/api/result/route": "/api/result",
+  "/page": "/"
+}
