@@ -79,3 +79,4 @@ export const confirmBet = (paymentHash: string) => apiClient.post('/api/confirm'
 export const fetchBets = (block: number) => apiClient.get<{ bets: Bet[] }>(`/api/bets?block=${block}`).then(r => r.bets || []);
 export const fetchResult = (block: number) => apiClient.get<SorteoResult>(`/api/result?block=${block}`).catch(() => null);
 export const fetchIdentity = (pubkey: string) => apiClient.get<{ alias: string | null }>(`/api/identity/${pubkey}`).then(r => r.alias).catch(() => null);
+export const fetchWinners = () => apiClient.get<{ winners: any[] }>('/api/winners').then(r => r.winners || []);
