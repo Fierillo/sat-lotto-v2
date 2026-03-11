@@ -53,44 +53,9 @@ async function sendDM(pubkey: string, message: string) {
 }
 
 export async function startBotListener() {
-    if (!nostrEnabled || !botPrivkey || !botNdk.signer) {
-        console.log('[Bot] Listener disabled (NOSTR_ENABLED=false)');
-        return;
-    }
-    
-    const botUser = await botNdk.signer.user();
-    console.log(`[Bot] Listening for DMs at: ${botUser.pubkey}`);
-
-    const sub = botNdk.subscribe({
-        kinds: [4],
-        '#p': [botUser.pubkey]
-    });
-
-    sub.on('event', async (event: NDKEvent) => {
-        try {
-            // Decrypt using explicit NIP-04
-            const decryptedContent = await nip04.decrypt(botPrivkey, event.pubkey, event.content);
-            const content = decryptedContent.trim();
-            const pubkey = event.pubkey;
-
-            // Regex simple para Lightning Address
-            const lnAddressMatch = content.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-            if (lnAddressMatch) {
-                const newLud16 = lnAddressMatch[0];
-                console.log(`[Bot] Received Lightning Address from ${pubkey}: ${newLud16}`);
-
-                await queryNeon(`
-                    UPDATE lotto_identities 
-                    SET lud16 = $1, last_updated = NOW() 
-                    WHERE pubkey = $2
-                `, [newLud16, pubkey]);
-
-                await sendDM(pubkey, `¡Recibido! 🇦🇷 Guardé tu dirección: ${newLud16}. En el próximo ciclo del servidor intentaremos procesar tus premios pendientes. ⚡\n\nReceived! I saved your address: ${newLud16}. In the next server cycle we will try to process your pending prizes. ⚡`);
-            }
-        } catch (e) {
-            console.error('[Bot] Error processing incoming DM:', e);
-        }
-    });
+    // Listener is intentionally disabled to avoid WebSocket timeouts
+    // and because we don't expect replies to the bot DMs anymore.
+    console.log('[Bot] Listener disabled. Bot will only broadcast messages.');
 }
 
 export const handleBet = async (req: any, res: any, cachedBlock: any) => {
@@ -357,7 +322,8 @@ async function runFullPayoutCycle(targetBlock: number) {
             `, [winner.pubkey, targetBlock, prizePerWinner, 'winner', paid ? 'paid' : 'failed']);
 
             if (!paid) {
-                await sendDM(winner.pubkey, `¡FELICITACIONES CAMPEÓN! 🏆🇦🇷\n\nGanaste ${prizePerWinner} sats en SatLotto (Bloque ${targetBlock}). No pudimos pagarte automáticamente. Pasame por acá tu Lightning Address o entrá a la web para cobrar.\n\nCONGRATULATIONS CHAMPION! 🏆\n\nYou won ${prizePerWinner} sats in SatLotto (Block ${targetBlock}). We couldn't pay you automatically. Send me your Lightning Address here or visit the web to claim.`);
+                const appUrl = process.env.APP_URL || 'https://satlotto.vercel.app';
+                await sendDM(winner.pubkey, `¡FELICITACIONES CAMPEÓN! 🏆\n\nEl azar estuvo de tu lado y ganaste ${prizePerWinner} sats en SatLotto (Bloque ${targetBlock}). 🎲\n\nNo pudimos pagarte automáticamente porque no tenés una Lightning Address configurada.\n\nEntrá a ${appUrl} para reclamar tu premio.\n\n---\n\nCONGRATULATIONS CHAMPION! 🏆\n\nLuck was on your side and you won ${prizePerWinner} sats in SatLotto (Block ${targetBlock}). 🎲\n\nWe couldn't pay you automatically because you don't have a Lightning Address configured.\n\nVisit ${appUrl} to claim your prize.`);
             }
         }
 
