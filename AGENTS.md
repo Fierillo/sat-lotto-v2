@@ -22,51 +22,24 @@ Los mensajes de commit deben seguir las convenciones de [Conventional Commits](h
 [Cuerpo opcional con más detalles]
 ```
 
-### Ejemplos
+### Reglas
+
+- **Atómicos**: Un commit = Una funcionalidad/cambio lógico
+- **Separados**: No agrupar cambios no relacionados
+- **Idioma**: Inglés para commits, español para documentación
 
 ```bash
-feat: add EMAE indicator with three series
-
-fix: normalize black salary to base 100
-
-chore: update BMA cache with latest data
-```
-
-## Separación de commits
-
-- Cada funcionalidad/cambio lógico debe ir en un commit separado
-- No agrupar cambios no relacionados
-- Separar commits de features, fixes y tareas de mantenimiento
-
-## Principio de commits atómicos
-
-Los commits deben ser **cortos y enfocados**. Si necesitas escribir un mensaje de commit extenso para explicar todo lo que hace, probablemente deberías haber hecho commits más pequeños y específicos.
-
-**Regla general**: Un commit = Una funcionalidad/cambio lógico
-
-**Mal ejemplo**:
-```
+# Malo - todo junto en un commit
 feat: add EMAE, update BMA cache, fix bug in chart, add new button
-```
 
-**Buenos ejemplos** (commits separados):
-```
+# Bueno - commits separados
 feat: add EMAE indicator with three series
-
 chore: update BMA cache with recent data
-
 fix: correct chart axis calculation
-
 feat: add download button to chart view
 ```
 
-## Idioma
-
-- Commits: Inglés
-- Código: Inglés
-- Documentación: Español (para este proyecto)
-
-## Reglas de trabajo
+### Reglas de trabajo
 
 - **NO hacer commits sin orden expresa del usuario**
 - Esperar siempre la orden "commit" o "hacer commit" antes de ejecutar git commit
