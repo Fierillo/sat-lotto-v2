@@ -4,7 +4,7 @@ export const queryNeon = async (queryText: string, params: any[] = []) => {
     const url = process.env.NEON_URL;
     if (!url || url.includes('user:password')) return [];
     
-    const client = new Client(url);
+    const client = new Client(url) as any;
     try {
         await client.connect();
         const res = await client.query(queryText, params);

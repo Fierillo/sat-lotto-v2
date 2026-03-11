@@ -1,7 +1,8 @@
 import 'dotenv/config';
-import express from 'express';
-import { handleBet, handleGetBets, handleGetResult, handleConfirm, handleVerifyIdentity, getPoolBalance, processPayouts, startBotListener } from './api.ts';
-import { queryNeon } from './db.ts';
+import * as expressImport from 'express';
+const express = (expressImport as any).default || expressImport;
+import { handleBet, handleGetBets, handleGetResult, handleConfirm, handleVerifyIdentity, getPoolBalance, processPayouts, startBotListener } from './api';
+import { queryNeon } from './db';
 
 // Console overrides to reduce noise
 const originalWarn = console.warn;
@@ -137,23 +138,25 @@ app.get('/:hex', (req, res, next) => {
 export default app;
 
 if (process.env.VERCEL !== '1') {
-    const { createServer: createViteServer } = await import('vite');
-    const { createServer: createHttpServer } = await import('http');
+    (async () => {
+        const { createServer: createViteServer } = await import('vite');
+        const { createServer: createHttpServer } = await import('http');
 
-    const port = 5173;
-    const httpServer = createHttpServer(app);
+        const port = 5173;
+        const httpServer = createHttpServer(app);
 
-    createViteServer({ 
-        server: { 
-            middlewareMode: true,
-            hmr: { server: httpServer }
-        }, 
-        appType: 'spa' 
-    }).then(async (vite) => {
-        app.use(vite.middlewares);
-        httpServer.listen(port, '0.0.0.0', () => {
-            console.log(`➜  Server running on http://localhost:${port}/`);
-            console.log(`➜  Neon DB Proxy: ${process.env.NEON_URL ? 'Enabled' : 'Disabled'}`);
+        createViteServer({ 
+            server: { 
+                middlewareMode: true,
+                hmr: { server: httpServer }
+            }, 
+            appType: 'spa' 
+        }).then(async (vite: any) => {
+            app.use(vite.middlewares);
+            httpServer.listen(port, '0.0.0.0', () => {
+                console.log(`➜  Server running on http://localhost:${port}/`);
+                console.log(`➜  Neon DB Proxy: ${process.env.NEON_URL ? 'Enabled' : 'Disabled'}`);
+            });
         });
-    });
+    })();
 }

@@ -1,7 +1,7 @@
-import { queryNeon } from './db.ts';
+import { queryNeon } from './db';
 import { verifyEvent, nip04 } from 'nostr-tools';
-import { createNwcInvoice } from '../src/utils/create-invoice.ts';
-import { lookupNwcInvoice } from '../src/utils/pay-invoice.ts';
+import { createNwcInvoice } from '../src/utils/create-invoice';
+import { lookupNwcInvoice } from '../src/utils/pay-invoice';
 import { nwc } from '@getalby/sdk';
 import NDK, { NDKPrivateKeySigner, NDKEvent } from '@nostr-dev-kit/ndk';
 
@@ -235,7 +235,7 @@ const calculateResult = async (block: number) => {
             blockHashCache[block] = hash;
         } catch { return null; }
     }
-    const winningNumber = Number((BigInt('0x' + hash) % 21n) + 1n);
+    const winningNumber = Number((BigInt('0x' + hash) % BigInt(21)) + BigInt(1));
     return { hash, winningNumber };
 };
 
