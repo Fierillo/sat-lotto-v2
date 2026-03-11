@@ -167,11 +167,22 @@ async function runFullPayoutCycle(targetBlock: number) {
             `, [winner.pubkey, targetBlock, prizePerWinner, 'winner', paid ? 'paid' : 'failed']);
 
             if (paid) {
-                await queryNeon(`
-                    INSERT INTO lotto_identities (pubkey, sats_earned) 
-                    VALUES ($1, $2) 
-                    ON CONFLICT (pubkey) DO UPDATE SET sats_earned = lotto_identities.sats_earned + EXCLUDED.sats_earned
-                `, [winner.pubkey, prizePerWinner]);
+                const insertIdentity = async () => {
+                    await queryNeon(`
+                        INSERT INTO lotto_identities (pubkey, sats_earned) 
+                        VALUES ($1, $2) 
+                        ON CONFLICT (pubkey) DO UPDATE SET sats_earned = lotto_identities.sats_earned + EXCLUDED.sats_earned
+                    `, [winner.pubkey, prizePerWinner]);
+                };
+                
+                try {
+                    await insertIdentity();
+                } catch (e: any) {
+                    if (e.message?.includes('column "sats_earned" does not exist')) {
+                        await queryNeon('ALTER TABLE lotto_identities ADD COLUMN IF NOT EXISTS sats_earned INTEGER DEFAULT 0');
+                        await insertIdentity();
+                    } else throw e;
+                }
             }
 
             if (!paid) {
@@ -229,9 +240,20 @@ async function retryFailedPayouts() {
                     await queryNeon('UPDATE lotto_payouts SET status = $1 WHERE pubkey = $2 AND block_height = $3 AND type = $4', 
                         ['paid', p.pubkey, p.block_height, 'winner']);
                     
-                    await queryNeon(`
-                        UPDATE lotto_identities SET sats_earned = sats_earned + $1 WHERE pubkey = $2
-                    `, [p.amount, p.pubkey]);
+                    const updateIdentity = async () => {
+                        await queryNeon(`
+                            UPDATE lotto_identities SET sats_earned = sats_earned + $1 WHERE pubkey = $2
+                        `, [p.amount, p.pubkey]);
+                    };
+
+                    try {
+                        await updateIdentity();
+                    } catch (e: any) {
+                        if (e.message?.includes('column "sats_earned" does not exist')) {
+                            await queryNeon('ALTER TABLE lotto_identities ADD COLUMN IF NOT EXISTS sats_earned INTEGER DEFAULT 0');
+                            await updateIdentity();
+                        } else throw e;
+                    }
 
                     await sendDM(p.pubkey, `¡Listo! 🇦🇷 Ya te envié tus ${p.amount} sats del bloque ${p.block_height} a ${p.lud16}. ¡Gracias por jugar! ⚡\n\nDone! I've sent your ${p.amount} sats from block ${p.block_height} to ${p.lud16}. Thanks for playing! ⚡`);
                 } catch (e: any) {
