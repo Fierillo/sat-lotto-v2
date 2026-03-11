@@ -10,7 +10,12 @@ export function drawDashboardElements(container: HTMLElement): void {
     lastResultPanel.id = 'lastResult';
     lastResultPanel.className = 'result-panel';
 
+    const championsPanel = document.createElement('div');
+    championsPanel.id = 'championsTable';
+    championsPanel.className = 'bets-panel';
+
     container.appendChild(betsPanel);
+    container.appendChild(championsPanel);
     container.appendChild(clockInfoPanel);
     container.appendChild(lastResultPanel);
 }

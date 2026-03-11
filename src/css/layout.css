@@ -5,7 +5,7 @@
     grid-template-areas: 
         "bets clock info"
         "bets clock result"
-        "bets clock .";
+        "bets clock champions";
     align-items: start;
     justify-content: center;
     gap: 20px 40px;
@@ -22,6 +22,12 @@
     grid-area: bets;
     width: 100%;
     margin-top: 0;
+}
+
+#championsTable {
+    grid-area: champions;
+    width: 100%;
+    margin-top: 10px;
 }
 
 #clock {
@@ -73,7 +79,12 @@
         text-align: center;
     }
 
-    #betsTable, #lastResult, #clockInfo {
+    #championsTable {
+        order: 5;
+        margin-top: 0;
+    }
+
+    #betsTable, #championsTable, #lastResult, #clockInfo {
         width: 100%;
         max-width: 100%;
     }
