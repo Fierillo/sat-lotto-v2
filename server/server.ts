@@ -1,6 +1,5 @@
 import 'dotenv/config';
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
 import { handleBet, handleGetBets, handleGetResult, handleConfirm, handleVerifyIdentity, getPoolBalance, processPayouts, startBotListener } from './api.ts';
 import { queryNeon } from './db.ts';
 
@@ -129,30 +128,26 @@ app.get('/:hex', (req, res, next) => {
     next();
 });
 
-import { appendFileSync } from 'fs';
-import { join } from 'path';
-import { createServer as createHttpServer } from 'http';
+export default app;
 
-app.post('/api/debug', (req, res) => {
-    const { msg, ...rest } = req.body;
-    const logMsg = `[${new Date().toISOString()}] ${msg} ${JSON.stringify(rest)}\n`;
-    appendFileSync(join(process.cwd(), 'tests/mobile_debug.log'), logMsg);
-    res.json({ ok: true });
-});
+if (process.env.VERCEL !== '1') {
+    const { createServer: createViteServer } = await import('vite');
+    const { createServer: createHttpServer } = await import('http');
 
-const port = 5173;
-const httpServer = createHttpServer(app);
+    const port = 5173;
+    const httpServer = createHttpServer(app);
 
-createViteServer({ 
-    server: { 
-        middlewareMode: true,
-        hmr: { server: httpServer }
-    }, 
-    appType: 'spa' 
-}).then(async (vite) => {
-    app.use(vite.middlewares);
-    httpServer.listen(port, '0.0.0.0', () => {
-        console.log(`➜  Server running on http://localhost:${port}/`);
-        console.log(`➜  Neon DB Proxy: ${process.env.NEON_URL ? 'Enabled' : 'Disabled'}`);
+    createViteServer({ 
+        server: { 
+            middlewareMode: true,
+            hmr: { server: httpServer }
+        }, 
+        appType: 'spa' 
+    }).then(async (vite) => {
+        app.use(vite.middlewares);
+        httpServer.listen(port, '0.0.0.0', () => {
+            console.log(`➜  Server running on http://localhost:${port}/`);
+            console.log(`➜  Neon DB Proxy: ${process.env.NEON_URL ? 'Enabled' : 'Disabled'}`);
+        });
     });
-});
+}
