@@ -131,6 +131,7 @@ app.get('/:hex', (req, res, next) => {
 
 import { appendFileSync } from 'fs';
 import { join } from 'path';
+import { createServer as createHttpServer } from 'http';
 
 app.post('/api/debug', (req, res) => {
     const { msg, ...rest } = req.body;
@@ -139,10 +140,18 @@ app.post('/api/debug', (req, res) => {
     res.json({ ok: true });
 });
 
-createViteServer({ server: { middlewareMode: true }, appType: 'spa' }).then(async (vite) => {
+const port = 5173;
+const httpServer = createHttpServer(app);
+
+createViteServer({ 
+    server: { 
+        middlewareMode: true,
+        hmr: { server: httpServer }
+    }, 
+    appType: 'spa' 
+}).then(async (vite) => {
     app.use(vite.middlewares);
-    const port = 5173;
-    app.listen(port, '0.0.0.0', () => {
+    httpServer.listen(port, '0.0.0.0', () => {
         console.log(`➜  Server running on http://localhost:${port}/`);
         console.log(`➜  Neon DB Proxy: ${process.env.NEON_URL ? 'Enabled' : 'Disabled'}`);
     });
