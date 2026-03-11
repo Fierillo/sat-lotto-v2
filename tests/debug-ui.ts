@@ -1,4 +1,5 @@
 import { showPotentialWinnerModal } from '../src/ui/help-modals';
+import { state } from '../src/app-state';
 
 export function injectDebugButtons(): void {
     if (document.getElementById('debug-container')) return;
@@ -143,10 +144,82 @@ export function injectDebugButtons(): void {
         showPotentialWinnerModal();
     };
 
+    // 7. Test Champion List Switch (beautiful toggle)
+    let testModeActive = false;
+    const testPlayers = [
+        { pubkey: '3a10e02580d9971de935cd940a5268bfe4589dfbcc7557375e708e4104973bb9', alias: 'Fierillo', sats_earned: 15000 },
+        { pubkey: 'a1b2c3d4e5f6789012345678901234567890123456789012345678901234', alias: 'Satoshi', sats_earned: 8500 },
+        { pubkey: 'b2c3d4e5f6789012345678901234567890123456789012345678901234567', alias: 'Lightning', sats_earned: 12300 },
+        { pubkey: 'c3d4e5f67890123456789012345678901234567890123456789012345678', alias: 'NostrFan', sats_earned: 4200 },
+        { pubkey: 'd4e5f6789012345678901234567890123456789012345678901234567890', alias: 'BitcoinMaxi', sats_earned: 2100 },
+    ];
+
+    const switchContainer = document.createElement('div');
+    switchContainer.style.cssText = 'display:flex; align-items:center; gap:10px;';
+
+    const switchLabel = document.createElement('span');
+    switchLabel.textContent = 'TEST CHAMPIONS';
+    switchLabel.style.cssText = 'font-size:0.65rem; color:#888; font-weight:bold; letter-spacing:1px;';
+
+    const toggleSwitch = document.createElement('button');
+    toggleSwitch.style.cssText = `
+        width: 50px;
+        height: 26px;
+        border-radius: 13px;
+        border: 2px solid #ff00ff;
+        background: linear-gradient(90deg, #333 50%, #ff00ff 50%);
+        background-size: 200% 100%;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+    `;
+    toggleSwitch.onclick = async () => {
+        testModeActive = !testModeActive;
+        console.log('TEST CHAMPIONS:', testModeActive ? 'ON' : 'OFF');
+        
+        const url = window.location.origin;
+        
+        if (testModeActive) {
+            // ON - add players
+            toggleSwitch.style.backgroundPosition = '100% 0';
+            toggleSwitch.style.borderColor = '#00ff00';
+            for (const player of testPlayers) {
+                try {
+                    await fetch(url + '/api/identity/' + player.pubkey, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ alias: player.alias, sats_earned: player.sats_earned })
+                    });
+                } catch (e) { console.error('Error:', player.alias, e); }
+            }
+        } else {
+            // OFF - remove players
+            toggleSwitch.style.backgroundPosition = '0 0';
+            toggleSwitch.style.borderColor = '#ff00ff';
+            for (const player of testPlayers) {
+                try {
+                    await fetch(url + '/api/identity/' + player.pubkey, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ alias: player.alias, sats_earned: 0 })
+                    });
+                } catch (e) { console.error('Error:', player.alias, e); }
+            }
+        }
+
+        if ((window as any).updateUI) {
+            await (window as any).updateUI();
+        }
+    };
+
+    switchContainer.appendChild(switchLabel);
+    switchContainer.appendChild(toggleSwitch);
+
     container.appendChild(testBtn);
     container.appendChild(vicBtn);
     container.appendChild(frozenBtn);
     container.appendChild(resBtn);
     container.appendChild(potBtn);
+    container.appendChild(switchContainer);
     document.body.appendChild(container);
 }
