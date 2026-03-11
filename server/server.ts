@@ -82,12 +82,18 @@ async function syncData() {
     }
 }
 
-setInterval(syncData, 21000);
+let isServerless = process.env.VERCEL === '1';
+
+if (!isServerless) {
+    setInterval(syncData, 21000);
+    startBotListener(); // Iniciar el "oído" del bot solo si no es Vercel
+}
 syncData();
-startBotListener(); // Iniciar el "oído" del bot
 
 // API Routes
-app.get('/api/blocks/tip', (_req, res) => {
+app.get('/api/blocks/tip', async (_req, res) => {
+    // Si estamos en Vercel, refrescamos la data en cada llamada porque no hay background loop
+    if (isServerless) await syncData();
     // Return net balance (post-fee)
     const netBalance = Math.floor(cachedBlock.poolBalance * 0.958);
     res.json({ ...cachedBlock, poolBalance: netBalance });
