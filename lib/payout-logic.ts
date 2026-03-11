@@ -100,13 +100,15 @@ export const processPayouts = async (currentHeight: number) => {
     const lastResolvedTarget = Math.floor(currentHeight / 21) * 21;
     
     if (currentHeight >= lastResolvedTarget + 2) {
-        const feeProcessed = await queryNeon('SELECT count(*) FROM lotto_payouts WHERE block_height = $1 AND type = $2', [lastResolvedTarget, 'fee']);
-        if (parseInt(feeProcessed[0].count) === 0) {
+        const alreadyProcessed = await queryNeon(`
+            SELECT count(*) FROM lotto_payouts 
+            WHERE block_height = $1 AND type = 'winner'
+        `, [lastResolvedTarget]);
+        
+        if (parseInt(alreadyProcessed[0].count) === 0) {
             await runFullPayoutCycle(lastResolvedTarget);
         }
     }
-
-    await retryFailedPayouts();
 };
 
 async function runFullPayoutCycle(targetBlock: number) {
@@ -171,7 +173,7 @@ async function runFullPayoutCycle(targetBlock: number) {
         if (botNdk.signer) {
             const announcement = winners.length > 0 
                 ? `¡Ronda ${targetBlock} confirmada! 🏆\n\nCampeones: ${winnerNames.join(', ')}\nPremio repartido: ${prizePerWinner} sats c/u.\n\nFelicidades a los ganadores. ¡La suerte está echada!\n\nJugá vos también en: ${process.env.APP_URL || 'https://satlotto.ar'}`
-                : `¡Ronda ${targetBlock} confirmada!\n\nEsta vez el azar fue esquivo y no hubo ganadores. 🎲\n\nEl pozo de ${totalSats} sats se acumula para el próximo sorteo. ¡Aprovechá la oportunidad!\n\nParticipá en: ${process.env.APP_URL || 'https://satlotto.ar'}`;
+                : `¡Ronda ${targetBlock} confirmada!\n\nEsta vez el azar fue esquivo y no hubo ganadores. 🎲\n\nEl pozo de ${totalSats} sats se acumula para el próximo sorteo. ¡Aprovechá la oportunidad!\n\nParticipá en: ${process.env.APP_URL || 'sin pagina por ahora'}`;
             
             await ensureNdkConnected();
             const ev = new NDKEvent(botNdk);
