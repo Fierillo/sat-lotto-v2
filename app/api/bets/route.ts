@@ -3,9 +3,12 @@ import { queryNeon } from '@/lib/db';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
-    const block = parseInt(searchParams.get('block') || '0', 10);
+    const blockParam = searchParams.get('block');
     
-    if (!block) return NextResponse.json({ error: 'Missing block' }, { status: 400 });
+    if (!blockParam) return NextResponse.json({ error: 'Missing block' }, { status: 400 });
+    
+    const block = parseInt(blockParam, 10);
+    if (isNaN(block)) return NextResponse.json({ error: 'Invalid block number' }, { status: 400 });
     
     try {
         const bets = await queryNeon(`
