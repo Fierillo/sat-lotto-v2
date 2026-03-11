@@ -68,7 +68,6 @@ async function getInvoiceFromLNAddress(address: string, amountSats: number): Pro
 
 async function sendDM(pubkey: string, message: string) {
     if (!nostrEnabled || !botPrivkey) {
-        console.log(`[DM] Disabled. Would send to ${pubkey}: ${message.slice(0, 50)}...`);
         return;
     }
     try {
@@ -193,8 +192,6 @@ async function runFullPayoutCycle(targetBlock: number) {
             ev.content = announcement;
             if (nostrEnabled) {
                 await ev.publish().catch(e => console.error('[PayoutWorker] Announcement failed:', e.message?.slice(0, 30)));
-            } else {
-                console.log(`[PayoutWorker] Announcement disabled: ${announcement.slice(0, 50)}...`);
             }
         }
     } finally {
