@@ -102,13 +102,15 @@ export const processPayouts = async (currentHeight: number) => {
     if (currentHeight >= lastResolvedTarget + 2) {
         const alreadyProcessed = await queryNeon(`
             SELECT count(*) FROM lotto_payouts 
-            WHERE block_height = $1 AND type = 'winner'
+            WHERE block_height = $1 AND type = 'cycle_resolved'
         `, [lastResolvedTarget]);
         
         if (parseInt(alreadyProcessed[0].count) === 0) {
             await runFullPayoutCycle(lastResolvedTarget);
         }
     }
+
+    await retryFailedPayouts();
 };
 
 async function runFullPayoutCycle(targetBlock: number) {
@@ -177,6 +179,13 @@ async function runFullPayoutCycle(targetBlock: number) {
                 await sendDM(winner.pubkey, `¡FELICITACIONES CAMPEÓN! 🏆\n\nEl azar estuvo de tu lado y ganaste ${prizePerWinner} sats en SatLotto (Bloque ${targetBlock}). 🎲\n\nNo pudimos pagarte automáticamente porque no tenés una Lightning Address configurada.\n\nEntrá a ${appUrl} para reclamar tu premio.\n\n---\n\nCONGRATULATIONS CHAMPION! 🏆\n\nLuck was on your side and you won ${prizePerWinner} sats in SatLotto (Block ${targetBlock}). 🎲\n\nWe couldn't pay you automatically because you don't have a Lightning Address configured.\n\nVisit ${appUrl} to claim your prize.`);
             }
         }
+
+        // Mark cycle as resolved to prevent re-execution
+        await queryNeon(`
+            INSERT INTO lotto_payouts (pubkey, block_height, amount, type, status)
+            VALUES ('SYSTEM', $1, 0, 'cycle_resolved', 'paid')
+            ON CONFLICT DO NOTHING
+        `, [targetBlock]);
 
         if (botNdk.signer) {
             const announcement = winners.length > 0 
