@@ -55,7 +55,9 @@ export async function makePayment(): Promise<void> {
     }
 
     // 1. Force state refresh to avoid race conditions (detect confirmed bets from seconds ago)
-    const { activeBets } = await fetchGameState();
+    const { activeBets, block } = await fetchGameState();
+    state.targetBlock = block.target;
+    
     const existingBetFromUser = activeBets.find((bet: any) => 
         bet.pubkey.toLowerCase() === authState.pubkey?.toLowerCase()
     );

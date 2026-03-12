@@ -3,7 +3,7 @@ import { queryNeon } from '@/lib/db';
 import { createNwcInvoice } from '@/src/utils/create-invoice';
 import { lookupNwcInvoice, payNwcInvoice } from '@/src/utils/pay-invoice';
 import { verifyEvent } from 'nostr-tools';
-import { cachedBlock } from '@/lib/cache';
+import { cachedBlock, syncData } from '@/lib/cache';
 
 async function getInvoiceFromLNAddress(address: string, amountSats: number): Promise<string | null> {
     try {
@@ -23,6 +23,7 @@ async function getInvoiceFromLNAddress(address: string, amountSats: number): Pro
 
 export async function POST(request: Request) {
     try {
+        await syncData();
         const body = await request.json();
         const { signedEvent, testMode, paymentHash, action } = body;
 
