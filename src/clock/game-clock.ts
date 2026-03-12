@@ -70,21 +70,22 @@ export function updateCenterButton(): void {
     document.body.classList.toggle('phase-frozen', isFrozen && !isResolving);
     document.body.classList.toggle('phase-resolving', isResolving);
 
-    if (isResolving) {
-        step.style.display = 'block';
-        btn.innerHTML = `<span>FIN DE<br>RONDA</span>`;
-        btn.classList.add('frozen');
-        btn.onclick = null;
-    } else if (isFrozen && authState.pubkey) {
-        step.style.display = 'block';
-        btn.innerHTML = `<span>NO PODÉS<br>APOSTAR</span>`;
-        btn.classList.add('frozen');
-        btn.onclick = null;
-    } else if (!authState.pubkey) {
+    if (!authState.pubkey) {
+        // Si no está logueado, SIEMPRE puede loguearse, sin importar la fase
         step.style.display = 'block';
         btn.textContent = 'JUGAR';
         btn.onclick = () => showLoginModal();
         btn.classList.remove('frozen');
+    } else if (isResolving) {
+        step.style.display = 'block';
+        btn.innerHTML = `<span>FIN DE<br>RONDA</span>`;
+        btn.classList.add('frozen');
+        btn.onclick = null;
+    } else if (isFrozen) {
+        step.style.display = 'block';
+        btn.innerHTML = `<span>NO PODÉS<br>APOSTAR</span>`;
+        btn.classList.add('frozen');
+        btn.onclick = null;
     } else if (state.selectedNumber !== null) {
         step.style.display = 'block';
         btn.textContent = 'APOSTAR';
