@@ -80,9 +80,9 @@ export async function POST(request: Request) {
             }
         }
 
-        const existingBet = await queryNeon('SELECT is_paid, selected_number FROM lotto_bets WHERE pubkey = $1 AND target_block = $2', [finalPubkey, finalBloque]);
-        if (existingBet[0]?.is_paid && existingBet[0].selected_number === finalNumero) {
-            return NextResponse.json({ message: 'You already have a paid bet for this number.' });
+        const alreadyPaid = await queryNeon('SELECT count(*) FROM lotto_bets WHERE pubkey = $1 AND target_block = $2 AND selected_number = $3 AND is_paid = TRUE', [finalPubkey, finalBloque, finalNumero]);
+        if (parseInt(alreadyPaid[0].count) > 0) {
+            return NextResponse.json({ message: 'You already have a paid bet for this number. Good luck!' });
         }
 
         const unpaidCount = await queryNeon(`SELECT count(*) FROM lotto_bets WHERE pubkey = $1 AND is_paid = FALSE AND created_at > NOW() - INTERVAL '10 minutes'`, [finalPubkey]);
@@ -109,15 +109,6 @@ export async function POST(request: Request) {
         await queryNeon(`
             INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, payment_hash, is_paid, betting_block, alias, nostr_event_id)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-            ON CONFLICT (pubkey, target_block) DO UPDATE SET 
-                is_paid = CASE WHEN lotto_bets.selected_number = EXCLUDED.selected_number THEN lotto_bets.is_paid ELSE $6 END,
-                selected_number = EXCLUDED.selected_number, 
-                payment_request = EXCLUDED.payment_request,
-                payment_hash = EXCLUDED.payment_hash,
-                betting_block = EXCLUDED.betting_block,
-                alias = EXCLUDED.alias,
-                nostr_event_id = EXCLUDED.nostr_event_id,
-                created_at = NOW()
         `, [finalPubkey, finalBloque, finalNumero, pr, hash, isTestMode ? true : false, cachedBlock.height, finalAlias, eventId]);
 
         if (finalAlias) {
