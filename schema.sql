@@ -23,10 +23,9 @@ CREATE TABLE IF NOT EXISTS lotto_bets (
     betting_block INTEGER NOT NULL,
     is_paid BOOLEAN DEFAULT FALSE,
     payment_request TEXT,
-    payment_hash TEXT,
+    payment_hash TEXT UNIQUE,
     nostr_event_id TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(pubkey, target_block)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 3. Historial de Pagos y Control de Ciclos
