@@ -10,69 +10,57 @@ import { renderChampionsTable } from './champions-table';
 import { renderResult } from './result-panel';
 import { createPool, updatePool } from './jackpot-panel';
 import { handleAutoLogin, handleNwcLogin, handleBunkerLogin, initNostrConnect } from './auth/login-handlers';
-import { fetchBets, fetchResult, fetchWinners } from './utils/game-api';
+import { fetchGameState } from './utils/game-api';
 import { injectDebugButtons } from '../tests/debug-ui';
 
 export async function updateUI(): Promise<void> {
-    const outer = document.getElementById('outerRing');
-    const inner = document.getElementById('innerCircle');
-    if (outer && inner) updateClockRings(outer, inner);
-    updateCenterButton();
+    try {
+        const data = await fetchGameState();
+        if (!data) return;
 
-    const info = document.getElementById('clockInfo');
-    if (info) info.innerHTML = `Bloque: <strong class="text-green">${state.currentBlock}</strong> • Sorteo: <strong class="text-orange">${state.targetBlock}</strong>`;
+        // 1. Update Blocks & Pool State
+        state.currentBlock = data.block.height;
+        state.targetBlock = data.block.target;
+        state.poolBalance = data.block.poolBalance;
+        localStorage.setItem('satlotto_blocks', JSON.stringify(data.block));
+        localStorage.setItem('satlotto_pool', state.poolBalance.toString());
 
-    const resBlock = Math.floor(state.currentBlock / 21) * 21;
-    const promises: Promise<any>[] = [
-        fetchBets(state.targetBlock),
-        fetchWinners()
-    ];
-    
-    // Only fetch result if the cycle changed or we haven't processed this result yet
-    const shouldFetchResult = state.lastResolvedResultBlock !== resBlock;
-    if (shouldFetchResult) {
-        promises.push(fetchResult(resBlock));
-    }
+        // 2. Render Clock Info
+        const info = document.getElementById('clockInfo');
+        if (info) info.innerHTML = `Bloque: <strong class="text-green">${state.currentBlock}</strong> • Sorteo: <strong class="text-orange">${state.targetBlock}</strong>`;
 
-    Promise.all(promises).then(([bets, champions, res]) => {
-        if (bets) {
-            state.bets = bets;
-            localStorage.setItem('satlotto_last_bets', JSON.stringify(bets));
-            renderBetsTable(bets);
+        const outer = document.getElementById('outerRing');
+        const inner = document.getElementById('innerCircle');
+        if (outer && inner) updateClockRings(outer, inner);
+        updateCenterButton();
+
+        // 3. Render Tables
+        if (data.activeBets) {
+            state.bets = data.activeBets;
+            localStorage.setItem('satlotto_last_bets', JSON.stringify(data.activeBets));
+            renderBetsTable(data.activeBets);
         }
 
-        if (champions) {
-            renderChampionsTable(champions);
+        if (data.champions) {
+            renderChampionsTable(data.champions);
         }
-        
+
         updatePool(state.poolBalance);
-        
-        if (shouldFetchResult && res?.resolved) {
-            state.lastResult = res;
-            localStorage.setItem('satlotto_last_result', JSON.stringify(res));
-            renderResult(res, resBlock);
-            state.lastResolvedResultBlock = resBlock;
+
+        // 4. Render Results
+        if (data.lastResult?.resolved) {
+            state.lastResult = data.lastResult;
+            localStorage.setItem('satlotto_last_result', JSON.stringify(data.lastResult));
+            renderResult(data.lastResult, Math.floor(data.lastResult.targetBlock));
+            state.lastResolvedResultBlock = data.lastResult.targetBlock;
         } else if (state.lastResult) {
-            // Render cached result if no new one
             renderResult(state.lastResult, Math.floor(state.lastResult.targetBlock));
         }
-        
-        state.lastRenderedBlock = state.currentBlock;
-    });
-}
 
-async function syncBlocks(): Promise<void> {
-    try {
-        const resp = await fetch('/api/blocks/tip');
-        const data = await resp.json();
-        if (data.height) {
-            state.currentBlock = data.height;
-            state.targetBlock = data.target;
-            state.poolBalance = data.poolBalance || 0;
-            localStorage.setItem('satlotto_blocks', JSON.stringify(data));
-            localStorage.setItem('satlotto_pool', state.poolBalance.toString());
-        }
-    } catch {}
+        state.lastRenderedBlock = state.currentBlock;
+    } catch (e) {
+        console.error('[updateUI] Failed:', e);
+    }
 }
 
 async function init(): Promise<void> {
@@ -150,9 +138,8 @@ async function init(): Promise<void> {
     app.appendChild(footer);
 
     updateAuthUI();
-    await syncBlocks();
     await updateUI();
-    setInterval(async () => { await syncBlocks(); await updateUI(); }, 21000);
+    setInterval(async () => { await updateUI(); }, 21000);
 }
 
 init();

@@ -11,7 +11,7 @@ async function triggerVictoryCelebration(_winningNumber: number, blockHeight: nu
     // 1. Sincronizar victoria "Bajo Tierra" (usando el pasaporte del login)
     if (authState.loginEvent) {
         try {
-            await fetch('/api/identity/verify', {
+            await fetch(`/api/identity/${authState.pubkey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 

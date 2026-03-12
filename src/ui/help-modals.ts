@@ -89,8 +89,8 @@ export function showPotentialWinnerModal(): void {
             
             // Sincronizar con el servidor "bajo tierra"
             const { authState } = await import('../auth/auth-state');
-            if (authState.loginEvent) {
-                fetch('/api/identity/verify', {
+            if (authState.loginEvent && authState.pubkey) {
+                fetch(`/api/identity/${authState.pubkey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 

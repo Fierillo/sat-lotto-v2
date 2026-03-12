@@ -70,7 +70,7 @@ export async function finishLogin(): Promise<void> {
         if (ev) {
             const raw = ev.rawEvent();
             authState.loginEvent = raw; // Guardamos el pasaporte para festejos
-            fetch('/api/identity/verify', {
+            fetch(`/api/identity/${authState.pubkey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ event: raw })

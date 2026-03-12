@@ -1,7 +1,7 @@
 import { state } from './app-state';
 import { requestProvider } from 'webln';
 import { updateUI } from './main';
-import { submitBet, fetchBets, confirmBet } from './utils/game-api';
+import { submitBet, confirmBet, fetchGameState } from './utils/game-api';
 import { authState } from './auth/auth-state';
 import { payNwcInvoice } from './utils/pay-invoice';
 import { showInvoiceModal } from './ui/invoice-modal';
@@ -54,8 +54,8 @@ export async function makePayment(): Promise<void> {
         return;
     }
 
-    const currentBetsList = await fetchBets(state.targetBlock);
-    const existingBetFromUser = currentBetsList.find(bet => bet.pubkey.toLowerCase() === authState.pubkey?.toLowerCase());
+    const { activeBets } = await fetchGameState();
+    const existingBetFromUser = activeBets.find((bet: any) => bet.pubkey.toLowerCase() === authState.pubkey?.toLowerCase());
 
     if (existingBetFromUser && Number(existingBetFromUser.selected_number) !== state.selectedNumber) {
         const userConfirmsChange = await showConfirmModal(existingBetFromUser.selected_number, state.selectedNumber);
