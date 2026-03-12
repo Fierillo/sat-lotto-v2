@@ -21,23 +21,13 @@ export async function GET() {
         `, [targetBlock]);
 
         // 2. Fetch Hall of Fame (Champions)
-        const championsQuery = `
+        const champions = await queryNeon(`
             SELECT pubkey, alias, sats_earned 
             FROM lotto_identities 
             WHERE sats_earned > 0
             ORDER BY sats_earned DESC
             LIMIT 50
-        `;
-        
-        let champions = [];
-        try {
-            champions = await queryNeon(championsQuery);
-        } catch (e: any) {
-            if (e.message?.includes('column "sats_earned" does not exist')) {
-                await queryNeon('ALTER TABLE lotto_identities ADD COLUMN IF NOT EXISTS sats_earned INTEGER DEFAULT 0');
-                champions = await queryNeon(championsQuery);
-            } else throw e;
-        }
+        `);
 
         // 3. Fetch Last Result
         let lastResult = null;
