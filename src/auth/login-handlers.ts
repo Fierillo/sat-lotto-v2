@@ -1,6 +1,5 @@
 import { NDKNip07Signer, NDKNip46Signer, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 import ndk, { setAlias } from '../utils/nostr-service';
-import { getNwcInfo } from '../utils/nwc-connect';
 import { authState, logRemote } from './auth-state';
 import { getOrCreateLocalSigner } from './auth-utils';
 import { finishLogin } from './auth-manager';
@@ -14,75 +13,98 @@ export function setAuthError(msg: string): void {
     if (errorDisplay) errorDisplay.textContent = msg;
 }
 
-function showPinModal(mode: 'create' | 'verify'): Promise<string | null> {
+export function askPinInModal(mode: 'create' | 'verify'): Promise<string | null> {
     return new Promise((resolve) => {
-        const modal = document.createElement('div');
-        modal.className = 'modal-bg';
-        modal.innerHTML = `
-            <div class="modal auth-modal" style="max-width:320px">
-                <h2>${mode === 'create' ? 'Creá tu PIN' : 'Ingresá tu PIN'}</h2>
-                <p style="font-size:0.9rem;opacity:0.8;margin-bottom:20px">
-                    ${mode === 'create' ? 'Este PIN protege tu wallet NWC. Guardalo bien.' : 'Ingresá el PIN de 6 dígitos de tu wallet.'}
-                </p>
-                <input type="password" id="pinInput" maxlength="6" placeholder="******" style="font-size:1.5rem;letter-spacing:0.5rem;text-align:center" />
-                <p id="pinError" class="auth-error"></p>
-                <div style="display:flex;gap:10px;margin-top:20px">
-                    <button class="auth-btn secondary" id="cancelPin">Cancelar</button>
-                    <button class="auth-btn" id="confirmPin">${mode === 'create' ? 'Crear PIN' : 'Desbloquear'}</button>
-                </div>
-            </div>
-        `;
-        
-        document.getElementById('app')?.appendChild(modal);
-        
-        const input = modal.querySelector('#pinInput') as HTMLInputElement;
-        input?.focus();
-        
-        modal.querySelector('#cancelPin')?.addEventListener('click', () => {
-            modal.remove();
-            resolve(null);
+        const modal = document.getElementById('loginModal');
+        if (!modal) return resolve(null);
+
+        const mainView = modal.querySelector('#login-main-view') as HTMLElement;
+        const pinView = modal.querySelector('#pin-view') as HTMLElement;
+        const pinTitle = modal.querySelector('#pinTitle') as HTMLElement;
+        const pinDesc = modal.querySelector('#pinDesc') as HTMLElement;
+        const pinError = modal.querySelector('#pinError') as HTMLElement;
+        const digits = modal.querySelectorAll('.pin-digit') as NodeListOf<HTMLInputElement>;
+        const confirmBtn = modal.querySelector('#confirmPinInModal') as HTMLButtonElement;
+        const backBtn = modal.querySelector('#backToLogin') as HTMLButtonElement;
+
+        if (!mainView || !pinView) return resolve(null);
+
+        mainView.style.display = 'none';
+        pinView.style.display = 'block';
+        pinError.textContent = '';
+        digits.forEach(d => {
+            d.value = '';
+            d.disabled = false;
         });
-        
-        modal.querySelector('#confirmPin')?.addEventListener('click', async () => {
-            const pin = input.value;
-            if (pin.length !== 6 || !/^\d+$/.test(pin)) {
-                const errorEl = modal.querySelector('#pinError');
-                if (errorEl) errorEl.textContent = 'El PIN debe tener 6 dígitos';
+        confirmBtn.disabled = false;
+        setTimeout(() => digits[0].focus(), 50); // Ensure it's visible before focusing
+
+        if (mode === 'create') {
+            pinTitle.textContent = 'Creá tu PIN';
+            pinDesc.textContent = 'Este PIN de 4 dígitos protege tu wallet. Guardalo bien.';
+            confirmBtn.textContent = 'Crear PIN';
+        } else {
+            pinTitle.textContent = 'Ingresá tu PIN';
+            pinDesc.textContent = 'Ingresá el PIN de 4 dígitos para desbloquear tu wallet.';
+            confirmBtn.textContent = 'Desbloquear';
+        }
+
+        const cleanup = () => {
+            confirmBtn.removeEventListener('click', handleConfirm);
+            backBtn.removeEventListener('click', handleBack);
+            document.removeEventListener('keydown', handleKeydown);
+        };
+
+        const handleConfirm = async () => {
+            const pin = Array.from(digits).map(d => d.value).join('');
+            if (pin.length !== 4 || !/^\d+$/.test(pin)) {
+                pinError.textContent = 'Ingresá los 4 dígitos';
                 return;
             }
-            
+
             if (mode === 'create') {
                 try {
                     await createPin(pin);
-                    modal.remove();
+                    cleanup();
                     resolve(pin);
                 } catch (e: any) {
-                    const errorEl = modal.querySelector('#pinError');
-                    if (errorEl) errorEl.textContent = e.message;
+                    pinError.textContent = e.message;
                 }
             } else {
                 const result = await verifyPin(pin);
                 if (result.locked) {
-                    modal.remove();
-                    setAuthError('Tu NWC fue borrado por seguridad. Generá uno nuevo.');
+                    cleanup();
+                    pinError.textContent = 'Demasiados intentos. Tu wallet fue borrada del dispositivo por seguridad. Tocá "Volver" para conectar una nueva.';
+                    confirmBtn.disabled = true;
+                    digits.forEach(d => d.disabled = true);
                     return;
                 }
                 if (!result.success) {
-                    const errorEl = modal.querySelector('#pinError');
-                    if (errorEl) errorEl.textContent = `PIN incorrecto. Te quedan ${result.attemptsLeft} intentos.`;
-                    input.value = '';
+                    pinError.textContent = `PIN incorrecto. Quedan ${result.attemptsLeft} intentos.`;
+                    digits.forEach(d => d.value = '');
+                    digits[0].focus();
                     return;
                 }
-                modal.remove();
+                cleanup();
                 resolve(pin);
             }
-        });
-        
-        input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                modal.querySelector('#confirmPin')?.dispatchEvent(new Event('click'));
-            }
-        });
+        };
+
+        const handleBack = () => {
+            cleanup();
+            pinView.style.display = 'none';
+            mainView.style.display = 'block';
+            resolve(null);
+        };
+
+        const handleKeydown = (e: KeyboardEvent) => {
+            if (e.key === 'Enter') handleConfirm();
+            if (e.key === 'Escape') handleBack();
+        };
+
+        confirmBtn.addEventListener('click', handleConfirm);
+        backBtn.addEventListener('click', handleBack);
+        document.addEventListener('keydown', handleKeydown);
     });
 }
 
@@ -112,57 +134,79 @@ export async function handleAutoLogin(): Promise<void> {
 }
 
 export async function handleNwcLogin(): Promise<void> {
+    const btn = document.getElementById('nwcBtn') as HTMLButtonElement;
+    const input = document.getElementById('nwcInput') as HTMLInputElement;
+    const originalBtnText = btn?.textContent || 'Conectar Wallet';
+
     try {
         setAuthError('');
-        const input = document.getElementById('nwcInput') as HTMLInputElement;
-        const url = input?.value || '';
-        if (!url) throw new Error('Copiá y pegá una URL de NWC válida (empieza con nostr+walletconnect://)');
-
-        const { info } = await getNwcInfo(url);
-        const secret = new URL(url.replace('nostr+walletconnect:', 'http:')).searchParams.get('secret');
-
-        if (secret) {
-            const hasExistingNwc = await hasStoredNwc();
-            const locked = isLocked();
-            
-            if (hasExistingNwc && !locked) {
-                const pin = await showPinModal('verify');
-                if (!pin) return;
-                
-                const decryptedNwc = await decryptNwc();
-                if (decryptedNwc) {
-                    authState.nwcUrl = decryptedNwc;
-                } else {
-                    authState.nwcUrl = url;
-                    await encryptNwc(url, pin);
-                }
-            } else if (locked) {
-                setAuthError('Tu NWC fue borrado por seguridad. Necesitás conectar uno nuevo.');
-                authState.nwcUrl = url;
-            } else {
-                const pin = await showPinModal('create');
-                if (!pin) return;
-                
-                authState.nwcUrl = url;
-                await encryptNwc(url, pin);
-            }
-            
-            const signer = new NDKPrivateKeySigner(secret);
-            authState.signer = signer;
-            authState.pubkey = (await signer.user()).pubkey;
-        } else if (info.pubkey) {
-            authState.pubkey = info.pubkey;
-            authState.nwcUrl = url;
+        const url = (input?.value || '').trim();
+        if (!url || !url.startsWith('nostr+walletconnect://')) {
+            throw new Error('URL inválida. Debe empezar con nostr+walletconnect://');
         }
 
-        authState.nip05 = info.alias || null;
-        if (authState.pubkey && authState.nip05) {
-            setAlias(authState.pubkey, authState.nip05);
+        if (btn) {
+            btn.textContent = 'Verificando Wallet...';
+            btn.disabled = true;
+        }
+
+        // 1. Extraer el secret manualmente
+        const secret = new URL(url.replace('nostr+walletconnect:', 'http:')).searchParams.get('secret');
+        if (!secret) throw new Error('La URL no contiene la clave secreta (secret)');
+
+        // 2. Manejo de PIN y Persistencia
+        const hasExistingNwc = await hasStoredNwc();
+        const locked = isLocked();
+        
+        if (hasExistingNwc && !locked) {
+            const pin = await askPinInModal('verify');
+            if (!pin) return;
+            
+            const decryptedNwc = await decryptNwc(pin);
+            if (!decryptedNwc) {
+                throw new Error('Error al desencriptar la wallet. Intentá nuevamente.');
+            }
+            authState.nwcUrl = decryptedNwc;
+        } else if (locked) {
+            setAuthError('Tu NWC fue borrado por seguridad. Necesitás conectar uno nuevo.');
+            const pin = await askPinInModal('create');
+            if (!pin) return;
+            authState.nwcUrl = url;
+            await encryptNwc(url, pin);
+        } else {
+            const pin = await askPinInModal('create');
+            if (!pin) return;
+            
+            authState.nwcUrl = url;
+            await encryptNwc(url, pin);
+        }
+        
+        // 3. Inicializar el Signer y el estado de la sesión
+        const signer = new NDKPrivateKeySigner(secret);
+        authState.signer = signer;
+        const user = await signer.user();
+        authState.pubkey = user.pubkey;
+
+        // Intentar obtener el alias vía NDK
+        try {
+            const profile = await user.fetchProfile();
+            authState.nip05 = profile?.nip05 || null;
+            if (authState.pubkey && authState.nip05) {
+                setAlias(authState.pubkey, authState.nip05);
+            }
+        } catch (e) {
+            console.log('[NWC Login] No se pudo obtener el perfil de Nostr');
         }
         
         await finishLogin();
     } catch (e: any) {
-        setAuthError(`Error al conectar NWC: ${e.message}. Verificá que el link sea correcto y que tu wallet esté activa.`);
+        console.error('[NWC Login] Failed:', e);
+        setAuthError(`Error: ${e.message}`);
+    } finally {
+        if (btn) {
+            btn.textContent = originalBtnText;
+            btn.disabled = false;
+        }
     }
 }
 
@@ -235,5 +279,39 @@ export async function handleBunkerLogin(): Promise<void> {
         setAuthError(`Error de conexión Bunker: ${e.message}. Verificá el handle o la URI y asegurate de autorizar la conexión en tu app.`);
     } finally {
         if (btn) { btn.textContent = 'Conectar Bunker manual'; btn.disabled = false; }
+    }
+}
+
+export async function handleNwcLoginAutoPin(): Promise<void> {
+    try {
+        const pin = await askPinInModal('verify');
+        if (!pin) return;
+        
+        const decryptedNwc = await decryptNwc(pin);
+        if (!decryptedNwc) {
+            throw new Error('Error al desencriptar la wallet. Intentá nuevamente.');
+        }
+        
+        authState.nwcUrl = decryptedNwc;
+        const secret = new URL(decryptedNwc.replace('nostr+walletconnect:', 'http:')).searchParams.get('secret');
+        if (!secret) throw new Error('Wallet guardada inválida.');
+
+        const signer = new NDKPrivateKeySigner(secret);
+        authState.signer = signer;
+        const user = await signer.user();
+        authState.pubkey = user.pubkey;
+
+        try {
+            const profile = await user.fetchProfile();
+            authState.nip05 = profile?.nip05 || null;
+            if (authState.pubkey && authState.nip05) {
+                setAlias(authState.pubkey, authState.nip05);
+            }
+        } catch (e) {}
+
+        await finishLogin();
+    } catch (e: any) {
+        console.error('[NWC Auto-Login] Failed:', e);
+        setAuthError(`Error: ${e.message}`);
     }
 }

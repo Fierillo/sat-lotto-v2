@@ -30,7 +30,6 @@ export function checkExternalLogin(): void {
 export async function finishLogin(): Promise<void> {
     if (!authState.pubkey) return;
     localStorage.setItem('satlotto_pubkey', authState.pubkey);
-    if (authState.nwcUrl) localStorage.setItem('satlotto_nwc', authState.nwcUrl);
     if (authState.bunkerTarget) localStorage.setItem('satlotto_bunker', authState.bunkerTarget);
 
     updateAuthUI();
@@ -60,7 +59,8 @@ export async function finishLogin(): Promise<void> {
     const data = res.ok ? await res.json() : { alias: null, lastCelebrated: 0 };
     authState.lastCelebratedBlock = data.lastCelebrated || 0;
     
-    const apiAlias = data.alias || await fetchIdentity(authState.pubkey);
+    const apiAliasResp = await fetchIdentity(authState.pubkey);
+    const apiAlias = data.alias || apiAliasResp?.alias;
     const user = ndk.getUser({ pubkey: authState.pubkey });
     const profile = await user.fetchProfile();
     const ndkAlias = profile?.nip05 || null;
@@ -106,11 +106,32 @@ export function updateAuthUI(): void {
     (window as any).updateCenterButton?.();
 }
 
-export function showLoginModal(): void {
+export async function showLoginModal(): Promise<void> {
     const modal = document.getElementById('loginModal');
     if (modal) {
         setAuthError('');
         modal.style.display = 'flex';
+        
+        // Reset NWC button and input
+        const nwcBtn = modal.querySelector('#nwcBtn') as HTMLButtonElement;
+        const nwcInput = modal.querySelector('#nwcInput') as HTMLInputElement;
+        if (nwcBtn) {
+            nwcBtn.textContent = 'Conectar Wallet';
+            nwcBtn.disabled = false;
+        }
+        if (nwcInput) nwcInput.value = '';
+
         (window as any).initNostrConnect?.();
+
+        // Auto-PIN Flow
+        import('./nwc-storage').then(async ({ hasStoredNwc, isLocked }) => {
+            const hasNwc = await hasStoredNwc();
+            const locked = isLocked();
+
+            if (hasNwc && !locked) {
+                const { handleNwcLoginAutoPin } = await import('./login-handlers');
+                handleNwcLoginAutoPin();
+            }
+        });
     }
 }

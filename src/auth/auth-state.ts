@@ -1,7 +1,7 @@
 export const authState = {
     pubkey: localStorage.getItem('satlotto_pubkey'),
     signer: null as any | null,
-    nwcUrl: localStorage.getItem('satlotto_nwc'),
+    nwcUrl: null as string | null,
     bunkerTarget: localStorage.getItem('satlotto_bunker'),
     localPrivkey: localStorage.getItem('satlotto_local_privkey'),
     nip05: localStorage.getItem('satlotto_alias'),
