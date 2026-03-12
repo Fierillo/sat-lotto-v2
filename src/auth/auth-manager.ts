@@ -18,13 +18,31 @@ export function checkExternalLogin(): void {
     const sig = params.get('signature');
     const ev = params.get('event');
 
-    if (pub) { authState.pubkey = pub; finishLogin(); }
-    if (sig && ev) { 
-        const obj = JSON.parse(ev);
-        obj.sig = sig;
-        (window as any).lastExternalSig = obj;
+    if (pub && !sig && !ev) { 
+        // This is a plain get_public_key login return
+        authState.pubkey = pub; 
+        finishLogin(); 
     }
-    if (pub || (sig && ev)) window.history.replaceState({}, '', window.location.origin + window.location.pathname);
+    
+    if (sig && ev) { 
+        // This is a sign_event return
+        try {
+            const obj = JSON.parse(ev);
+            obj.sig = sig;
+            (window as any).lastExternalSig = obj;
+            // Ensure pubkey is set if returning from a sign_event without prior session
+            if (obj.pubkey && !authState.pubkey) {
+                authState.pubkey = obj.pubkey;
+                finishLogin();
+            }
+        } catch (e) {
+            console.error('[checkExternalLogin] Error parsing event:', e);
+        }
+    }
+    
+    if (pub || (sig && ev)) {
+        window.history.replaceState({}, '', window.location.origin + window.location.pathname);
+    }
 }
 
 export async function finishLogin(): Promise<void> {
