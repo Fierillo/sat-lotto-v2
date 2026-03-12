@@ -19,7 +19,7 @@ export async function syncData() {
         const height = parseInt(await resp.text(), 10);
         if (height > 0) {
             cachedBlock.height = height;
-            cachedBlock.target = (Math.floor(height / 21) + 1) * 21;
+            cachedBlock.target = Math.floor(height / 21) * 21;
         }
     } catch (e) {
         console.error('[Sync] Block height fetch failed');
