@@ -64,8 +64,8 @@ export function updateCenterButton(): void {
     const btn = document.getElementById('centerBtn') as HTMLButtonElement;
     if (!step || !btn) return;
 
-    const isFrozen = state.currentBlock >= state.targetBlock - 1 && state.currentBlock < state.targetBlock;
-    const isResolving = state.currentBlock >= state.targetBlock;
+    const isFrozen = state.currentBlock >= state.targetBlock - 2;
+    const isResolving = state.currentBlock === state.targetBlock;
     
     document.body.classList.toggle('phase-frozen', isFrozen && !isResolving);
     document.body.classList.toggle('phase-resolving', isResolving);
