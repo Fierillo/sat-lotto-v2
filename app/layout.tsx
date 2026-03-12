@@ -3,7 +3,7 @@ import '@/src/css/main.css';
 
 export const metadata: Metadata = {
   title: 'SatLotto',
-  description: 'La lotería de Bitcoin en Lightning Network',
+  description: 'Proba tu suerte... cada 21 bloques',
 };
 
 export default function RootLayout({
