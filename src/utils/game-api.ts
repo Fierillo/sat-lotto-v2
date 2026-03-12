@@ -75,8 +75,19 @@ export async function submitBet(targetBlock: number, selectedNumber: number): Pr
     return apiClient.post<{ paymentRequest: string; paymentHash: string }>('/api/bet', payload);
 }
 
-export const confirmBet = (paymentHash: string) => apiClient.post('/api/confirm', { paymentHash });
-export const fetchBets = (block: number) => apiClient.get<{ bets: Bet[] }>(`/api/bets?block=${block}`).then(r => r.bets || []);
-export const fetchResult = (block: number) => apiClient.get<SorteoResult>(`/api/result?block=${block}`).catch(() => null);
-export const fetchIdentity = (pubkey: string) => apiClient.get<{ alias: string | null }>(`/api/identity/${pubkey}`).then(r => r.alias).catch(() => null);
-export const fetchWinners = () => apiClient.get<{ winners: any[] }>('/api/winners').then(r => r.winners || []);
+export const confirmBet = (paymentHash: string) => apiClient.post('/api/bet', { paymentHash, action: 'confirm' });
+
+export interface GameStateResponse {
+    block: { height: number; target: number; poolBalance: number };
+    activeBets: Bet[];
+    champions: any[];
+    lastResult: SorteoResult | null;
+}
+
+export const fetchGameState = () => apiClient.get<GameStateResponse>('/api/state');
+
+export const fetchIdentity = (pubkey: string) => apiClient.get<{ alias: string | null; sats_earned: number }>(`/api/identity/${pubkey}`).catch(() => null);
+
+export const verifyIdentity = (pubkey: string, event: any, blockHeight?: number, lud16?: string) => 
+    apiClient.post<{ ok: boolean; alias: string }>(`/api/identity/${pubkey}`, { event, blockHeight, lud16 });
+
