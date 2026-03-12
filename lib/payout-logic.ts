@@ -127,10 +127,12 @@ async function runFullPayoutCycle(targetBlock: number) {
         const totalSats = Math.floor(balanceData.balance / 1000);
 
         const winners = await queryNeon(`
-            SELECT b.pubkey, b.alias, i.alias as identity_alias, i.lud16
+            SELECT DISTINCT ON (b.pubkey) 
+                b.pubkey, b.alias, i.alias as identity_alias, i.lud16
             FROM lotto_bets b
             LEFT JOIN lotto_identities i ON b.pubkey = i.pubkey
             WHERE b.target_block = $1 AND b.selected_number = $2 AND b.is_paid = TRUE AND b.betting_block >= ($1 - 21)
+            ORDER BY b.pubkey, b.created_at DESC
         `, [targetBlock, result.winningNumber]);
 
         const prizePerWinner = winners.length > 0 ? Math.floor(totalSats / winners.length) : 0;
