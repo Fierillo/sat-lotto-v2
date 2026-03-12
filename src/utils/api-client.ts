@@ -3,8 +3,11 @@ import { Bet, SorteoResult } from '../types';
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const response = await fetch(path, {
         ...options,
+        cache: 'no-store',
         headers: {
             'Content-Type': 'application/json',
+            'Pragma': 'no-cache',
+            'Cache-Control': 'no-cache',
             ...(options.headers || {}),
         },
     });
