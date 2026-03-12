@@ -1,24 +1,55 @@
 import { NextResponse } from 'next/server';
 import { queryNeon } from '@/lib/db';
 import { createNwcInvoice } from '@/src/utils/create-invoice';
+import { lookupNwcInvoice, payNwcInvoice } from '@/src/utils/pay-invoice';
 import { verifyEvent } from 'nostr-tools';
 import { cachedBlock } from '@/lib/cache';
+
+async function getInvoiceFromLNAddress(address: string, amountSats: number): Promise<string | null> {
+    try {
+        const [user, domain] = address.split('@');
+        const lnurlRes = await fetch(`https://${domain}/.well-known/lnurlp/${user}`);
+        const lnurlData = await lnurlRes.json();
+        const callback = lnurlData.callback;
+        const amountMsats = amountSats * 1000;
+        const invRes = await fetch(`${callback}?amount=${amountMsats}`);
+        const invData = await invRes.json();
+        return invData.pr || invData.payment_request;
+    } catch (e) {
+        console.error('[Fee] Failed to get invoice:', e);
+        return null;
+    }
+}
 
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        let { signedEvent, testMode } = body;
-        
-        if (!signedEvent) {
-            return NextResponse.json({ error: 'Signature required to bet' }, { status: 401 });
+        const { signedEvent, testMode, paymentHash, action } = body;
+
+        // --- Action: CONFIRM ---
+        if (action === 'confirm' || paymentHash) {
+            const nwcUrl = process.env.NWC_URL;
+            if (!nwcUrl || !paymentHash) return NextResponse.json({ error: 'Missing data' }, { status: 400 });
+            
+            const tx = await lookupNwcInvoice(nwcUrl, paymentHash) as any;
+            if (tx && (tx.settled || tx.preimage)) {
+                await queryNeon('UPDATE lotto_bets SET is_paid = TRUE WHERE payment_hash = $1', [paymentHash]);
+                try {
+                    const feeInvoice = await getInvoiceFromLNAddress('fierillo@lawalletilla.vercel.app', 2);
+                    if (feeInvoice) await payNwcInvoice(nwcUrl, feeInvoice);
+                } catch (e) { console.error('[Confirm] Fee payment failed:', e); }
+                return NextResponse.json({ confirmed: true });
+            }
+            return NextResponse.json({ error: 'Not settled' }, { status: 400 });
         }
+
+        // --- Action: CREATE (default) ---
+        if (!signedEvent) return NextResponse.json({ error: 'Signature required to bet' }, { status: 401 });
 
         const event = typeof signedEvent === 'string' ? JSON.parse(signedEvent) : signedEvent;
         const isTestMode = testMode || event.id?.startsWith('test_');
 
-        if (!isTestMode && !verifyEvent(event)) {
-            return NextResponse.json({ error: 'Invalid event signature' }, { status: 400 });
-        }
+        if (!isTestMode && !verifyEvent(event)) return NextResponse.json({ error: 'Invalid event signature' }, { status: 400 });
 
         const betContent = JSON.parse(event.content);
         const finalPubkey = event.pubkey;
@@ -39,41 +70,23 @@ export async function POST(request: Request) {
 
         if (!isTestMode) {
             const now = Math.floor(Date.now() / 1000);
-            if (Math.abs(now - createdAt) > 900) {
-                return NextResponse.json({ error: 'Firma desincronizada. Verificá la fecha y hora de tu dispositivo.' }, { status: 400 });
-            }
-        }
+            if (Math.abs(now - createdAt) > 900) return NextResponse.json({ error: 'Firma desincronizada.' }, { status: 400 });
+            if (finalBloque !== cachedBlock.target) return NextResponse.json({ error: `Invalid target block.` }, { status: 400 });
 
-        if (finalBloque !== cachedBlock.target) {
-            return NextResponse.json({ error: `Invalid target block. Expected ${cachedBlock.target}, got ${finalBloque}` }, { status: 400 });
-        }
-
-        if (!isTestMode) {
             const realTimeResp = await fetch('https://mempool.space/api/blocks/tip/height');
             const realTimeHeight = parseInt(await realTimeResp.text(), 10);
-            const isFrozen = (realTimeHeight || cachedBlock.height) >= finalBloque - 2;
-            if (isFrozen) {
-                return NextResponse.json({ error: 'Betting is closed for this block (Fase Frozen)' }, { status: 403 });
+            if ((realTimeHeight || cachedBlock.height) >= finalBloque - 2) {
+                return NextResponse.json({ error: 'Betting is closed (Frozen)' }, { status: 403 });
             }
         }
 
         const existingBet = await queryNeon('SELECT is_paid, selected_number FROM lotto_bets WHERE pubkey = $1 AND target_block = $2', [finalPubkey, finalBloque]);
-        
-        if (existingBet[0]?.is_paid) {
-            if (existingBet[0].selected_number === finalNumero) {
-                return NextResponse.json({ message: 'You already have a paid bet for this number. Good luck!' });
-            }
+        if (existingBet[0]?.is_paid && existingBet[0].selected_number === finalNumero) {
+            return NextResponse.json({ message: 'You already have a paid bet for this number.' });
         }
 
-        const unpaidCount = await queryNeon(`
-            SELECT count(*) FROM lotto_bets 
-            WHERE pubkey = $1 AND is_paid = FALSE 
-            AND created_at > NOW() - INTERVAL '10 minutes'
-        `, [finalPubkey]);
-        
-        if (parseInt(unpaidCount[0].count) > 5) {
-            return NextResponse.json({ error: 'Too many unpaid invoices. Please wait 10 minutes or pay your bets.' }, { status: 429 });
-        }
+        const unpaidCount = await queryNeon(`SELECT count(*) FROM lotto_bets WHERE pubkey = $1 AND is_paid = FALSE AND created_at > NOW() - INTERVAL '10 minutes'`, [finalPubkey]);
+        if (parseInt(unpaidCount[0].count) > 5) return NextResponse.json({ error: 'Too many unpaid invoices.' }, { status: 429 });
 
         const nwcUrl = process.env.NWC_URL;
         if (!nwcUrl) return NextResponse.json({ error: 'Server NWC_URL not configured' }, { status: 500 });
@@ -86,15 +99,11 @@ export async function POST(request: Request) {
             try {
                 invoice = await createNwcInvoice(nwcUrl, 21, `SatLotto Block ${finalBloque} - Num ${finalNumero}`);
             } catch (e: any) {
-                return NextResponse.json({ error: `NWC error: ${e.message}. Make sure your NWC connection has make_invoice permission.` }, { status: 500 });
+                return NextResponse.json({ error: `NWC error: ${e.message}` }, { status: 500 });
             }
-
             pr = invoice.invoice || invoice.payment_request || invoice.paymentRequest;
             hash = invoice.payment_hash || invoice.paymentHash;
-
-            if (!pr) {
-                return NextResponse.json({ error: 'NWC returned an empty invoice' }, { status: 500 });
-            }
+            if (!pr) return NextResponse.json({ error: 'NWC returned an empty invoice' }, { status: 500 });
         }
 
         await queryNeon(`
