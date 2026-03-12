@@ -1,67 +1,78 @@
 import { generateSecretKey, getPublicKey, finalizeEvent } from 'nostr-tools';
+import 'dotenv/config';
+import { queryNeon } from '../lib/db';
 
 async function testSubmitBet() {
-    console.log('[Test] Probando POST /api/bet...');
+    console.log('[Test] Testing consolidated POST /api/bet...');
 
     const sk = generateSecretKey();
     const pubkey = getPublicKey(sk);
-    const targetBlock = 899999;
-    const selectedNumber = 12;
+    const targetBlock = 999999; // Using a high block number for testing
+    const selectedNumber = 7;
 
-    console.log(`[Test] Generada pubkey aleatoria: ${pubkey.slice(0, 10)}...`);
+    console.log(`[Test] Generated random pubkey: ${pubkey.slice(0, 10)}...`);
 
     const eventTemplate = {
         kind: 1,
         created_at: Math.floor(Date.now() / 1000),
         tags: [['t', 'satlotto']],
-        content: JSON.stringify({ bloque: targetBlock, numero: selectedNumber }),
+        content: JSON.stringify({ 
+            bloque: targetBlock, 
+            numero: selectedNumber,
+            alias: 'TestBot'
+        }),
+        pubkey: pubkey
     };
 
     const signedEvent = finalizeEvent(eventTemplate, sk);
 
     try {
-        const response = await fetch('http://localhost:5173/api/bet', {
+        const response = await fetch('http://localhost:3000/api/bet', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ signedEvent })
+            body: JSON.stringify({ signedEvent, testMode: true })
         });
 
         const data = await response.json();
 
         if (!response.ok) {
-            console.error(`[Error] Respuesta servidor (${response.status}):`, data.error);
+            console.error(`[Error] Server response (${response.status}):`, data.error);
             return;
         }
 
-        console.log(`[Éxito] Invoice generado validamente: ${data.paymentRequest.slice(0, 20)}...`);
-        console.log('[Test] Verificando en DB si se alojó la apuesta en el endpoint /api/bets...');
+        console.log(`[Success] Bet accepted. Hash: ${data.paymentHash?.slice(0, 15)}...`);
+        console.log('[Test] Verifying in DB via /api/state...');
 
         await verifySavedBet(targetBlock, pubkey);
 
+        // Cleanup: remove the test bet to keep DB clean
+        console.log('[Test] Cleaning up test data...');
+        await queryNeon('DELETE FROM lotto_bets WHERE pubkey = $1 AND target_block = $2', [pubkey, targetBlock]);
+        await queryNeon('DELETE FROM lotto_identities WHERE pubkey = $1', [pubkey]);
+        console.log('✅ Cleanup complete.');
+
     } catch (error: any) {
-        console.error('[Error] Falló el fetch:', error.message);
+        console.error('[Error] Fetch failed:', error.message);
+        console.log('💡 Is the local server running on port 3000?');
     }
 }
 
 async function verifySavedBet(block: number, expectedPubkey: string) {
     try {
-        const response = await fetch(`http://localhost:5173/api/bets?block=${block}`);
+        const response = await fetch(`http://localhost:3000/api/state`);
         const data = await response.json();
 
-        if (!data.bets || data.bets.length === 0) {
-            console.error('[Fallo] No se encontró ninguna apuesta para el bloque', block);
-            return;
-        }
-
-        const found = data.bets.find((b: any) => b.pubkey === expectedPubkey);
+        const bets = data.activeBets || [];
+        const found = bets.find((b: any) => b.pubkey === expectedPubkey);
+        
         if (found) {
-            console.log(`[Éxito] Apuesta encontrada en la DB para ${expectedPubkey.slice(0, 10)}... (Número: ${found.selected_number})`);
+            console.log(`[Success] Bet found in Hall of Fame/Active bets!`);
         } else {
-            console.error('[Fallo] Apuestas listadas, pero no está la de la key esperada.');
+            console.error('[Fail] Bet not found in state. (Note: state only shows bets for current target block)');
         }
 
     } catch (error: any) {
-        console.error('[Error] Verificación db fallida:', error.message);
+        console.error('[Error] DB verification failed:', error.message);
     }
 }
 

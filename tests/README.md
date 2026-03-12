@@ -17,8 +17,11 @@ npm run test:nwc
 ```
 
 ### Tests disponibles:
-- `init-db.ts`: Crea las tablas necesarias en Neon (bet, identities, payouts). Ejecutar al configurar DB por primera vez.
+- `test-db-connection.ts`: Verifica que la conexión a Neon sea exitosa y que existan las tablas principales.
+- `test-db-schema.ts`: Valida que el esquema de la base de datos sea consistente con las últimas actualizaciones.
 - `test-nwc.ts`: Verifica la conexión NWC del servidor y capacidad de generar invoices.
 - `test-submit-bet.ts`: Simula una apuesta completa contra la API.
 - `test-db.ts`: Prueba básica de query a la base Neon.
 - `debug-ui.ts`: Utilidades para inyectar botones de test en el frontend.
+
+**Nota importante**: Los scripts en esta carpeta son para DIAGNÓSTICO. Para inicializar la estructura de la base de datos, utiliza el archivo `schema.sql` en la raíz del proyecto.
