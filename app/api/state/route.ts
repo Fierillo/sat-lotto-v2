@@ -11,14 +11,23 @@ export async function GET() {
         const currentHeight = cachedBlock.height;
         const lastResolvedBlock = Math.floor(currentHeight / 21) * 21;
 
-        // 1. Fetch Active Bets
+        // 1. Fetch Active Bets (One per user, priority: Paid > Recent)
         const activeBets = await queryNeon(`
-            SELECT b.pubkey, b.selected_number, COALESCE(i.alias, b.alias) as alias, b.created_at
+            SELECT DISTINCT ON (b.pubkey) 
+                b.pubkey, b.selected_number, COALESCE(i.alias, b.alias) as alias, b.created_at, b.is_paid
             FROM lotto_bets b
             LEFT JOIN lotto_identities i ON b.pubkey = i.pubkey
-            WHERE b.target_block = $1 AND b.is_paid = TRUE AND b.betting_block >= ($1 - 21)
-            ORDER BY b.created_at DESC
+            WHERE b.target_block = $1 AND b.betting_block >= ($1 - 21)
+            ORDER BY b.pubkey, b.is_paid DESC, b.created_at DESC
         `, [targetBlock]);
+
+        // Re-sort for the UI (recent first)
+        activeBets.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        // Filter only paid bets for the main list shown to others, 
+        // but we'll send all so the UI can filter or show "pending" if we wanted.
+        // Actually, let's keep it consistent: only show paid bets in the public list.
+        const publicBets = activeBets.filter((b: any) => b.is_paid);
 
         // 2. Fetch Hall of Fame (Champions)
         const champions = await queryNeon(`
@@ -53,7 +62,8 @@ export async function GET() {
 
         return NextResponse.json({
             block: cachedBlock,
-            activeBets,
+            activeBets: publicBets,
+            allBets: activeBets, // For internal use/debugging if needed
             champions,
             lastResult
         });
