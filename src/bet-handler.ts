@@ -54,8 +54,11 @@ export async function makePayment(): Promise<void> {
         return;
     }
 
+    // 1. Force state refresh to avoid race conditions (detect confirmed bets from seconds ago)
     const { activeBets } = await fetchGameState();
-    const existingBetFromUser = activeBets.find((bet: any) => bet.pubkey.toLowerCase() === authState.pubkey?.toLowerCase());
+    const existingBetFromUser = activeBets.find((bet: any) => 
+        bet.pubkey.toLowerCase() === authState.pubkey?.toLowerCase()
+    );
 
     if (existingBetFromUser && Number(existingBetFromUser.selected_number) !== state.selectedNumber) {
         const userConfirmsChange = await showConfirmModal(existingBetFromUser.selected_number, state.selectedNumber);
@@ -67,14 +70,14 @@ export async function makePayment(): Promise<void> {
     centralPayButton.innerHTML = `<span style="font-size:0.9rem">Firmando...</span>`;
 
     try {
-        console.log('[makePayment] Requesting bet from server...');
+        console.log('[makePayment] Requesting signed bet & invoice...');
         const result = await submitBet(state.targetBlock, state.selectedNumber);
         if (!result) throw new Error('No response from server');
         
         const { paymentRequest, paymentHash } = result;
-        await updateUI();
 
         const handleSuccessfulPayment = async () => {
+            console.log('[makePayment] Payment detected, confirming with server...');
             await confirmBet(paymentHash);
             await updateUI();
             centralPayButton.innerHTML = `<span style="font-size:1rem">PAGO APROBADO</span>`;
@@ -82,27 +85,35 @@ export async function makePayment(): Promise<void> {
             setTimeout(resetInteractionStatus, 4000);
         };
 
+        // 2. Streamlined Payment Waterfall
+        
+        // Priority A: NWC (Auto-Pay)
         if (authState.nwcUrl) {
+            console.log('[makePayment] Flow: NWC Direct Pay');
             centralPayButton.innerHTML = `<span style="font-size:0.9rem">Pagando NWC...</span>`;
             await payNwcInvoice(authState.nwcUrl, paymentRequest);
             await handleSuccessfulPayment();
-        } else if ((window as any).webln) {
-            // Alby / WebLN Extension
+            return;
+        }
+
+        // Priority B: WebLN / Alby Extension
+        if ((window as any).webln) {
+            console.log('[makePayment] Flow: WebLN Extension');
             try {
                 const weblnProvider = await requestProvider();
                 centralPayButton.innerHTML = `<span style="font-size:0.9rem">Confirmá en Alby</span>`;
-                console.log('[makePayment] Sending payment with WebLN...');
                 await weblnProvider.sendPayment(paymentRequest);
                 await handleSuccessfulPayment();
+                return;
             } catch (err) {
-                console.warn('[makePayment] WebLN payment failed or canceled, showing modal');
-                showInvoiceModal(paymentRequest, handleSuccessfulPayment, resetInteractionStatus);
+                console.warn('[makePayment] WebLN failed/canceled, falling back to modal');
             }
-        } else {
-            // Nos2x, Bunker, or no extension: Show Modal directly
-            console.log('[makePayment] No direct payment provider found, showing invoice modal');
-            showInvoiceModal(paymentRequest, handleSuccessfulPayment, resetInteractionStatus);
         }
+
+        // Priority C: Manual Invoice (Nos2x, Bunker, No extension)
+        console.log('[makePayment] Flow: Manual Invoice Modal');
+        showInvoiceModal(paymentRequest, handleSuccessfulPayment, resetInteractionStatus);
+
     } catch (paymentError: any) {
         console.error('[makePayment] Final catch:', paymentError);
         centralPayButton.classList.remove('success-glow');
