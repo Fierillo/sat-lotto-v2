@@ -2,8 +2,15 @@ import { NextResponse } from 'next/server';
 import { queryNeon } from '@/lib/db';
 import { cachedBlock, syncData } from '@/lib/cache';
 import { calculateResult } from '@/lib/payout-logic';
+import { checkRateLimit, getClientIP } from '@/lib/rate-limiter';
 
-export async function GET() {
+export async function GET(request: Request) {
+    const clientIP = await getClientIP(request);
+    const rateCheck = await checkRateLimit('state:ip', clientIP);
+    if (!rateCheck.allowed) {
+        return NextResponse.json({ error: 'Rate limit' }, { status: 429 });
+    }
+    
     await syncData();
     
     try {
