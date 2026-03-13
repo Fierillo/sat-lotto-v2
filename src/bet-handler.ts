@@ -5,6 +5,7 @@ import { submitBet, confirmBet, fetchGameState } from './utils/game-api';
 import { authState, logRemote } from './auth/auth-state';
 import { payNwcInvoice } from './utils/pay-invoice';
 import { showInvoiceModal } from './ui/invoice-modal';
+import { fitText } from './utils/text-fit';
 
 async function showConfirmModal(oldLuckNumber: number, newLuckNumber: number): Promise<boolean> {
     return new Promise((resolve) => {
@@ -51,7 +52,7 @@ export async function makePayment(): Promise<void> {
 
     if (!authState.pubkey) {
         centralPayButton.classList.add('error-glow');
-        centralPayButton.innerHTML = `<span style="font-size:0.9rem">Login<br>Antes</span>`;
+        fitText(centralPayButton, 'Login');
         setTimeout(resetInteractionStatus, 5000);
         return;
     }
@@ -152,7 +153,9 @@ export async function makePayment(): Promise<void> {
         console.error('[makePayment] Final catch:', paymentError);
         centralPayButton.classList.remove('success-glow');
         centralPayButton.classList.add('error-glow');
-        centralPayButton.innerHTML = `<span style="font-size:0.8rem">${paymentError.message || 'Error'}</span>`;
+        
+        const errorMsg = paymentError.message?.includes('Rate limit') ? 'Rate limit' : 'Error servidor';
+        fitText(centralPayButton, errorMsg);
         setTimeout(resetInteractionStatus, 5000);
     }
 }
