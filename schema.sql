@@ -42,9 +42,17 @@ CREATE TABLE IF NOT EXISTS lotto_payouts (
     UNIQUE(pubkey, block_height, type)
 );
 
+-- 4. Rate Limiting
+CREATE TABLE IF NOT EXISTS rate_limits (
+    key TEXT PRIMARY KEY,
+    count INTEGER DEFAULT 1,
+    window_start TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Índices para optimización
 CREATE INDEX IF NOT EXISTS idx_bets_target ON lotto_bets(target_block);
 CREATE INDEX IF NOT EXISTS idx_bets_pubkey ON lotto_bets(pubkey);
 CREATE INDEX IF NOT EXISTS idx_bets_event ON lotto_bets(nostr_event_id);
 CREATE INDEX IF NOT EXISTS idx_payouts_pubkey ON lotto_payouts(pubkey);
 CREATE INDEX IF NOT EXISTS idx_payouts_block_type ON lotto_payouts(block_height, type);
+CREATE INDEX IF NOT EXISTS idx_rate_limits_window ON rate_limits(window_start);
