@@ -117,6 +117,8 @@ export async function handleAutoLogin(): Promise<void> {
             const user = await signer.user();
             authState.pubkey = user.pubkey;
             authState.signer = signer;
+            authState.loginMethod = 'extension';
+            localStorage.setItem('satlotto_login_method', 'extension');
             await finishLogin();
             return;
         }
@@ -127,7 +129,15 @@ export async function handleAutoLogin(): Promise<void> {
 
     if (/Android/i.test(navigator.userAgent)) {
         const root = window.location.origin + window.location.pathname;
-        window.location.href = `nostrsigner:?type=get_public_key&callbackUrl=${encodeURIComponent(root)}`;
+        const callbackWithParam = root + '?result=';
+        
+        sessionStorage.setItem('login_pending', JSON.stringify({
+            timestamp: Date.now(),
+            callbackUrl: callbackWithParam
+        }));
+        
+        logRemote({ msg: 'REDIRECT_TO_AMBER', callbackUrl: callbackWithParam });
+        window.location.href = `nostrsigner:?type=get_public_key&callbackUrl=${encodeURIComponent(callbackWithParam)}&returnType=signature&compressionType=none`;
         return;
     }
     setAuthError('No se detectó ninguna extensión de Nostr. Instalá Alby o usá una URL de NWC/Bunker para continuar.');
@@ -186,6 +196,8 @@ export async function handleNwcLogin(): Promise<void> {
         authState.signer = signer;
         const user = await signer.user();
         authState.pubkey = user.pubkey;
+        authState.loginMethod = 'nwc';
+        localStorage.setItem('satlotto_login_method', 'nwc');
 
         // Intentar obtener el alias vía NDK
         try {
@@ -273,6 +285,8 @@ export async function handleBunkerLogin(): Promise<void> {
         authState.pubkey = user.pubkey;
         authState.signer = signer;
         authState.bunkerTarget = target;
+        authState.loginMethod = 'bunker';
+        localStorage.setItem('satlotto_login_method', 'bunker');
         await finishLogin();
     } catch (e: any) {
         logRemote({ msg: 'Fallo Bunker manual', err: e.message });

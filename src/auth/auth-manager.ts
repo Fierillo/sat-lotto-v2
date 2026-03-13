@@ -1,7 +1,7 @@
 import { NDKNip07Signer, NDKNip46Signer, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 import ndk, { resolveName, setAlias } from '../utils/nostr-service';
 import { fetchIdentity } from '../utils/game-api';
-import { authState } from './auth-state';
+import { authState, logRemote } from './auth-state';
 import { getOrCreateLocalSigner } from './auth-utils';
 import { setAuthError } from './login-handlers';
 
@@ -13,14 +13,25 @@ export function logout(): void {
 }
 
 export function checkExternalLogin(): void {
+    const fullUrl = window.location.href;
     const params = new URLSearchParams(window.location.search || window.location.hash.split('?')[1]);
-    const pub = params.get('pubkey');
+    
+    const pub = params.get('pubkey') || params.get('result');
     const sig = params.get('signature');
     const ev = params.get('event');
 
+    logRemote({ 
+        msg: 'CHECK_EXTERNAL_LOGIN', 
+        hasParams: { pub: !!pub, sig: !!sig, ev: !!ev },
+        url: fullUrl 
+    });
+
     if (pub && !sig && !ev) { 
-        // This is a plain get_public_key login return
+        sessionStorage.removeItem('login_pending');
         authState.pubkey = pub; 
+        authState.loginMethod = 'amber';
+        localStorage.setItem('satlotto_login_method', 'amber');
+        logRemote({ msg: 'EXTERNAL_LOGIN_DETECTED', pubkey: pub.substring(0, 16) + '...', loginMethod: 'amber' });
         finishLogin(); 
     }
     
@@ -32,7 +43,9 @@ export function checkExternalLogin(): void {
             (window as any).lastExternalSig = obj;
             // Ensure pubkey is set if returning from a sign_event without prior session
             if (obj.pubkey && !authState.pubkey) {
+                sessionStorage.removeItem('login_pending');
                 authState.pubkey = obj.pubkey;
+                logRemote({ msg: 'EXTERNAL_SIGN_DETECTED', pubkey: obj.pubkey.substring(0, 16) + '...' });
                 finishLogin();
             }
         } catch (e) {

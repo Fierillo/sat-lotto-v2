@@ -5,8 +5,9 @@ export const authState = {
     bunkerTarget: localStorage.getItem('satlotto_bunker'),
     localPrivkey: localStorage.getItem('satlotto_local_privkey'),
     nip05: localStorage.getItem('satlotto_alias'),
-    loginEvent: null as any | null, // Evento firmado (Pasaporte)
-    lastCelebratedBlock: 0
+    loginEvent: null as any | null,
+    lastCelebratedBlock: 0,
+    loginMethod: localStorage.getItem('satlotto_login_method')
 };
 
 export const logRemote = (data: any) => {
@@ -30,9 +31,11 @@ export const logRemote = (data: any) => {
         devLog.scrollTop = devLog.scrollHeight;
     }
 
-    fetch('/api/debug', {
+    fetch(window.location.origin + '/api/debug', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(parsedData)
-    }).catch(() => { });
+    }).catch((e) => { 
+        console.error('Remote log failed', e);
+    });
 };
