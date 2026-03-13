@@ -11,13 +11,8 @@ export const authState = {
 };
 
 export const logRemote = (data: any) => {
-    // Sanitize sensitive data before logging
-    let sanitized = JSON.stringify(data);
-    sanitized = sanitized.replace(/secret=[a-f0-9]+/gi, 'secret=REDACTED');
-    sanitized = sanitized.replace(/nostr\+walletconnect:\/\/[^"'\s]+/gi, 'nwc://REDACTED');
+    console.log('[SatLotto]', data);
     
-    const parsedData = JSON.parse(sanitized);
-
     let devLog = document.getElementById('devLog');
     if (!devLog && document.body) {
         devLog = document.createElement('div');
@@ -27,15 +22,7 @@ export const logRemote = (data: any) => {
     }
     if (devLog) {
         const time = new Date().toLocaleTimeString();
-        devLog.innerHTML += `<div style="margin-bottom:2px; border-left:2px solid #0f0; padding-left:4px">[${time}] ${sanitized}</div>`;
+        devLog.innerHTML += `<div style="margin-bottom:2px; border-left:2px solid #0f0; padding-left:4px">[${time}] ${JSON.stringify(data)}</div>`;
         devLog.scrollTop = devLog.scrollHeight;
     }
-
-    fetch(window.location.origin + '/api/debug', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(parsedData)
-    }).catch((e) => { 
-        console.error('Remote log failed', e);
-    });
 };
