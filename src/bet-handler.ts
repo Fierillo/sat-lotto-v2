@@ -2,7 +2,7 @@ import { state } from './app-state';
 import { requestProvider } from 'webln';
 import { updateUI } from './main';
 import { submitBet, confirmBet, fetchGameState } from './utils/game-api';
-import { authState } from './auth/auth-state';
+import { authState, logRemote } from './auth/auth-state';
 import { payNwcInvoice } from './utils/pay-invoice';
 import { showInvoiceModal } from './ui/invoice-modal';
 
@@ -37,6 +37,8 @@ async function showConfirmModal(oldLuckNumber: number, newLuckNumber: number): P
 }
 
 export async function makePayment(): Promise<void> {
+    logRemote({ msg: 'MAKE_PAYMENT', loginMethod: authState.loginMethod, nwcUrl: !!authState.nwcUrl, hasWebln: !!(window as any).webln });
+    
     if (state.selectedNumber === null) return;
     const centralPayButton = document.querySelector('.pay-btn') as HTMLButtonElement;
     if (!centralPayButton) return;
@@ -69,6 +71,36 @@ export async function makePayment(): Promise<void> {
 
     document.body.classList.add('processing');
     centralPayButton.classList.add('success-glow');
+
+    // SPECIAL CASE: Amber - obtener invoice SIN firma primero
+    if (authState.loginMethod === 'amber') {
+        centralPayButton.innerHTML = `<span style="font-size:0.9rem">Generando invoice...</span>`;
+        
+        try {
+            const result = await fetch(`/api/bet?block=${state.targetBlock}&number=${state.selectedNumber}&pubkey=${authState.pubkey}`);
+            if (!result.ok) throw new Error('No se pudo generar la invoice');
+            const { paymentRequest, paymentHash } = await result.json();
+            
+            const handleSuccessfulPayment = async () => {
+                await confirmBet(paymentHash);
+                await updateUI();
+                centralPayButton.innerHTML = `<span style="font-size:1rem">PAGO APROBADO</span>`;
+                document.body.classList.add('flash-green');
+                setTimeout(resetInteractionStatus, 4000);
+            };
+            
+            showInvoiceModal(paymentRequest, handleSuccessfulPayment, resetInteractionStatus);
+            return;
+        } catch (e: any) {
+            console.error('[makePayment] Amber invoice failed:', e);
+            centralPayButton.classList.remove('success-glow');
+            centralPayButton.classList.add('error-glow');
+            centralPayButton.innerHTML = `<span style="font-size:0.8rem">${e.message || 'Error'}</span>`;
+            setTimeout(resetInteractionStatus, 5000);
+            return;
+        }
+    }
+
     centralPayButton.innerHTML = `<span style="font-size:0.9rem">Firmando...</span>`;
 
     try {
@@ -98,9 +130,9 @@ export async function makePayment(): Promise<void> {
             return;
         }
 
-        // Priority B: WebLN / Alby Extension
+        // Priority B: WebLn / Alby Extension
         if ((window as any).webln) {
-            console.log('[makePayment] Flow: WebLN Extension');
+            console.log('[makePayment] Flow: WebLn Extension');
             try {
                 const weblnProvider = await requestProvider();
                 centralPayButton.innerHTML = `<span style="font-size:0.9rem">Confirmá en Alby</span>`;
@@ -108,7 +140,7 @@ export async function makePayment(): Promise<void> {
                 await handleSuccessfulPayment();
                 return;
             } catch (err) {
-                console.warn('[makePayment] WebLN failed/canceled, falling back to modal');
+                console.warn('[makePayment] WebLn failed/canceled, falling back to modal');
             }
         }
 

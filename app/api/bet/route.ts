@@ -121,3 +121,52 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: err.message }, { status: 500 });
     }
 }
+
+export async function GET(request: Request) {
+    try {
+        const { searchParams } = new URL(request.url);
+        const block = parseInt(searchParams.get('block') || '');
+        const number = parseInt(searchParams.get('number') || '');
+        const pubkey = searchParams.get('pubkey') || '';
+
+        if (!block || !number || !pubkey) {
+            return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+        }
+
+        await syncData();
+
+        if (isNaN(number) || number < 1 || number > 21) {
+            return NextResponse.json({ error: 'Invalid number. Must be between 1 and 21.' }, { status: 400 });
+        }
+
+        const alreadyPaid = await queryNeon('SELECT count(*) FROM lotto_bets WHERE pubkey = $1 AND target_block = $2 AND selected_number = $3 AND is_paid = TRUE', [pubkey, block, number]);
+        if (parseInt(alreadyPaid[0].count) > 0) {
+            return NextResponse.json({ error: 'You already have a paid bet for this number.' }, { status: 409 });
+        }
+
+        const nwcUrl = process.env.NWC_URL;
+        if (!nwcUrl) return NextResponse.json({ error: 'Server NWC_URL not configured' }, { status: 500 });
+
+        let pr = 'test_invoice_' + Date.now();
+        let hash = 'test_hash_' + Date.now();
+
+        try {
+            let invoice: any;
+            invoice = await createNwcInvoice(nwcUrl, 21, `SatLotto Block ${block} - Num ${number}`);
+            pr = invoice.invoice || invoice.payment_request || invoice.paymentRequest;
+            hash = invoice.payment_hash || invoice.paymentHash;
+            if (!pr) return NextResponse.json({ error: 'NWC returned an empty invoice' }, { status: 500 });
+        } catch (e: any) {
+            return NextResponse.json({ error: `NWC error: ${e.message}` }, { status: 500 });
+        }
+
+        await queryNeon(`
+            INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, payment_hash, is_paid, betting_block, alias, nostr_event_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `, [pubkey, block, number, pr, hash, false, cachedBlock.height, null, 'pending_amber_' + hash]);
+
+        return NextResponse.json({ paymentRequest: pr, paymentHash: hash });
+    } catch (err: any) {
+        return NextResponse.json({ error: err.message }, { status: 500 });
+    }
+}
