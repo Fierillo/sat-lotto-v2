@@ -6,8 +6,14 @@ import { getOrCreateLocalSigner } from './auth-utils';
 import { setAuthError } from './login-handlers';
 
 export function logout(): void {
-    ['pubkey', 'nwc', 'bunker', 'alias'].forEach(k => localStorage.removeItem(`satlotto_${k}`));
+    // Clear all localStorage keys
+    ['pubkey', 'nwc', 'bunker', 'alias', 'login_method'].forEach(k => localStorage.removeItem(`satlotto_${k}`));
+    // Clear session state that could trigger re-login
+    sessionStorage.removeItem('login_pending');
+    sessionStorage.removeItem('pending_pubkey');
+    // Reset in-memory state
     authState.pubkey = authState.signer = authState.nwcUrl = authState.bunkerTarget = authState.nip05 = null;
+    authState.loginMethod = null;
     updateAuthUI();
     (window as any).updateUI?.();
 }
