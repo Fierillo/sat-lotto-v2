@@ -6,8 +6,14 @@ import { getOrCreateLocalSigner } from './auth-utils';
 import { setAuthError } from './login-handlers';
 
 export function logout(): void {
-    ['pubkey', 'nwc', 'bunker', 'alias'].forEach(k => localStorage.removeItem(`satlotto_${k}`));
+    // Clear all localStorage keys
+    ['pubkey', 'nwc', 'bunker', 'alias', 'login_method'].forEach(k => localStorage.removeItem(`satlotto_${k}`));
+    // Clear session state that could trigger re-login
+    sessionStorage.removeItem('login_pending');
+    sessionStorage.removeItem('pending_pubkey');
+    // Reset in-memory state
     authState.pubkey = authState.signer = authState.nwcUrl = authState.bunkerTarget = authState.nip05 = null;
+    authState.loginMethod = null;
     updateAuthUI();
     (window as any).updateUI?.();
 }
@@ -20,9 +26,14 @@ export function checkExternalLogin(): void {
     const sig = params.get('signature');
     const ev = params.get('event');
 
+    // Detect if we're inside a popup (opened by window.open for Amber auth)
+    const pending = JSON.parse(sessionStorage.getItem('login_pending') || '{}');
+    const isPopup = pending.isPopup && window.opener;
+
     logRemote({ 
         msg: 'CHECK_EXTERNAL_LOGIN', 
         hasParams: { pub: !!pub, sig: !!sig, ev: !!ev },
+        isPopup,
         url: fullUrl 
     });
 
@@ -31,8 +42,28 @@ export function checkExternalLogin(): void {
         authState.pubkey = pub; 
         authState.loginMethod = 'amber';
         localStorage.setItem('satlotto_login_method', 'amber');
-        logRemote({ msg: 'EXTERNAL_LOGIN_DETECTED', pubkey: pub.substring(0, 16) + '...', loginMethod: 'amber' });
-        finishLogin(); 
+        logRemote({ msg: 'EXTERNAL_LOGIN_DETECTED', pubkey: pub.substring(0, 16) + '...', loginMethod: 'amber', isPopup });
+        
+        if (isPopup) {
+            // Notify opener window and transfer the pubkey
+            try {
+                window.opener.postMessage({ type: 'SATLOTTO_AMBER_LOGIN', pubkey: pub }, window.location.origin);
+                // Clean URL before closing so opener doesn't re-process
+                window.history.replaceState({}, '', window.location.origin + window.location.pathname);
+                window.close();
+                // Fallback: if window.close() is blocked, redirect to clean state
+                setTimeout(() => {
+                    window.location.href = window.location.origin + window.location.pathname;
+                }, 500);
+            } catch (e) {
+                logRemote({ msg: 'POPUP_NOTIFY_FAILED', err: (e as Error).message });
+                // Still try to finish login in this window
+                finishLogin();
+            }
+        } else {
+            finishLogin();
+        }
+        return;
     }
     
     if (sig && ev) { 
@@ -45,8 +76,23 @@ export function checkExternalLogin(): void {
             if (obj.pubkey && !authState.pubkey) {
                 sessionStorage.removeItem('login_pending');
                 authState.pubkey = obj.pubkey;
-                logRemote({ msg: 'EXTERNAL_SIGN_DETECTED', pubkey: obj.pubkey.substring(0, 16) + '...' });
-                finishLogin();
+                logRemote({ msg: 'EXTERNAL_SIGN_DETECTED', pubkey: obj.pubkey.substring(0, 16) + '...', isPopup });
+                
+                if (isPopup) {
+                    try {
+                        window.opener.postMessage({ type: 'SATLOTTO_AMBER_LOGIN', pubkey: obj.pubkey }, window.location.origin);
+                        window.history.replaceState({}, '', window.location.origin + window.location.pathname);
+                        window.close();
+                        setTimeout(() => {
+                            window.location.href = window.location.origin + window.location.pathname;
+                        }, 500);
+                    } catch (e) {
+                        finishLogin();
+                    }
+                } else {
+                    finishLogin();
+                }
+                return;
             }
         } catch (e) {
             console.error('[checkExternalLogin] Error parsing event:', e);

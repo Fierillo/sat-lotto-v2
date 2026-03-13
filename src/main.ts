@@ -66,6 +66,19 @@ export async function updateUI(): Promise<void> {
 async function init(): Promise<void> {
     logRemote({ msg: 'APP_STARTED', url: window.location.href });
     
+    // Listen for Amber login from popup window
+    window.addEventListener('message', (event) => {
+        if (event.origin !== window.location.origin) return;
+        if (event.data?.type === 'SATLOTTO_AMBER_LOGIN' && event.data.pubkey) {
+            logRemote({ msg: 'AMBER_LOGIN_FROM_POPUP', pubkey: event.data.pubkey.substring(0, 16) + '...' });
+            sessionStorage.removeItem('login_pending');
+            authState.pubkey = event.data.pubkey;
+            authState.loginMethod = 'amber';
+            localStorage.setItem('satlotto_login_method', 'amber');
+            finishLogin();
+        }
+    });
+
     const pendingPubkey = sessionStorage.getItem('pending_pubkey');
     if (pendingPubkey) {
         sessionStorage.removeItem('pending_pubkey');
