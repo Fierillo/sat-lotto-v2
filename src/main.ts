@@ -3,7 +3,7 @@ import { createClock, updateClockRings, selectNumber, updateCenterButton } from 
 import { makePayment } from './bet-handler';
 import { createUserProfile, createLoginModal } from './auth/login-modal';
 import { updateAuthUI, finishLogin, checkExternalLogin } from './auth/auth-manager';
-import { authState } from './auth/auth-state';
+import { authState, logRemote } from './auth/auth-state';
 import { drawDashboardElements } from './ui/layout-manager';
 import { renderBetsTable } from './bets-table';
 import { renderChampionsTable } from './champions-table';
@@ -64,8 +64,60 @@ export async function updateUI(): Promise<void> {
 }
 
 async function init(): Promise<void> {
+    logRemote({ msg: 'APP_STARTED', url: window.location.href });
+    
+    const pendingPubkey = sessionStorage.getItem('pending_pubkey');
+    if (pendingPubkey) {
+        sessionStorage.removeItem('pending_pubkey');
+        sessionStorage.removeItem('login_pending');
+        authState.pubkey = pendingPubkey;
+        logRemote({ msg: 'LOGIN_FROM_PENDING', pubkey: pendingPubkey.substring(0, 16) + '...' });
+        finishLogin();
+        return;
+    }
+
+    logRemote({ msg: 'APP_STARTED', url: window.location.href });
     checkExternalLogin();
     if (authState.pubkey) finishLogin();
+
+    let pollInterval: any = null;
+
+    function startPolling() {
+        if (pollInterval) clearInterval(pollInterval);
+        
+        pollInterval = setInterval(() => {
+            checkExternalLogin();
+            
+            if (authState.pubkey) {
+                clearInterval(pollInterval);
+                sessionStorage.removeItem('login_pending');
+                logRemote({ msg: 'LOGIN_SUCCESS', pubkey: authState.pubkey.substring(0, 16) + '...' });
+                finishLogin();
+            }
+        }, 2000);
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            logRemote({ 
+                msg: 'VISIBILITY_RETURN', 
+                href: window.location.href,
+                search: window.location.search
+            });
+            checkExternalLogin();
+        }
+    });
+
+    window.addEventListener('pageshow', (event) => {
+        logRemote({ 
+            msg: 'PAGE_SHOW', 
+            persisted: event.persisted,
+            href: window.location.href
+        });
+        checkExternalLogin();
+    });
+
+    startPolling();
 
     (window as any).makePayment = makePayment;
     (window as any).selectNumber = selectNumber;
