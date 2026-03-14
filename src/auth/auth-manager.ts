@@ -6,7 +6,7 @@ import { getOrCreateLocalSigner } from './auth-utils';
 import { setAuthError } from './login-handlers';
 
 export function logout(): void {
-    ['pubkey', 'nwc', 'bunker', 'alias'].forEach(k => localStorage.removeItem(`satlotto_${k}`));
+    ['amber', 'nwc', 'bunker', 'extension'].forEach(k => localStorage.removeItem(`satlotto_${k}`));
     authState.pubkey = authState.signer = authState.nwcUrl = authState.bunkerTarget = authState.nip05 = null;
     updateAuthUI();
     (window as any).updateUI?.();
