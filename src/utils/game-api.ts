@@ -1,81 +1,21 @@
-import { authState } from '../auth/auth-state';
-import { finalizeEvent } from 'nostr-tools';
-import ndk, { getAlias } from './nostr-service';
-import { NDKEvent } from '@nostr-dev-kit/ndk';
+/**
+ * Game API — Llamadas al backend de SatLotto.
+ * 
+ * submitBet() → DEPRECATED, usar createBetSigned o createBetUnsigned
+ * confirmBet() → confirmar pago
+ * fetchGameState() → estado del juego
+ * fetchIdentity() → perfil Nostr
+ */
+
 import { apiClient } from './api-client';
 import { Bet, SorteoResult } from '../types';
 
-export async function submitBet(targetBlock: number, selectedNumber: number): Promise<{ paymentRequest: string; paymentHash: string } | null> {
-    if (!authState.pubkey) throw new Error('No estás logueado');
+// ─── Types ───────────────────────────────────────────────────────────
 
-    const unsigned = {
-        kind: 1,
-        created_at: Math.floor(Date.now() / 1000),
-        tags: [['t', 'satlotto']],
-        content: JSON.stringify({ 
-            bloque: targetBlock, 
-            numero: selectedNumber, 
-            alias: authState.nip05 || getAlias(authState.pubkey) 
-        }),
-        pubkey: authState.pubkey
-    };
-
-    let signed;
-    const ext = (window as any).nostr;
-
-    if (authState.signer) {
-        try {
-            const ev = new NDKEvent(ndk, unsigned);
-            console.log('[submitBet] Requesting signature from signer (Bunker/NWC/Ext)...');
-            
-            // Timeout de 15s para la firma (especialmente para Bunker que depende de otra app)
-            const signPromise = ev.sign(authState.signer);
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout esperando firma')), 15000));
-            
-            await Promise.race([signPromise, timeoutPromise]);
-            
-            signed = ev.rawEvent();
-            console.log('[submitBet] Event signed successfully:', signed.id);
-        } catch (e: any) {
-            console.error('[submitBet] Signer failed:', e.message || e);
-            // Si falla el signer (ej: timeout o cancelado), el código seguirá al fallback de abajo
-        }
-    } 
-    
-    // Si el signer falló o no estaba, probamos con la extensión como fallback
-    if (!signed && ext) {
-        try {
-            console.log('[submitBet] Fallback: Requesting signature from window.nostr...');
-            signed = await ext.signEvent(unsigned);
-        } catch (e) {
-            console.error('[submitBet] Extension failed:', e);
-        }
-    }
-    
-    // Si todavía no tenemos firma, probamos con NWC (llave privada directa)
-    if (!signed && authState.nwcUrl) {
-        try {
-            const url = new URL(authState.nwcUrl.replace('nostr+walletconnect:', 'http:'));
-            const secret = url.searchParams.get('secret');
-            if (secret) {
-                console.log('[submitBet] Fallback: Signing with NWC secret...');
-                const bytes = Uint8Array.from(secret.match(/.{1,2}/g)!.map(b => parseInt(b, 16)));
-                signed = finalizeEvent(unsigned, bytes);
-            }
-        } catch (e) {
-            console.error('[submitBet] NWC signing failed:', e);
-        }
-    }
-
-    if (!signed) {
-        throw new Error('No se pudo firmar la apuesta. Verificá tu conexión con Alby o Bunker.');
-    }
-
-    const payload = { signedEvent: signed };
-    return apiClient.post<{ paymentRequest: string; paymentHash: string }>('/api/bet', payload);
+export interface BetResult {
+    paymentRequest: string;
+    paymentHash: string;
 }
-
-export const confirmBet = (paymentHash: string) => apiClient.post('/api/bet', { paymentHash, action: 'confirm' });
 
 export interface GameStateResponse {
     block: { height: number; target: number; poolBalance: number };
@@ -84,10 +24,48 @@ export interface GameStateResponse {
     lastResult: SorteoResult | null;
 }
 
-export const fetchGameState = () => apiClient.get<GameStateResponse>('/api/state');
+// ─── Bets ────────────────────────────────────────────────────────────
 
-export const fetchIdentity = (pubkey: string) => apiClient.get<{ alias: string | null; sats_earned: number }>(`/api/identity/${pubkey}`).catch(() => null);
+/**
+ * Crear apuesta SIN firma (Amber / NWC).
+ * El server genera la invoice directamente — no necesita evento firmado.
+ */
+export async function createBetUnsigned(
+    targetBlock: number, 
+    selectedNumber: number, 
+    pubkey: string
+): Promise<BetResult> {
+    const url = `/api/bet?block=${targetBlock}&number=${selectedNumber}&pubkey=${pubkey}`;
+    return apiClient.get<BetResult>(url);
+}
 
-export const verifyIdentity = (pubkey: string, event: any, blockHeight?: number, lud16?: string) => 
+/**
+ * Crear apuesta CON firma (Extensión / Bunker).
+ * Envía un evento kind:1 firmado al backend.
+ */
+export async function createBetSigned(signedEvent: any): Promise<BetResult> {
+    return apiClient.post<BetResult>('/api/bet', { signedEvent });
+}
+
+/**
+ * Confirmar que una invoice fue pagada.
+ * Devuelve true si fue pagada, false si todavía no.
+ */
+export const confirmBet = (paymentHash: string) =>
+    apiClient.post<{ confirmed: boolean }>('/api/bet', { paymentHash, action: 'confirm' })
+        .then(r => r.confirmed)
+        .catch(() => false);
+
+// ─── Game State ──────────────────────────────────────────────────────
+
+export const fetchGameState = () =>
+    apiClient.get<GameStateResponse>('/api/state');
+
+// ─── Identity ────────────────────────────────────────────────────────
+
+export const fetchIdentity = (pubkey: string) =>
+    apiClient.get<{ alias: string | null; sats_earned: number }>(`/api/identity/${pubkey}`)
+        .catch(() => null);
+
+export const verifyIdentity = (pubkey: string, event: any, blockHeight?: number, lud16?: string) =>
     apiClient.post<{ ok: boolean; alias: string }>(`/api/identity/${pubkey}`, { event, blockHeight, lud16 });
-

@@ -1,7 +1,7 @@
 import { state } from './app-state';
 import { requestProvider } from 'webln';
 import { updateUI } from './main';
-import { submitBet, confirmBet, fetchGameState } from './utils/game-api';
+import { createBetUnsigned, createBetSigned, confirmBet, fetchGameState } from './utils/game-api';
 import { authState, logRemote } from './auth/auth-state';
 import { payNwcInvoice } from './utils/pay-invoice';
 import { showInvoiceModal } from './ui/invoice-modal';
@@ -133,8 +133,24 @@ export async function makePayment(): Promise<void> {
     centralPayButton.innerHTML = `<span style="font-size:0.9rem">Firmando...</span>`;
 
     try {
-        console.log('[makePayment] Requesting signed bet & invoice...');
-        const result = await submitBet(state.targetBlock, state.selectedNumber);
+        console.log('[makePayment] Creating signed bet...');
+        
+        const unsigned = {
+            kind: 1,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [['t', 'satlotto']],
+            content: JSON.stringify({ bloque: state.targetBlock, numero: state.selectedNumber }),
+            pubkey: authState.pubkey
+        };
+
+        // Firmar con el signer del authState (extensión o bunker)
+        const { NDKEvent } = await import('@nostr-dev-kit/ndk');
+        const { default: ndk } = await import('./utils/nostr-service');
+        const ev = new NDKEvent(ndk, unsigned);
+        await ev.sign(authState.signer);
+        const signed = ev.rawEvent();
+
+        const result = await createBetSigned(signed);
         if (!result) throw new Error('No response from server');
         
         const { paymentRequest, paymentHash } = result;
