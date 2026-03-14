@@ -150,11 +150,8 @@ export async function GET(request: Request) {
         }
 
         const clientIP = await getClientIP(request);
-        const rateCheckPubkey = await checkRateLimit('bet:create:pubkey', pubkey);
-        if (!rateCheckPubkey.allowed) {
-            return NextResponse.json({ error: 'Rate limit' }, { status: 429 });
-        }
 
+        // Only rate limit by IP for GET (no pubkey check — attacker would only block themselves)
         const rateCheckIP = await checkRateLimit('bet:create:ip', clientIP);
         if (!rateCheckIP.allowed) {
             return NextResponse.json({ error: 'Rate limit' }, { status: 429 });
