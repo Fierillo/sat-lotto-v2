@@ -1,5 +1,6 @@
 import { showPotentialWinnerModal } from '../src/ui/help-modals';
 import { state } from '../src/app-state';
+import { renderChampionsTable } from '../src/champions-table';
 
 export function injectDebugButtons(): void {
     if (document.getElementById('debug-container')) return;
@@ -173,42 +174,20 @@ export function injectDebugButtons(): void {
         transition: all 0.3s ease;
         position: relative;
     `;
-    toggleSwitch.onclick = async () => {
+    toggleSwitch.onclick = () => {
         testModeActive = !testModeActive;
         console.log('TEST CHAMPIONS:', testModeActive ? 'ON' : 'OFF');
-        
-        const url = window.location.origin;
-        
+
         if (testModeActive) {
-            // ON - add players
             toggleSwitch.style.backgroundPosition = '100% 0';
             toggleSwitch.style.borderColor = '#00ff00';
-            for (const player of testPlayers) {
-                try {
-                    await fetch(url + '/api/identity/' + player.pubkey, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ alias: player.alias, sats_earned: player.sats_earned })
-                    });
-                } catch (e) { console.error('Error:', player.alias, e); }
-            }
+            renderChampionsTable(testPlayers);
         } else {
-            // OFF - remove players
             toggleSwitch.style.backgroundPosition = '0 0';
             toggleSwitch.style.borderColor = '#ff00ff';
-            for (const player of testPlayers) {
-                try {
-                    await fetch(url + '/api/identity/' + player.pubkey, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ alias: player.alias, sats_earned: 0 })
-                    });
-                } catch (e) { console.error('Error:', player.alias, e); }
+            if ((window as any).updateUI) {
+                (window as any).updateUI();
             }
-        }
-
-        if ((window as any).updateUI) {
-            await (window as any).updateUI();
         }
     };
 
