@@ -102,6 +102,34 @@ export async function makePayment(): Promise<void> {
         }
     }
 
+    // SPECIAL CASE: NWC — crear invoice sin firmar, auto-pagar con NWC
+    if (authState.loginMethod === 'nwc' && authState.nwcUrl) {
+        centralPayButton.innerHTML = `<span style="font-size:0.9rem">Generando invoice...</span>`;
+        
+        try {
+            const result = await fetch(`/api/bet?block=${state.targetBlock}&number=${state.selectedNumber}&pubkey=${authState.pubkey}`);
+            if (!result.ok) throw new Error('No se pudo generar la invoice');
+            const { paymentRequest, paymentHash } = await result.json();
+
+            centralPayButton.innerHTML = `<span style="font-size:0.9rem">Pagando NWC...</span>`;
+            await payNwcInvoice(authState.nwcUrl, paymentRequest);
+            
+            await confirmBet(paymentHash);
+            await updateUI();
+            centralPayButton.innerHTML = `<span style="font-size:1rem">PAGO APROBADO</span>`;
+            document.body.classList.add('flash-green');
+            setTimeout(resetInteractionStatus, 4000);
+            return;
+        } catch (e: any) {
+            console.error('[makePayment] NWC flow failed:', e);
+            centralPayButton.classList.remove('success-glow');
+            centralPayButton.classList.add('error-glow');
+            fitText(centralPayButton, 'Error');
+            setTimeout(resetInteractionStatus, 5000);
+            return;
+        }
+    }
+
     centralPayButton.innerHTML = `<span style="font-size:0.9rem">Firmando...</span>`;
 
     try {
