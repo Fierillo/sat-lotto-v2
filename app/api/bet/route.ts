@@ -56,7 +56,13 @@ export async function POST(request: Request) {
                 }
             }
             
-            const tx = await lookupNwcInvoice(nwcUrl, paymentHash) as any;
+            // Lookup con retry — el wallet tarda en indexar el pago post-/api/pay
+            let tx: any = null;
+            for (let attempt = 0; attempt < 5; attempt++) {
+                tx = await lookupNwcInvoice(nwcUrl, paymentHash) as any;
+                if (tx && (tx.settled || tx.preimage)) break;
+                if (attempt < 4) await new Promise(r => setTimeout(r, 2000));
+            }
             if (tx && (tx.settled || tx.preimage)) {
                 await queryNeon('UPDATE lotto_bets SET is_paid = TRUE WHERE payment_hash = $1', [paymentHash]);
                 try {
@@ -190,12 +196,13 @@ export async function GET(request: Request) {
         }
 
         const nwcUrl = process.env.NWC_URL;
-        if (!nwcUrl) return NextResponse.json({ error: 'Server NWC_URL not configured' }, { status: 500 });
+        if (!nwcUrl) { console.error('[Bet GET] NWC_URL not configured'); return NextResponse.json({ error: 'Server NWC_URL not configured' }, { status: 500 }); }
 
         let invoice: any;
         try {
             invoice = await createNwcInvoice(nwcUrl, 21, `SatLotto Block ${block} - Num ${number}`);
         } catch (e: any) {
+            console.error('[Bet GET] NWC createInvoice failed:', e.message);
             return NextResponse.json({ error: `NWC error: ${e.message}` }, { status: 500 });
         }
         const pr = invoice.invoice || invoice.payment_request || invoice.paymentRequest;
@@ -209,7 +216,7 @@ export async function GET(request: Request) {
 
         return NextResponse.json({ paymentRequest: pr, paymentHash: hash });
     } catch (err: any) {
-        console.error('[Bet GET] Error:', err.message);
+        console.error('[Bet GET] Unhandled error:', err.message, err.stack);
         return NextResponse.json({ error: 'Internal error' }, { status: 500 });
     }
 }
