@@ -168,6 +168,17 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'You already have a paid bet for this number.' }, { status: 409 });
         }
 
+        const existingBet = await queryNeon(
+            'SELECT payment_request, payment_hash FROM lotto_bets WHERE pubkey = $1 AND target_block = $2 AND selected_number = $3 AND is_paid = FALSE LIMIT 1',
+            [pubkey, block, number]
+        );
+        if (existingBet.length > 0) {
+            return NextResponse.json({ 
+                paymentRequest: existingBet[0].payment_request, 
+                paymentHash: existingBet[0].payment_hash 
+            });
+        }
+
         const nwcUrl = process.env.NWC_URL;
         if (!nwcUrl) return NextResponse.json({ error: 'Server NWC_URL not configured' }, { status: 500 });
 
