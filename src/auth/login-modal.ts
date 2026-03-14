@@ -134,6 +134,7 @@ export function createUserProfile(username: string): HTMLElement {
     container.className = 'top-user-profile';
     container.innerHTML = `
         <div id="userAlias" class="profile-info"></div>
+        <div id="loginMethodBadge" class="method-badge"></div>
         <div id="logoutMenu" class="logout-menu"><button id="logoutBtn">Cerrar Sesión</button></div>
     `;
     

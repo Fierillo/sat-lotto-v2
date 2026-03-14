@@ -130,6 +130,15 @@ export function updateAuthUI(): void {
         if (alias) alias.textContent = authState.nip05 || resolveName(authState.pubkey);
         if (profile) profile.style.display = 'block';
         document.body.classList.remove('logged-out');
+
+        // Update login method badge
+        const badge = document.getElementById('loginMethodBadge');
+        if (badge && authState.loginMethod) {
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            const method = authState.loginMethod;
+            badge.textContent = method === 'extension' && isMobile ? 'mobile+ext' : method;
+            badge.style.display = 'block';
+        }
     } else {
         if (profile) profile.style.display = 'none';
         document.body.classList.add('logged-out');

@@ -328,3 +328,17 @@
 #pin-view h2 {
     margin-bottom: 10px;
 }
+
+.method-badge {
+    display: none;
+    font-size: 0.55rem;
+    color: var(--text-dim);
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.5;
+    text-align: center;
+}
