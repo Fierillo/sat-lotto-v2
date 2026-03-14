@@ -70,11 +70,11 @@ export async function GET(request: Request) {
         return NextResponse.json({
             block: cachedBlock,
             activeBets: publicBets,
-            allBets: activeBets, // For internal use/debugging if needed
             champions,
             lastResult
         });
     } catch (e: any) {
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        console.error('[State GET] Error:', e.message);
+        return NextResponse.json({ error: 'Internal error' }, { status: 500 });
     }
 }

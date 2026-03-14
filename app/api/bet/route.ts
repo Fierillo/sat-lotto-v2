@@ -134,7 +134,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ paymentRequest: pr, paymentHash: hash });
     } catch (err: any) {
         console.error('[Bet POST] Error:', err.message);
-        return NextResponse.json({ error: err.message }, { status: 500 });
+        return NextResponse.json({ error: 'Internal error' }, { status: 500 });
     }
 }
 
@@ -192,6 +192,6 @@ export async function GET(request: Request) {
         return NextResponse.json({ paymentRequest: pr, paymentHash: hash });
     } catch (err: any) {
         console.error('[Bet GET] Error:', err.message);
-        return NextResponse.json({ error: err.message }, { status: 500 });
+        return NextResponse.json({ error: 'Internal error' }, { status: 500 });
     }
 }
