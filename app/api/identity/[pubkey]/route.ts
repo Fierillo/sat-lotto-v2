@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { queryNeon } from '@/src/lib/db';
 import { verifyEvent } from 'nostr-tools';
-import { checkRateLimit, getClientIP } from '@/lib/rate-limiter';
+import { checkRateLimit, getClientIP } from '@/src/lib/rate-limiter';
 
 export async function GET(request: Request, { params }: { params: Promise<{ pubkey: string }> }) {
     const { pubkey } = await params;
