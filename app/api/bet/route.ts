@@ -6,6 +6,16 @@ import { verifyEvent } from 'nostr-tools';
 import { cachedBlock, syncData } from '@/src/lib/cache';
 import { checkRateLimit, getClientIP } from '@/src/lib/rate-limiter';
 
+function safeCount(rows: any[]): number {
+    if (!rows || rows.length === 0) return 0;
+    return parseInt(rows[0]?.count || '0');
+}
+
+async function queryNeonSafe(queryText: string, params: any[] = []): Promise<any[]> {
+    try { return await queryNeon(queryText, params); }
+    catch { return []; }
+}
+
 async function getInvoiceFromLNAddress(address: string, amountSats: number): Promise<string | null> {
     try {
         const [user, domain] = address.split('@');
@@ -77,7 +87,7 @@ export async function POST(request: Request) {
         }
 
         const existingEvent = await queryNeon('SELECT count(*) FROM lotto_bets WHERE nostr_event_id = $1', [eventId]);
-        if (parseInt(existingEvent[0].count) > 0) {
+        if (safeCount(existingEvent) > 0) {
             return NextResponse.json({ error: 'Esta apuesta ya fue procesada (Replay Attack protection)' }, { status: 409 });
         }
 
@@ -102,12 +112,12 @@ export async function POST(request: Request) {
         }
 
         const alreadyPaid = await queryNeon('SELECT count(*) FROM lotto_bets WHERE pubkey = $1 AND target_block = $2 AND selected_number = $3 AND is_paid = TRUE', [finalPubkey, finalBloque, finalNumero]);
-        if (parseInt(alreadyPaid[0].count) > 0) {
+        if (safeCount(alreadyPaid) > 0) {
             return NextResponse.json({ message: 'You already have a paid bet for this number. Good luck!' });
         }
 
         const unpaidCount = await queryNeon(`SELECT count(*) FROM lotto_bets WHERE pubkey = $1 AND is_paid = FALSE AND created_at > NOW() - INTERVAL '10 minutes'`, [finalPubkey]);
-        if (parseInt(unpaidCount[0].count) > 5) return NextResponse.json({ error: 'Too many unpaid invoices.' }, { status: 429 });
+        if (safeCount(unpaidCount) > 5) return NextResponse.json({ error: 'Too many unpaid invoices.' }, { status: 429 });
 
         const nwcUrl = process.env.NWC_URL;
         if (!nwcUrl) return NextResponse.json({ error: 'Server NWC_URL not configured' }, { status: 500 });
@@ -163,8 +173,8 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Invalid number. Must be between 1 and 21.' }, { status: 400 });
         }
 
-        const alreadyPaid = await queryNeon('SELECT count(*) FROM lotto_bets WHERE pubkey = $1 AND target_block = $2 AND selected_number = $3 AND is_paid = TRUE', [pubkey, block, number]);
-        if (parseInt(alreadyPaid[0].count) > 0) {
+        const alreadyPaid = await queryNeonSafe('SELECT count(*) FROM lotto_bets WHERE pubkey = $1 AND target_block = $2 AND selected_number = $3 AND is_paid = TRUE', [pubkey, block, number]);
+        if (safeCount(alreadyPaid) > 0) {
             return NextResponse.json({ error: 'You already have a paid bet for this number.' }, { status: 409 });
         }
 
