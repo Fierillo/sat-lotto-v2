@@ -110,6 +110,19 @@ export function askPinInModal(mode: 'create' | 'verify'): Promise<string | null>
 
 export async function handleAutoLogin(): Promise<void> {
     setAuthError('');
+    
+    // Respetar login guardado — si el usuario eligió NWC, no sobreescribir con extensión
+    const savedMethod = localStorage.getItem('satlotto_login_method');
+    
+    if (savedMethod === 'nwc') {
+        try {
+            await handleNwcLoginAutoPin();
+            if (authState.pubkey) return; // Login exitoso
+        } catch (e: any) {
+            console.warn('[AutoLogin] NWC auto-login failed:', e.message);
+        }
+    }
+    
     try {
         if ((window as any).nostr) {
             const signer = new NDKNip07Signer();
