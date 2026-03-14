@@ -136,7 +136,8 @@ export function updateAuthUI(): void {
         if (badge && authState.loginMethod) {
             const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
             const method = authState.loginMethod;
-            badge.textContent = method === 'extension' && isMobile ? 'mobile+ext' : method;
+            const labels: Record<string, string> = { amber: 'MOBILE', nwc: 'NWC', bunker: 'BUNKER', extension: 'EXTENSION' };
+            badge.textContent = labels[method] || method;
             badge.style.display = 'block';
         }
     } else {
