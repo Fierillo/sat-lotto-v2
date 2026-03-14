@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { queryNeon } from '@/lib/db';
+import { queryNeon } from '@/src/lib/db';
 import { createNwcInvoice } from '@/src/utils/create-invoice';
 import { lookupNwcInvoice, payNwcInvoice } from '@/src/utils/pay-invoice';
 import { verifyEvent } from 'nostr-tools';
-import { cachedBlock, syncData } from '@/lib/cache';
-import { checkRateLimit, getClientIP } from '@/lib/rate-limiter';
+import { cachedBlock, syncData } from '@/src/lib/cache';
+import { checkRateLimit, getClientIP } from '@/src/lib/rate-limiter';
 
 async function getInvoiceFromLNAddress(address: string, amountSats: number): Promise<string | null> {
     try {

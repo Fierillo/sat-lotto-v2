@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { queryNeon } from '../lib/db';
+import { queryNeon } from '../src/lib/db';
 
 async function initRateLimitsTable() {
     console.log('[Init] Creating rate_limits table...');

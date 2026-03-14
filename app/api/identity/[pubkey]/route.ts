@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { queryNeon } from '@/lib/db';
+import { queryNeon } from '@/src/lib/db';
 import { verifyEvent } from 'nostr-tools';
 
 export async function GET(request: Request, { params }: { params: Promise<{ pubkey: string }> }) {

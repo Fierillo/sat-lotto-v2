@@ -1,6 +1,6 @@
 import { generateSecretKey, getPublicKey, finalizeEvent } from 'nostr-tools';
 import 'dotenv/config';
-import { queryNeon } from '../lib/db';
+import { queryNeon } from '../src/lib/db';
 
 async function testSubmitBet() {
     console.log('[Test] Fetching current game state to get target block...');

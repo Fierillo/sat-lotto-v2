@@ -1,6 +1,6 @@
 import { generateSecretKey, getPublicKey, finalizeEvent } from 'nostr-tools';
 import 'dotenv/config';
-import { queryNeon } from '../lib/db';
+import { queryNeon } from '../src/lib/db';
 
 const API_URL = process.env.API_URL || 'http://localhost:3000';
 
