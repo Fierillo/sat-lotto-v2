@@ -96,7 +96,7 @@ export async function makePayment(): Promise<void> {
             console.error('[makePayment] Amber invoice failed:', e);
             centralPayButton.classList.remove('success-glow');
             centralPayButton.classList.add('error-glow');
-            centralPayButton.innerHTML = `<span style="font-size:0.8rem">${e.message || 'Error'}</span>`;
+            fitText(centralPayButton, 'Error');
             setTimeout(resetInteractionStatus, 5000);
             return;
         }

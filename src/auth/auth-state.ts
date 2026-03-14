@@ -22,7 +22,10 @@ export const logRemote = (data: any) => {
     }
     if (devLog) {
         const time = new Date().toLocaleTimeString();
-        devLog.innerHTML += `<div style="margin-bottom:2px; border-left:2px solid #0f0; padding-left:4px">[${time}] ${JSON.stringify(data)}</div>`;
+        const entry = document.createElement('div');
+        entry.style.cssText = 'margin-bottom:2px; border-left:2px solid #0f0; padding-left:4px';
+        entry.textContent = `[${time}] ${JSON.stringify(data)}`;
+        devLog.appendChild(entry);
         devLog.scrollTop = devLog.scrollHeight;
     }
 };

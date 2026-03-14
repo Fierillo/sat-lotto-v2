@@ -254,7 +254,11 @@ export async function initNostrConnect(): Promise<void> {
         await finishLogin();
     } catch (e: any) {
         logRemote({ msg: 'Fallo en Nostr Connect', err: e.message });
-        qr.innerHTML = `<div class="qr-placeholder text-error">${e.message}</div>`;
+        const errDiv = document.createElement('div');
+        errDiv.className = 'qr-placeholder text-error';
+        errDiv.textContent = e.message;
+        qr.innerHTML = '';
+        qr.appendChild(errDiv);
     }
 }
 
