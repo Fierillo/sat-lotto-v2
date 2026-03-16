@@ -1,11 +1,13 @@
 import { state } from './app-state';
 import { requestProvider } from 'webln';
 import { updateUI } from './main';
-import { submitBet, confirmBet, fetchGameState } from './utils/game-api';
+import { createBetUnsigned, createBetSigned, confirmBet, fetchGameState } from './utils/game-api';
 import { authState, logRemote } from './auth/auth-state';
 import { payNwcInvoice } from './utils/pay-invoice';
 import { showInvoiceModal } from './ui/invoice-modal';
 import { fitText } from './utils/text-fit';
+
+// Standalone PIN prompt — doesn't depend on login modal being in DOM
 
 async function showConfirmModal(oldLuckNumber: number, newLuckNumber: number): Promise<boolean> {
     return new Promise((resolve) => {
@@ -47,6 +49,7 @@ export async function makePayment(): Promise<void> {
     const resetInteractionStatus = (): void => {
         centralPayButton.classList.remove('success-glow', 'error-glow', 'blink-purple');
         document.body.classList.remove('flash-green', 'processing');
+        document.querySelector('.number-segment.selected')?.classList.remove('error-selected');
         if (typeof (window as any).updateCenterButton === 'function') (window as any).updateCenterButton();
     };
 
@@ -79,7 +82,7 @@ export async function makePayment(): Promise<void> {
         
         try {
             const result = await fetch(`/api/bet?block=${state.targetBlock}&number=${state.selectedNumber}&pubkey=${authState.pubkey}`);
-            if (!result.ok) throw new Error('No se pudo generar la invoice');
+            if (!result.ok) { const err = await result.json().catch(() => ({})); throw new Error(err.error || 'Error ' + result.status); }
             const { paymentRequest, paymentHash } = await result.json();
             
             const handleSuccessfulPayment = async () => {
@@ -102,11 +105,53 @@ export async function makePayment(): Promise<void> {
         }
     }
 
+    // SPECIAL CASE: NWC — crear invoice sin firmar, auto-pagar con NWC
+    if (authState.loginMethod === 'nwc' && authState.nwcUrl) {
+        try {
+            const result = await fetch(`/api/bet?block=${state.targetBlock}&number=${state.selectedNumber}&pubkey=${authState.pubkey}`);
+            if (!result.ok) { const err = await result.json().catch(() => ({})); throw new Error(err.error || 'Error ' + result.status); }
+            const { paymentRequest, paymentHash } = await result.json();
+
+            centralPayButton.innerHTML = `<span style="font-size:0.9rem">Pagando con NWC...</span>`;
+            await payNwcInvoice(authState.nwcUrl, paymentRequest);
+
+            await confirmBet(paymentHash);
+            await updateUI();
+            centralPayButton.innerHTML = `<span style="font-size:1rem">PAGADO</span>`;
+            document.body.classList.add('flash-green');
+            setTimeout(resetInteractionStatus, 4000);
+            return;
+        } catch (e: any) {
+            console.error('[makePayment] NWC flow failed:', e);
+            centralPayButton.classList.remove('success-glow');
+            centralPayButton.classList.add('error-glow');
+            fitText(centralPayButton, 'Error');
+            setTimeout(resetInteractionStatus, 5000);
+            return;
+        }
+    }
+
     centralPayButton.innerHTML = `<span style="font-size:0.9rem">Firmando...</span>`;
 
     try {
-        console.log('[makePayment] Requesting signed bet & invoice...');
-        const result = await submitBet(state.targetBlock, state.selectedNumber);
+        console.log('[makePayment] Creating signed bet...');
+        
+        const unsigned = {
+            kind: 1,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [['t', 'satlotto']],
+            content: JSON.stringify({ bloque: state.targetBlock, numero: state.selectedNumber }),
+            pubkey: authState.pubkey
+        };
+
+        // Firmar con el signer del authState (extensión o bunker)
+        const { NDKEvent } = await import('@nostr-dev-kit/ndk');
+        const { default: ndk } = await import('./utils/nostr-service');
+        const ev = new NDKEvent(ndk, unsigned);
+        await ev.sign(authState.signer);
+        const signed = ev.rawEvent();
+
+        const result = await createBetSigned(signed);
         if (!result) throw new Error('No response from server');
         
         const { paymentRequest, paymentHash } = result;
@@ -153,9 +198,15 @@ export async function makePayment(): Promise<void> {
         console.error('[makePayment] Final catch:', paymentError);
         centralPayButton.classList.remove('success-glow');
         centralPayButton.classList.add('error-glow');
-        
-        const errorMsg = paymentError.message?.includes('Rate limit') ? 'Rate limit' : 'Error servidor';
+
+        const isRateLimit = paymentError.message?.includes('Rate limit');
+        const errorMsg = isRateLimit ? 'Rate limit' : 'Error servidor';
         fitText(centralPayButton, errorMsg);
+
+        if (isRateLimit) {
+            document.querySelector('.number-segment.selected')?.classList.add('error-selected');
+        }
+
         setTimeout(resetInteractionStatus, 5000);
     }
 }

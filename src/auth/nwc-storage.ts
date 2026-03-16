@@ -145,6 +145,8 @@ export function clearNwcStorage(): void {
     localStorage.removeItem(NWC_ENCRYPTED_KEY);
     localStorage.removeItem(PIN_KEY);
     localStorage.setItem(ATTEMPTS_KEY, '0');
+    localStorage.removeItem('satlotto_login_method');
+    localStorage.removeItem('satlotto_pubkey');
 }
 
 export function getAttemptsLeft(): number {

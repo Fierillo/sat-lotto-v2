@@ -77,6 +77,32 @@ async function init(): Promise<void> {
     }
 
     logRemote({ msg: 'APP_STARTED', url: window.location.href });
+
+    // Crear modal de login temprano para que el PIN flow lo use
+    let app = document.getElementById('app');
+    if (app) {
+        app.innerHTML = '';
+    } else {
+        app = document.createElement('div');
+        app.id = 'app';
+        document.body.prepend(app);
+    }
+    const handlers = {
+        onExtLogin: handleAutoLogin,
+        onNwcLogin: handleNwcLogin,
+        onBunkerLogin: handleBunkerLogin,
+        onRefreshConnect: initNostrConnect,
+        onClose: () => { const m = document.getElementById('loginModal'); if (m) m.style.display = 'none'; }
+    };
+    app.appendChild(createLoginModal(handlers));
+
+    // Auto-PIN: si es NWC, mostrar modal y pedir PIN para restaurar wallet
+    if (authState.loginMethod === 'nwc' && !authState.nwcUrl) {
+        const loginModal = document.getElementById('loginModal');
+        if (loginModal) loginModal.style.display = 'flex';
+        await handleAutoLogin();
+    }
+
     checkExternalLogin();
     if (authState.pubkey) finishLogin();
 
@@ -128,26 +154,8 @@ async function init(): Promise<void> {
     (window as any).handleBunkerLogin = handleBunkerLogin;
     (window as any).initNostrConnect = initNostrConnect;
 
-    let app = document.getElementById('app');
-    if (app) {
-        app.innerHTML = '';
-    } else {
-        app = document.createElement('div');
-        app.id = 'app';
-        document.body.prepend(app);
-    }
-
     app.appendChild(createUserProfile(authState.nip05 || ''));
-    
-    const handlers = {
-        onExtLogin: handleAutoLogin,
-        onNwcLogin: handleNwcLogin,
-        onBunkerLogin: handleBunkerLogin,
-        onRefreshConnect: initNostrConnect,
-        onClose: () => { const m = document.getElementById('loginModal'); if (m) m.style.display = 'none'; }
-    };
-    app.appendChild(createLoginModal(handlers));
-    
+
     const header = document.createElement('div');
     header.className = 'header';
     header.innerHTML = `<h1><span>SatLotto</span></h1><p class="subtitle">Proba tu suerte, cada 21 bloques</p>`;

@@ -6,6 +6,16 @@ import { verifyEvent } from 'nostr-tools';
 import { cachedBlock, syncData } from '@/src/lib/cache';
 import { checkRateLimit, getClientIP } from '@/src/lib/rate-limiter';
 
+function safeCount(rows: any[]): number {
+    if (!rows || rows.length === 0) return 0;
+    return parseInt(rows[0]?.count || '0');
+}
+
+async function queryNeonSafe(queryText: string, params: any[] = []): Promise<any[]> {
+    try { return await queryNeon(queryText, params); }
+    catch { return []; }
+}
+
 async function getInvoiceFromLNAddress(address: string, amountSats: number): Promise<string | null> {
     try {
         const [user, domain] = address.split('@');
@@ -46,7 +56,13 @@ export async function POST(request: Request) {
                 }
             }
             
-            const tx = await lookupNwcInvoice(nwcUrl, paymentHash) as any;
+            // Lookup con retry — el wallet tarda en indexar el pago post-/api/pay
+            let tx: any = null;
+            for (let attempt = 0; attempt < 5; attempt++) {
+                tx = await lookupNwcInvoice(nwcUrl, paymentHash) as any;
+                if (tx && (tx.settled || tx.preimage)) break;
+                if (attempt < 4) await new Promise(r => setTimeout(r, 2000));
+            }
             if (tx && (tx.settled || tx.preimage)) {
                 await queryNeon('UPDATE lotto_bets SET is_paid = TRUE WHERE payment_hash = $1', [paymentHash]);
                 try {
@@ -77,7 +93,7 @@ export async function POST(request: Request) {
         }
 
         const existingEvent = await queryNeon('SELECT count(*) FROM lotto_bets WHERE nostr_event_id = $1', [eventId]);
-        if (parseInt(existingEvent[0].count) > 0) {
+        if (safeCount(existingEvent) > 0) {
             return NextResponse.json({ error: 'Esta apuesta ya fue procesada (Replay Attack protection)' }, { status: 409 });
         }
 
@@ -102,12 +118,12 @@ export async function POST(request: Request) {
         }
 
         const alreadyPaid = await queryNeon('SELECT count(*) FROM lotto_bets WHERE pubkey = $1 AND target_block = $2 AND selected_number = $3 AND is_paid = TRUE', [finalPubkey, finalBloque, finalNumero]);
-        if (parseInt(alreadyPaid[0].count) > 0) {
+        if (safeCount(alreadyPaid) > 0) {
             return NextResponse.json({ message: 'You already have a paid bet for this number. Good luck!' });
         }
 
         const unpaidCount = await queryNeon(`SELECT count(*) FROM lotto_bets WHERE pubkey = $1 AND is_paid = FALSE AND created_at > NOW() - INTERVAL '10 minutes'`, [finalPubkey]);
-        if (parseInt(unpaidCount[0].count) > 5) return NextResponse.json({ error: 'Too many unpaid invoices.' }, { status: 429 });
+        if (safeCount(unpaidCount) > 5) return NextResponse.json({ error: 'Too many unpaid invoices.' }, { status: 429 });
 
         const nwcUrl = process.env.NWC_URL;
         if (!nwcUrl) return NextResponse.json({ error: 'Server NWC_URL not configured' }, { status: 500 });
@@ -163,8 +179,8 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Invalid number. Must be between 1 and 21.' }, { status: 400 });
         }
 
-        const alreadyPaid = await queryNeon('SELECT count(*) FROM lotto_bets WHERE pubkey = $1 AND target_block = $2 AND selected_number = $3 AND is_paid = TRUE', [pubkey, block, number]);
-        if (parseInt(alreadyPaid[0].count) > 0) {
+        const alreadyPaid = await queryNeonSafe('SELECT count(*) FROM lotto_bets WHERE pubkey = $1 AND target_block = $2 AND selected_number = $3 AND is_paid = TRUE', [pubkey, block, number]);
+        if (safeCount(alreadyPaid) > 0) {
             return NextResponse.json({ error: 'You already have a paid bet for this number.' }, { status: 409 });
         }
 
@@ -180,12 +196,13 @@ export async function GET(request: Request) {
         }
 
         const nwcUrl = process.env.NWC_URL;
-        if (!nwcUrl) return NextResponse.json({ error: 'Server NWC_URL not configured' }, { status: 500 });
+        if (!nwcUrl) { console.error('[Bet GET] NWC_URL not configured'); return NextResponse.json({ error: 'Server NWC_URL not configured' }, { status: 500 }); }
 
         let invoice: any;
         try {
             invoice = await createNwcInvoice(nwcUrl, 21, `SatLotto Block ${block} - Num ${number}`);
         } catch (e: any) {
+            console.error('[Bet GET] NWC createInvoice failed:', e.message);
             return NextResponse.json({ error: `NWC error: ${e.message}` }, { status: 500 });
         }
         const pr = invoice.invoice || invoice.payment_request || invoice.paymentRequest;
@@ -199,7 +216,7 @@ export async function GET(request: Request) {
 
         return NextResponse.json({ paymentRequest: pr, paymentHash: hash });
     } catch (err: any) {
-        console.error('[Bet GET] Error:', err.message);
+        console.error('[Bet GET] Unhandled error:', err.message, err.stack);
         return NextResponse.json({ error: 'Internal error' }, { status: 500 });
     }
 }
