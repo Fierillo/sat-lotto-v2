@@ -133,11 +133,20 @@ export async function handleAutoLogin(): Promise<void> {
         
         sessionStorage.setItem('login_pending', JSON.stringify({
             timestamp: Date.now(),
-            callbackUrl: callbackWithParam
+            callbackUrl: callbackWithParam,
+            isPopup: true
         }));
         
+        const amberUrl = `nostrsigner:?type=get_public_key&callbackUrl=${encodeURIComponent(callbackWithParam)}&returnType=signature&compressionType=none`;
         logRemote({ msg: 'REDIRECT_TO_AMBER', callbackUrl: callbackWithParam });
-        window.location.href = `nostrsigner:?type=get_public_key&callbackUrl=${encodeURIComponent(callbackWithParam)}&returnType=signature&compressionType=none`;
+        
+        // Use named window so Amber callback reuses the same tab instead of opening a new one
+        const popup = window.open(amberUrl, 'satlotto_amber_auth');
+        if (!popup) {
+            // Popup blocked — fallback to location.href
+            logRemote({ msg: 'POPUP_BLOCKED_FALLBACK' });
+            window.location.href = amberUrl;
+        }
         return;
     }
     setAuthError('No se detectó ninguna extensión de Nostr. Instalá Alby o usá una URL de NWC/Bunker para continuar.');
