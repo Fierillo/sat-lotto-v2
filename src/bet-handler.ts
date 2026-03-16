@@ -7,6 +7,8 @@ import { payNwcInvoice } from './utils/pay-invoice';
 import { showInvoiceModal } from './ui/invoice-modal';
 import { fitText } from './utils/text-fit';
 
+// Standalone PIN prompt — doesn't depend on login modal being in DOM
+
 async function showConfirmModal(oldLuckNumber: number, newLuckNumber: number): Promise<boolean> {
     return new Promise((resolve) => {
         const confirmModalContainer = document.createElement('div');
@@ -47,6 +49,7 @@ export async function makePayment(): Promise<void> {
     const resetInteractionStatus = (): void => {
         centralPayButton.classList.remove('success-glow', 'error-glow', 'blink-purple');
         document.body.classList.remove('flash-green', 'processing');
+        document.querySelector('.number-segment.selected')?.classList.remove('error-selected');
         if (typeof (window as any).updateCenterButton === 'function') (window as any).updateCenterButton();
     };
 
@@ -79,7 +82,7 @@ export async function makePayment(): Promise<void> {
         
         try {
             const result = await fetch(`/api/bet?block=${state.targetBlock}&number=${state.selectedNumber}&pubkey=${authState.pubkey}`);
-            if (!result.ok) throw new Error('No se pudo generar la invoice');
+            if (!result.ok) { const err = await result.json().catch(() => ({})); throw new Error(err.error || 'Error ' + result.status); }
             const { paymentRequest, paymentHash } = await result.json();
             
             const handleSuccessfulPayment = async () => {
@@ -104,19 +107,17 @@ export async function makePayment(): Promise<void> {
 
     // SPECIAL CASE: NWC — crear invoice sin firmar, auto-pagar con NWC
     if (authState.loginMethod === 'nwc' && authState.nwcUrl) {
-        centralPayButton.innerHTML = `<span style="font-size:0.9rem">Generando invoice...</span>`;
-        
         try {
             const result = await fetch(`/api/bet?block=${state.targetBlock}&number=${state.selectedNumber}&pubkey=${authState.pubkey}`);
-            if (!result.ok) throw new Error('No se pudo generar la invoice');
+            if (!result.ok) { const err = await result.json().catch(() => ({})); throw new Error(err.error || 'Error ' + result.status); }
             const { paymentRequest, paymentHash } = await result.json();
 
-            centralPayButton.innerHTML = `<span style="font-size:0.9rem">Pagando NWC...</span>`;
+            centralPayButton.innerHTML = `<span style="font-size:0.9rem">Pagando con NWC...</span>`;
             await payNwcInvoice(authState.nwcUrl, paymentRequest);
-            
+
             await confirmBet(paymentHash);
             await updateUI();
-            centralPayButton.innerHTML = `<span style="font-size:1rem">PAGO APROBADO</span>`;
+            centralPayButton.innerHTML = `<span style="font-size:1rem">PAGADO</span>`;
             document.body.classList.add('flash-green');
             setTimeout(resetInteractionStatus, 4000);
             return;
@@ -197,9 +198,15 @@ export async function makePayment(): Promise<void> {
         console.error('[makePayment] Final catch:', paymentError);
         centralPayButton.classList.remove('success-glow');
         centralPayButton.classList.add('error-glow');
-        
-        const errorMsg = paymentError.message?.includes('Rate limit') ? 'Rate limit' : 'Error servidor';
+
+        const isRateLimit = paymentError.message?.includes('Rate limit');
+        const errorMsg = isRateLimit ? 'Rate limit' : 'Error servidor';
         fitText(centralPayButton, errorMsg);
+
+        if (isRateLimit) {
+            document.querySelector('.number-segment.selected')?.classList.add('error-selected');
+        }
+
         setTimeout(resetInteractionStatus, 5000);
     }
 }
