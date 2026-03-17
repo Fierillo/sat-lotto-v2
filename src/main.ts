@@ -2,14 +2,14 @@ import { state } from './app-state';
 import { createClock, updateClockRings, selectNumber, updateCenterButton } from './clock/game-clock';
 import { makePayment } from './bet-handler';
 import { createUserProfile, createLoginModal } from './auth/login-modal';
-import { updateAuthUI, finishLogin, checkExternalLogin } from './auth/auth-manager';
+import { updateAuthUI, finishLogin, checkExternalLogin, handleAutoLogin, handleBunkerLogin, initNostrConnect } from './auth/auth-manager';
 import { authState, logRemote } from './auth/auth-state';
 import { drawDashboardElements } from './ui/layout-manager';
 import { renderBetsTable } from './bets-table';
 import { renderChampionsTable } from './champions-table';
 import { renderResult } from './result-panel';
 import { createPool, updatePool } from './jackpot-panel';
-import { handleAutoLogin, handleNwcLogin, handleBunkerLogin, initNostrConnect } from './auth/login-handlers';
+import { hasStoredNwc, isLocked, clearNwcStorage, handleNwcLoginAutoPin, handleNwcLogin } from './lib/nwc';
 import { fetchGameState } from './utils/game-api';
 import { injectDebugButtons } from '../tests/debug-ui';
 
@@ -65,7 +65,7 @@ export async function updateUI(): Promise<void> {
 
 async function init(): Promise<void> {
     logRemote({ msg: 'APP_STARTED', url: window.location.href });
-    
+
     const pendingPubkey = sessionStorage.getItem('pending_pubkey');
     if (pendingPubkey) {
         sessionStorage.removeItem('pending_pubkey');
@@ -76,7 +76,44 @@ async function init(): Promise<void> {
         return;
     }
 
-    logRemote({ msg: 'APP_STARTED', url: window.location.href });
+    // Create app container and login modal FIRST (needed for auto-PIN)
+    let app = document.getElementById('app');
+    if (app) {
+        app.innerHTML = '';
+    } else {
+        app = document.createElement('div');
+        app.id = 'app';
+        document.body.prepend(app);
+    }
+
+    const handlers = {
+        onExtLogin: handleAutoLogin,
+        onNwcLogin: handleNwcLogin,
+        onBunkerLogin: handleBunkerLogin,
+        onRefreshConnect: initNostrConnect,
+        onClose: () => { const m = document.getElementById('loginModal'); if (m) m.style.display = 'none'; }
+    };
+    const loginModal = createLoginModal(handlers);
+    app.appendChild(loginModal);
+
+    // Expose login handlers for button onclick
+    (window as any).handleAutoLogin = handleAutoLogin;
+    (window as any).handleNwcLogin = handleNwcLogin;
+    (window as any).handleBunkerLogin = handleBunkerLogin;
+    (window as any).initNostrConnect = initNostrConnect;
+
+    // Auto-PIN: si loginMethod=nwc pero nwcUrl=null (recarga), pedir PIN antes de todo
+    if (authState.loginMethod === 'nwc' && !authState.nwcUrl
+        && (await hasStoredNwc()) && !isLocked()) {
+        loginModal.style.display = 'flex';
+        await handleNwcLoginAutoPin();
+        loginModal.style.display = 'none';
+        if (!authState.nwcUrl) {
+            clearNwcStorage();
+            loginModal.style.display = 'flex';
+        }
+    }
+
     checkExternalLogin();
     if (authState.pubkey) finishLogin();
 
@@ -84,10 +121,10 @@ async function init(): Promise<void> {
 
     function startPolling() {
         if (pollInterval) clearInterval(pollInterval);
-        
+
         pollInterval = setInterval(() => {
             checkExternalLogin();
-            
+
             if (authState.pubkey) {
                 clearInterval(pollInterval);
                 sessionStorage.removeItem('login_pending');
@@ -99,8 +136,8 @@ async function init(): Promise<void> {
 
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-            logRemote({ 
-                msg: 'VISIBILITY_RETURN', 
+            logRemote({
+                msg: 'VISIBILITY_RETURN',
                 href: window.location.href,
                 search: window.location.search
             });
@@ -109,8 +146,8 @@ async function init(): Promise<void> {
     });
 
     window.addEventListener('pageshow', (event) => {
-        logRemote({ 
-            msg: 'PAGE_SHOW', 
+        logRemote({
+            msg: 'PAGE_SHOW',
             persisted: event.persisted,
             href: window.location.href
         });
@@ -123,38 +160,16 @@ async function init(): Promise<void> {
     (window as any).selectNumber = selectNumber;
     (window as any).updateCenterButton = updateCenterButton;
     (window as any).updateUI = updateUI;
-    (window as any).handleAutoLogin = handleAutoLogin;
-    (window as any).handleNwcLogin = handleNwcLogin;
-    (window as any).handleBunkerLogin = handleBunkerLogin;
-    (window as any).initNostrConnect = initNostrConnect;
-
-    let app = document.getElementById('app');
-    if (app) {
-        app.innerHTML = '';
-    } else {
-        app = document.createElement('div');
-        app.id = 'app';
-        document.body.prepend(app);
-    }
 
     app.appendChild(createUserProfile(authState.nip05 || ''));
-    
-    const handlers = {
-        onExtLogin: handleAutoLogin,
-        onNwcLogin: handleNwcLogin,
-        onBunkerLogin: handleBunkerLogin,
-        onRefreshConnect: initNostrConnect,
-        onClose: () => { const m = document.getElementById('loginModal'); if (m) m.style.display = 'none'; }
-    };
-    app.appendChild(createLoginModal(handlers));
-    
+
     const header = document.createElement('div');
     header.className = 'header';
     header.innerHTML = `<h1><span>SatLotto</span></h1><p class="subtitle">Proba tu suerte, cada 21 bloques</p>`;
     app.prepend(header);
     app.appendChild(createPool());
-    
-    // injectDebugButtons(); 
+
+    // injectDebugButtons();
 
     const game = document.createElement('div');
     game.className = 'game-container';
