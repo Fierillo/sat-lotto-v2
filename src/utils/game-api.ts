@@ -12,64 +12,63 @@ export async function submitBet(targetBlock: number, selectedNumber: number): Pr
         kind: 1,
         created_at: Math.floor(Date.now() / 1000),
         tags: [['t', 'satlotto']],
-        content: JSON.stringify({ 
-            bloque: targetBlock, 
-            numero: selectedNumber, 
-            alias: authState.nip05 || getAlias(authState.pubkey) 
+        content: JSON.stringify({
+            bloque: targetBlock,
+            numero: selectedNumber,
+            alias: authState.nip05 || getAlias(authState.pubkey)
         }),
         pubkey: authState.pubkey
     };
 
-    let signed;
+    let signed: any = null;
     const ext = (window as any).nostr;
 
     if (authState.signer) {
         try {
             const ev = new NDKEvent(ndk, unsigned);
-            console.log('[submitBet] Requesting signature from signer (Bunker/NWC/Ext)...');
-            
-            // Timeout de 15s para la firma (especialmente para Bunker que depende de otra app)
+            console.log('[submitBet] Firmar con signer...');
+
             const signPromise = ev.sign(authState.signer);
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout esperando firma')), 15000));
-            
-            await Promise.race([signPromise, timeoutPromise]);
-            
+            const timeout = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('Timeout esperando firma')), 15000));
+            const signature = await Promise.race([signPromise, timeout]);
+
+            ev.sig = signature;
             signed = ev.rawEvent();
-            console.log('[submitBet] Event signed successfully:', signed.id);
+
+            if (!signed.sig) throw new Error('Firma vacía');
+            console.log('[submitBet] Firmado OK, id:', signed.id?.substring(0, 12));
         } catch (e: any) {
-            console.error('[submitBet] Signer failed:', e.message || e);
-            // Si falla el signer (ej: timeout o cancelado), el código seguirá al fallback de abajo
-        }
-    } 
-    
-    // Si el signer falló o no estaba, probamos con la extensión como fallback
-    if (!signed && ext) {
-        try {
-            console.log('[submitBet] Fallback: Requesting signature from window.nostr...');
-            signed = await ext.signEvent(unsigned);
-        } catch (e) {
-            console.error('[submitBet] Extension failed:', e);
+            console.error('[submitBet] Signer falló:', e.message || e);
         }
     }
-    
-    // Si todavía no tenemos firma, probamos con NWC (llave privada directa)
+
+    if (!signed && ext) {
+        try {
+            console.log('[submitBet] Fallback: extensión...');
+            signed = await ext.signEvent(unsigned);
+            console.log('[submitBet] Ext firmada OK, id:', signed.id?.substring(0, 12));
+        } catch (e) {
+            console.error('[submitBet] Ext falló:', e);
+        }
+    }
+
     if (!signed && authState.nwcUrl) {
         try {
             const url = new URL(authState.nwcUrl.replace('nostr+walletconnect:', 'http:'));
             const secret = url.searchParams.get('secret');
             if (secret) {
-                console.log('[submitBet] Fallback: Signing with NWC secret...');
+                console.log('[submitBet] Fallback: NWC secret...');
                 const bytes = Uint8Array.from(secret.match(/.{1,2}/g)!.map(b => parseInt(b, 16)));
                 signed = finalizeEvent(unsigned, bytes);
+                console.log('[submitBet] NWC firmada OK, id:', signed.id?.substring(0, 12));
             }
         } catch (e) {
-            console.error('[submitBet] NWC signing failed:', e);
+            console.error('[submitBet] NWC falló:', e);
         }
     }
 
-    if (!signed) {
-        throw new Error('No se pudo firmar la apuesta. Verificá tu conexión con Alby o Bunker.');
-    }
+    if (!signed) throw new Error('No se pudo firmar. Verificá tu conexión.');
 
     const payload = { signedEvent: signed };
     return apiClient.post<{ paymentRequest: string; paymentHash: string }>('/api/bet', payload);

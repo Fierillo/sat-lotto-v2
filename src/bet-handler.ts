@@ -1,9 +1,9 @@
 import { state } from './app-state';
-import { requestProvider } from 'webln';
 import { updateUI } from './main';
 import { submitBet, confirmBet, fetchGameState } from './utils/game-api';
 import { authState, logRemote } from './auth/auth-state';
-import { payNwcInvoice } from './utils/pay-invoice';
+import { NIP07 } from './lib/nip07';
+import { NWC } from './lib/nwc';
 import { showInvoiceModal } from './ui/invoice-modal';
 import { fitText } from './utils/text-fit';
 
@@ -60,8 +60,8 @@ export async function makePayment(): Promise<void> {
     // 1. Force state refresh to avoid race conditions (detect confirmed bets from seconds ago)
     const { activeBets, block } = await fetchGameState();
     state.targetBlock = block.target;
-    
-    const existingBetFromUser = activeBets.find((bet: any) => 
+
+    const existingBetFromUser = activeBets.find((bet: any) =>
         bet.pubkey.toLowerCase() === authState.pubkey?.toLowerCase()
     );
 
@@ -126,22 +126,21 @@ export async function makePayment(): Promise<void> {
         if (authState.nwcUrl) {
             console.log('[makePayment] Flow: NWC Direct Pay');
             centralPayButton.innerHTML = `<span style="font-size:0.9rem">Pagando NWC...</span>`;
-            await payNwcInvoice(authState.nwcUrl, paymentRequest);
+            await NWC.payInvoice(paymentRequest);
             await handleSuccessfulPayment();
             return;
         }
 
-        // Priority B: WebLn / Alby Extension
-        if ((window as any).webln) {
-            console.log('[makePayment] Flow: WebLn Extension');
+        // Priority B: Extension WebLN
+        if (NIP07.canPay) {
+            console.log('[makePayment] Flow: Extension WebLN');
             try {
-                const weblnProvider = await requestProvider();
                 centralPayButton.innerHTML = `<span style="font-size:0.9rem">Confirmá en Alby</span>`;
-                await weblnProvider.sendPayment(paymentRequest);
+                await NIP07.payInvoice(paymentRequest);
                 await handleSuccessfulPayment();
                 return;
             } catch (err) {
-                console.warn('[makePayment] WebLn failed/canceled, falling back to modal');
+                console.warn('[makePayment] WebLN failed/canceled, falling back to modal');
             }
         }
 
