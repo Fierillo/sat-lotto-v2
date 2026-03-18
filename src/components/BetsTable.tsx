@@ -19,32 +19,32 @@ export function BetsTable({ bets }: BetsTableProps) {
 
     if (!bets.length) {
         return (
-            <div className="w-full">
-                <h3 className="text-lg font-bold mb-3">Apuestas Activas</h3>
-                <p className="text-white/50 italic">Sin apuestas en este ciclo</p>
-            </div>
+            <>
+                <h3>Apuestas Activas</h3>
+                <p className="empty-bets">Sin apuestas en este ciclo</p>
+            </>
         );
     }
 
     return (
-        <div className="w-full">
-            <h3 className="text-lg font-bold mb-3">Apuestas Activas</h3>
-            <table className="w-full border-collapse">
+        <>
+            <h3>Apuestas Activas</h3>
+            <table>
                 <thead>
                     <tr>
-                        <th className="text-left py-2 px-3 text-neon-orange text-xs font-bold uppercase border-b border-white/10">Jugador</th>
-                        <th className="text-left py-2 px-3 text-neon-orange text-xs font-bold uppercase border-b border-white/10">Número</th>
+                        <th>Jugador</th>
+                        <th>Número</th>
                     </tr>
                 </thead>
                 <tbody>
                     {sortedBets.map((bet, index) => (
                         <tr key={`${bet.pubkey}-${bet.selected_number}-${index}`} className="hover:bg-white/5">
-                            <td className="py-2 px-3 text-white/90">{bet.alias || resolveName(bet.pubkey)}</td>
-                            <td className="py-2 px-3 text-white/90">{bet.selected_number}</td>
+                            <td>{bet.alias || resolveName(bet.pubkey)}</td>
+                            <td>{bet.selected_number}</td>
                         </tr>
                     ))}
                 </tbody>
             </table>
-        </div>
+        </>
     );
 }
