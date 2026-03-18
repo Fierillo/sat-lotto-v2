@@ -88,7 +88,7 @@ export function showPotentialWinnerModal(): void {
             status.style.opacity = '1';
             
             // Sincronizar con el servidor "bajo tierra"
-            const { authState } = await import('../auth/auth-state');
+            const { authState } = await import('../utils/auth');
             if (authState.loginEvent && authState.pubkey) {
                 fetch(`/api/identity/${authState.pubkey}`, {
                     method: 'POST',

@@ -1,6 +1,6 @@
 import { showPotentialWinnerModal } from '../src/ui/help-modals';
 import { state } from '../src/app-state';
-import { renderChampionsTable } from '../src/champions-table';
+import { renderChampionsTable } from '../src/ui/champions-table';
 
 export function injectDebugButtons(): void {
     if (document.getElementById('debug-container')) return;
