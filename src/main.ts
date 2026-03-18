@@ -1,16 +1,15 @@
 import { state } from './app-state';
-import { createClock, updateClockRings, selectNumber, updateCenterButton } from './clock/game-clock';
-import { makePayment } from './bet-handler';
-import { createUserProfile, createLoginModal } from './auth/login-modal';
-import { updateAuthUI, finishLogin, checkExternalLogin, handleAutoLogin, handleBunkerLogin, initNostrConnect } from './auth/auth-manager';
-import { authState, logRemote } from './auth/auth-state';
+import { createClock, updateClockRings, selectNumber, updateCenterButton } from './ui/clock';
+import { makePayment } from './utils/payment';
+import { createUserProfile, createLoginModal, updateAuthUI, finishLogin, checkExternalLogin, handleAutoLogin, handleBunkerLogin, initNostrConnect, authState, logRemote } from './utils/auth';
 import { drawDashboardElements } from './ui/layout-manager';
-import { renderBetsTable } from './bets-table';
-import { renderChampionsTable } from './champions-table';
-import { renderResult } from './result-panel';
-import { createPool, updatePool } from './jackpot-panel';
-import { hasStoredNwc, isLocked, clearNwcStorage, handleNwcLoginAutoPin, handleNwcLogin } from './lib/nwc';
-import { fetchGameState } from './utils/game-api';
+import { renderBetsTable } from './ui/bets-table';
+import { renderChampionsTable } from './ui/champions-table';
+import { renderResult } from './ui/result-panel';
+import { createPool, updatePool } from './ui/jackpot-panel';
+import { hasStoredNwc, isLocked, clearNwcStorage } from './lib/crypto';
+import { handleNwcLoginAutoPin, handleNwcLogin } from './lib/nwc';
+import { fetchGameState } from './utils/game';
 import { injectDebugButtons } from '../tests/debug-ui';
 
 export async function updateUI(): Promise<void> {
