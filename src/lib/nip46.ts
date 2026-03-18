@@ -4,7 +4,8 @@
  */
 
 import NDK, { NDKNip46Signer, NDKEvent } from '@nostr-dev-kit/ndk';
-import { getOrCreateLocalSigner } from '../auth/auth-utils';
+import { getOrCreateLocalSigner } from '../utils/auth';
+import type { UnsignedEvent, SignedEvent } from '../types';
 
 let signer: NDKNip46Signer | null = null;
 let ndkInstance: NDK | null = null;
@@ -35,7 +36,7 @@ export const NIP46 = {
         return signer;
     },
 
-    async signEvent(event: any): Promise<any> {
+    async signEvent(event: UnsignedEvent): Promise<SignedEvent> {
         if (!signer || !ndkInstance) throw new Error('NIP-46 not connected. Call connect() first.');
         const ndkEvent = new NDKEvent(ndkInstance);
         ndkEvent.kind = event.kind;
@@ -44,6 +45,6 @@ export const NIP46 = {
         ndkEvent.content = event.content || '';
         ndkEvent.pubkey = event.pubkey || '';
         await signer.sign(ndkEvent as any);
-        return ndkEvent.rawEvent();
+        return ndkEvent.rawEvent() as SignedEvent;
     }
 };

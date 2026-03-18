@@ -3,29 +3,30 @@
  * Uses window.nostr for signing and window.webln for payments.
  */
 
+import type { UnsignedEvent, SignedEvent } from '../types';
+
 export const NIP07 = {
     name: 'nip07' as const,
-    canPay: typeof window !== 'undefined' && !!(window as any).webln,
+    canPay: typeof window !== 'undefined' && !!window.webln,
 
     isAvailable(): boolean {
-        return typeof window !== 'undefined' && !!(window as any).nostr;
+        return typeof window !== 'undefined' && !!window.nostr;
     },
 
     async getPublicKey(): Promise<string> {
-        if (!(window as any).nostr) throw new Error('NIP-07 extension not available');
-        return (window as any).nostr.getPublicKey();
+        if (!window.nostr) throw new Error('NIP-07 extension not available');
+        return window.nostr.getPublicKey();
     },
 
-    async signEvent(event: any): Promise<any> {
-        if (!(window as any).nostr) throw new Error('NIP-07 extension not available');
-        return (window as any).nostr.signEvent(event);
+    async signEvent(event: UnsignedEvent): Promise<SignedEvent> {
+        if (!window.nostr) throw new Error('NIP-07 extension not available');
+        return window.nostr.signEvent(event);
     },
 
     async payInvoice(invoice: string): Promise<string> {
-        const webln = (window as any).webln;
-        if (!webln) throw new Error('WebLN not available');
-        await webln.enable();
-        const result = await webln.sendPayment(invoice);
+        if (!window.webln) throw new Error('WebLN not available');
+        await window.webln.enable();
+        const result = await window.webln.sendPayment(invoice);
         return result.preimage;
     }
 };
