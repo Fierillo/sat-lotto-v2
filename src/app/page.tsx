@@ -26,69 +26,56 @@ function GameContent() {
         setShowLoginModal(false);
     }, []);
 
-    if (!mounted) return <div className="min-h-screen bg-[#0f0f1a]" />;
+    if (!mounted) return <div id="outerRing"></div>;
 
     return (
-        <div className="min-h-screen bg-[#0f0f1a] text-white">
+        <div id="app">
             {/* Header */}
-            <header className="text-center pt-8 pb-4">
-                <h1 className="text-4xl font-bold">
-                    <span className="text-neon-orange">SatLotto</span>
-                </h1>
-                <p className="text-white/60 mt-2 font-mono text-sm">Proba tu suerte, cada 21 bloques</p>
-            </header>
+            <div className="header">
+                <h1><span>SatLotto</span></h1>
+                <p className="subtitle">Proba tu suerte, cada 21 bloques</p>
+            </div>
 
             {/* Jackpot Pool */}
-            <div className="max-w-md mx-auto mb-6">
+            <div id="jackpotPool">
                 <JackpotPanel poolBalance={gameState.poolBalance} />
             </div>
 
-            {/* Main Game Container - 3 columns */}
-            <div className="grid grid-cols-[280px_1fr_280px] gap-6 max-w-[1100px] mx-auto px-4 items-start">
-                {/* Left Column - Bets */}
-                <div className="w-full">
+            {/* Main Game Container */}
+            <div className="game-container">
+                <Clock
+                    onShowLogin={handleShowLogin}
+                    onShowFrozenHelp={() => {}}
+                />
+
+                <div id="clockInfo">
+                    Bloque: <strong className="text-green">{gameState.currentBlock}</strong> • Sorteo: <strong className="text-orange">{gameState.targetBlock}</strong>
+                </div>
+
+                <div id="betsTable" className="bets-panel">
                     <BetsTable bets={gameState.bets} />
                 </div>
 
-                {/* Center Column - Clock */}
-                <div className="flex justify-center" id="clock">
-                    <Clock
-                        onShowLogin={handleShowLogin}
-                        onShowFrozenHelp={() => {}}
-                    />
+                <div id="championsTable" className="bets-panel">
+                    <ChampionsTable champions={gameState.champions} />
                 </div>
 
-                {/* Right Column - Info, Result, Champions */}
-                <div className="w-full space-y-4">
-                    {/* Clock Info */}
-                    <div className="text-center py-2 px-4 bg-black/30 rounded-lg border border-white/10">
-                        <span className="text-white/70 font-mono text-sm">
-                            Bloque: <strong className="text-neon-green">{gameState.currentBlock}</strong>
-                            {' • '}
-                            Sorteo: <strong className="text-neon-orange">{gameState.targetBlock}</strong>
-                        </span>
-                    </div>
-
+                <div id="lastResult" className="result-panel">
                     <ResultPanel lastResult={gameState.lastResult} targetBlock={gameState.targetBlock} />
-                    <ChampionsTable champions={gameState.champions} />
                 </div>
             </div>
 
             {/* Footer */}
-            <footer className="mt-12 mb-8 text-center text-white/40 text-sm font-mono">
-                <div className="flex flex-col items-center gap-4">
-                    <div>
-                        <a href="https://github.com/fierillo/sat-lotto-v2" target="_blank" className="text-neon-orange font-bold hover:text-white transition-colors">
-                            SatLotto
-                        </a>
-                        {' '}fue creado con amor por{' '}
-                        <a href="https://github.com/fierillo" target="_blank" className="text-neon-orange font-bold hover:text-white transition-colors">
-                            Fierillo
-                        </a>
+            <div className="footer">
+                <div className="footer-content">
+                    <div className="footer-info">
+                        <a href="https://github.com/fierillo/sat-lotto-v2" target="_blank">SatLotto</a>{' '}
+                        fue creado con amor por{' '}
+                        <a href="https://github.com/fierillo" target="_blank">Fierillo</a>
                     </div>
-                    <div className="flex items-center gap-3 text-xs opacity-60">
+                    <div className="powered-by">
                         <span>Powered by</span>
-                        <a href="https://lacrypta.ar" target="_blank" className="flex items-center text-white hover:opacity-100 hover:scale-105 transition-all">
+                        <a href="https://lacrypta.ar" target="_blank" className="lacrypta-logo">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 255.18 56.53" width="100" height="22" fill="currentColor">
                                 <path d="M11.11,47.57V42.28H45.45v-3.8H18.69V33.19H45.45V29.38H25.25V24.1h20.2V24c0-12.55-10.17-24-22.72-24h0C10.18,0,0,11.48,0,24V52.31H45.45V47.57Z" />
                                 <rect x="71.19" y="16.56" width="4.66" height="30.78" />
@@ -103,20 +90,15 @@ function GameContent() {
                         </a>
                     </div>
                 </div>
-            </footer>
+            </div>
 
-            {/* Login Modal Placeholder */}
+            {/* Login Modal */}
             {showLoginModal && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={handleCloseLogin}>
-                    <div className="bg-[#1a1a2e] rounded-2xl p-8 max-w-md w-full mx-4 border border-white/10" onClick={(e) => e.stopPropagation()}>
-                        <h2 className="text-2xl font-bold mb-4 text-center">Conectá tu Wallet</h2>
-                        <p className="text-white/60 text-center mb-6">Login modal - TODO: implement</p>
-                        <button
-                            className="w-full py-3 bg-neon-orange text-white font-bold rounded-lg hover:bg-[#e8820c] transition-colors"
-                            onClick={handleCloseLogin}
-                        >
-                            Cerrar
-                        </button>
+                <div className="modal-bg" onClick={handleCloseLogin}>
+                    <div className="modal auth-modal" onClick={(e) => e.stopPropagation()}>
+                        <h2>Conectá tu Wallet</h2>
+                        <p>Login modal - TODO: implement</p>
+                        <button className="auth-btn" onClick={handleCloseLogin}>Cerrar</button>
                     </div>
                 </div>
             )}
