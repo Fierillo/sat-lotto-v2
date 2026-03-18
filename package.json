@@ -35,12 +35,16 @@
     "webln": "^0.3.0"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.2",
     "@types/node": "^20.0.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "autoprefixer": "^10.4.27",
     "dotenv": "^17.3.1",
     "eslint": "^10.0.3",
     "eslint-config-next": "^16.1.6",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^4.2.2",
     "typescript": "^5.0.0"
   }
 }
