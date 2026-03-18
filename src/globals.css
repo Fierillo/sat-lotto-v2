@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+/* Custom CSS for animations that Tailwind can't handle */
+@layer utilities {
+    .text-shadow-glow {
+        text-shadow: 0 0 40px #f7931a, 0 0 80px #f7931a;
+    }
+}
+
+/* Victory animation for winner text */
+@keyframes winnerTextPop {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); filter: blur(10px); }
+    15% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); filter: blur(0); }
+    85% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.3); filter: blur(20px); }
+}
+
+@keyframes victoryPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+@keyframes flashGreen {
+    0%, 100% { background: transparent; }
+    50% { background: rgba(0, 255, 157, 0.3); }
+}
+
+@keyframes glow {
+    0% { box-shadow: 0 0 20px #f7931a; }
+    100% { box-shadow: none; }
+}
+
+@keyframes fadeInOut {
+    0% { opacity: 0; }
+    15% { opacity: 1; }
+    85% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* Global body classes for phase states */
+body.phase-frozen {
+    background: rgba(0, 150, 255, 0.02);
+}
+
+body.phase-resolving {
+    background: rgba(255, 150, 0, 0.02);
+}
+
+body.celebrating {
+    overflow: hidden;
+}
+
+body.flash-green {
+    animation: flashGreen 0.5s ease;
+}
+
+body.processing {
+    cursor: wait;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
