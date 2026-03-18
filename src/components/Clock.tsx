@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { usePayment } from '../hooks/usePayment';
@@ -18,6 +18,18 @@ export function Clock({ onShowLogin, onShowFrozenHelp }: ClockProps) {
     const { state: gameState, selectNumber, isFrozen, isResolving } = useGame();
     const { makePayment } = usePayment();
 
+    // Update body classes based on game phase and auth
+    useEffect(() => {
+        const body = document.body;
+        body.classList.toggle('logged-out', !authState.pubkey);
+        body.classList.toggle('phase-frozen', isFrozen && !isResolving);
+        body.classList.toggle('phase-resolving', isResolving);
+        // processing class is added elsewhere when payment is in progress
+        return () => {
+            body.classList.remove('logged-out', 'phase-frozen', 'phase-resolving');
+        };
+    }, [authState.pubkey, isFrozen, isResolving]);
+
     // Calculate block markers
     const markers = useMemo(() => {
         return Array.from({ length: BLOCKS }, (_, i) => {
@@ -26,10 +38,10 @@ export function Clock({ onShowLogin, onShowFrozenHelp }: ClockProps) {
             const x = Math.cos(deg) * MARKER_RADIUS;
             const y = Math.sin(deg) * MARKER_RADIUS;
             const isTarget = i === 0;
-            const isNearEnd = i >= 19;
+            const isNeonBlue = i >= 19;
             const isCurrent = val === gameState.currentBlock;
 
-            return { value: val, x, y, isTarget, isNearEnd, isCurrent };
+            return { value: val, x, y, isTarget, isNeonBlue, isCurrent };
         });
     }, [gameState.targetBlock, gameState.currentBlock]);
 
@@ -76,25 +88,13 @@ export function Clock({ onShowLogin, onShowFrozenHelp }: ClockProps) {
     const isButtonFrozen = !authState.pubkey ? false : (isFrozen || isResolving);
 
     return (
-        <div className="relative w-[520px] h-[520px]">
+        <div id="clock">
             {/* Outer ring with block markers */}
-            <div className="absolute inset-0 rounded-full border-2 border-white/10">
+            <div id="outerRing" className="ring">
                 {markers.map((marker, i) => (
                     <div
                         key={i}
-                        className={`
-                            absolute w-10 h-10 rounded-full
-                            flex items-center justify-center text-xs
-                            transition-all duration-300
-                            ${marker.isTarget
-                                ? 'bg-neon-orange text-white font-bold shadow-[0_0_10px_#f7931a]'
-                                : marker.isCurrent
-                                    ? 'bg-neon-green text-black font-bold shadow-[0_0_10px_#00ff9d]'
-                                    : marker.isNearEnd
-                                        ? 'text-neon-blue border border-neon-blue bg-transparent'
-                                        : 'text-white/60 bg-black/30'
-                            }
-                        `}
+                        className={`block-marker ${marker.isTarget ? 'target' : ''} ${marker.isCurrent ? 'current' : ''} ${marker.isNeonBlue ? 'neon-blue' : ''}`}
                         style={{
                             left: '50%',
                             top: '50%',
@@ -107,24 +107,16 @@ export function Clock({ onShowLogin, onShowFrozenHelp }: ClockProps) {
             </div>
 
             {/* Inner circle with number segments */}
-            <div className="absolute top-1/2 left-1/2 w-[300px] h-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/50 border-2 border-white/20">
+            <div id="innerCircle" className="inner-ring-container">
                 {segments.map(({ num, deg }) => (
                     <div
                         key={num}
-                        className={`
-                            absolute top-1/2 left-1/2 w-16 h-10 -translate-x-1/2
-                            cursor-pointer flex items-center justify-center
-                            rounded-lg transition-all duration-200
-                            ${gameState.selectedNumber === num
-                                ? 'bg-neon-orange hover:bg-[#e8820c]'
-                                : 'hover:bg-white/10'
-                            }
-                        `}
+                        className={`number-segment ${gameState.selectedNumber === num ? 'selected' : ''}`}
                         style={{ transform: `translateX(-50%) rotate(${deg}deg)` }}
                         onClick={() => handleNumberClick(num)}
                     >
                         <div
-                            className="text-base font-bold text-white select-none"
+                            className="number-text"
                             style={{ transform: `rotate(${-deg}deg)` }}
                         >
                             {num}
@@ -134,30 +126,17 @@ export function Clock({ onShowLogin, onShowFrozenHelp }: ClockProps) {
             </div>
 
             {/* Frozen help button */}
-            <div
-                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center cursor-pointer font-bold text-white/60 hover:bg-white/20 transition-colors z-10"
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onShowFrozenHelp?.();
-                }}
-            >
-                ?
-            </div>
+            <div id="frozenHelp" className="help-icon" onClick={(e) => {
+                e.stopPropagation();
+                onShowFrozenHelp?.();
+            }}>?</div>
 
             {/* Center button */}
             {showButton && (
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[5]">
+                <div id="paymentStep">
                     <button
-                        className={`
-                            w-[120px] h-[120px] rounded-full border-0
-                            text-white text-lg font-bold
-                            flex items-center justify-center text-center
-                            transition-all duration-300 leading-tight
-                            ${isButtonFrozen
-                                ? 'bg-white/20 cursor-not-allowed'
-                                : 'bg-neon-orange hover:scale-105 hover:shadow-[0_0_20px_#f7931a]'
-                            }
-                        `}
+                        id="centerBtn"
+                        className={`pay-btn ${isButtonFrozen ? 'frozen' : ''}`}
                         onClick={isButtonFrozen ? undefined : handleCenterClick}
                         disabled={isButtonFrozen}
                     >
