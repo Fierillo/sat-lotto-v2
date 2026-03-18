@@ -1,0 +1,26 @@
+import type { NDKEvent } from '@nostr-dev-kit/ndk';
+
+export interface LoginHandlers {
+    onExtLogin: () => void;
+    onNwcLogin: () => void;
+    onBunkerLogin: () => void;
+    onRefreshConnect: () => void;
+    onClose: () => void;
+}
+
+export interface LogRemoteData {
+    msg: string;
+    [key: string]: unknown;
+}
+
+export interface AuthState {
+    pubkey: string | null;
+    signer: any | null;
+    nwcUrl: string | null;
+    bunkerTarget: string | null;
+    localPrivkey: string | null;
+    nip05: string | null;
+    loginEvent: NDKEvent | null;
+    lastCelebratedBlock: number;
+    loginMethod: string | null;
+}
