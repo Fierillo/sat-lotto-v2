@@ -348,6 +348,18 @@ body.phase-resolving .number-segment.selected {
     border-top-color: var(--neon-orange);
 }
 
+.number-segment.selected.error {
+    background: rgba(255, 51, 51, 0.3);
+    color: var(--neon-red);
+    box-shadow: inset 0 0 20px rgba(255, 51, 51, 0.5);
+    border-top-color: var(--neon-red);
+}
+
+.number-segment.selected.paying {
+    animation: blinkPurple 1.2s ease-in-out infinite;
+    color: #fff;
+}
+
 .number-text {
     position: absolute;
 }
@@ -834,11 +846,36 @@ body:not(.logged-out) .bets-panel {
     box-shadow: 0 0 30px rgba(0, 255, 157, 0.5);
 }
 
+.pay-btn.selected {
+    background: #3CB371;
+    border-color: #3CB371;
+    color: #000;
+}
+
+.pay-btn.selected:hover {
+    background: var(--neon-green);
+    border-color: var(--neon-green);
+    color: #000;
+    box-shadow: 0 0 30px rgba(0, 255, 157, 0.5);
+}
+
 .pay-btn.success-glow {
     background: var(--neon-green);
     border-color: var(--neon-green);
     color: #000;
     box-shadow: 0 0 40px rgba(0, 255, 157, 0.8);
+}
+
+.pay-btn.generating,
+.pay-btn.signing,
+.pay-btn.paying {
+    font-size: 0.7rem;
+    line-height: 1.2;
+    letter-spacing: 0.5px;
+}
+
+.pay-btn.paying {
+    animation: blinkPurple 1.2s ease-in-out infinite;
 }
 
 .pay-btn.error-glow {
@@ -853,9 +890,14 @@ body:not(.logged-out) .bets-panel {
 }
 
 @keyframes blinkPurple {
-    0%, 100% { box-shadow: 0 0 0 transparent; }
+    0%, 100% {
+        background: #9b2fc0;
+        border-color: var(--neon-purple);
+        box-shadow: 0 0 15px rgba(176, 38, 255, 0.6);
+        color: #fff;
+    }
     50% {
-        background: rgba(176, 38, 255, 0.3);
+        background: var(--neon-purple);
         border-color: var(--neon-purple);
         color: #fff;
         box-shadow: 0 0 40px rgba(176, 38, 255, 0.8);
@@ -864,6 +906,70 @@ body:not(.logged-out) .bets-panel {
 
 .pay-btn.blink-purple {
     animation: blinkPurple 0.6s ease-in-out infinite;
+}
+
+/* flash-green animation for successful payment */
+@keyframes flashGreen {
+    0% {
+        background: radial-gradient(circle at top, var(--bg-top) 0%, var(--bg-bottom) 100%);
+    }
+    15% {
+        background: radial-gradient(circle at top, var(--bg-flash-top) 0%, var(--bg-flash-bottom) 100%);
+    }
+    85% {
+        background: radial-gradient(circle at top, var(--bg-flash-top) 0%, var(--bg-flash-bottom) 100%);
+    }
+    100% {
+        background: radial-gradient(circle at top, var(--bg-top) 0%, var(--bg-bottom) 100%);
+    }
+}
+
+@keyframes clockGlow {
+    0%, 15%, 85%, 100% {
+        border-color: var(--glass-border);
+        box-shadow: var(--clock-shadow);
+    }
+    30%, 70% {
+        border-color: var(--neon-green);
+        box-shadow: 0 0 100px rgba(0, 255, 157, 0.4);
+    }
+}
+
+@keyframes blockMarkerGlow {
+    0%, 15%, 85%, 100% {
+        color: inherit;
+        text-shadow: none;
+    }
+    30%, 70% {
+        color: var(--neon-green);
+        text-shadow: 0 0 10px var(--neon-green);
+    }
+}
+
+@keyframes buttonGlow {
+    0%, 15%, 85%, 100% {
+        background: var(--neon-green) !important;
+        border: 1px solid var(--neon-green) !important;
+        color: #000 !important;
+        box-shadow: 0 0 50px var(--neon-green) !important;
+    }
+}
+
+body.flash-green {
+    animation: flashGreen 4s ease-in-out forwards;
+}
+
+body.flash-green #clock {
+    animation: clockGlow 4s ease-in-out forwards;
+}
+
+body.flash-green .block-marker:not(.target) {
+    animation: blockMarkerGlow 4s ease-in-out forwards;
+}
+
+body.flash-green #centerBtn,
+body.flash-green .pay-btn {
+    animation: buttonGlow 4s ease-in-out forwards;
 }
 
 .pay-btn.frozen {
@@ -1062,5 +1168,434 @@ body.processing #clock {
     }
     100% {
         box-shadow: 0 0 15px rgba(247, 147, 26, 0.2);
+    }
+}
+
+/* ─── User Panel ──────────────────────────────────────────────────── */
+.user-panel {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(247, 147, 26, 0.2);
+    border: 1px solid var(--neon-orange);
+    color: var(--neon-orange);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: bold;
+    transition: opacity 0.3s ease;
+    z-index: 100;
+    cursor: pointer;
+}
+
+.user-alias {
+    display: block;
+    font-size: 0.9rem;
+}
+
+.method-badge {
+    display: block;
+    font-size: 0.55rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.5;
+    margin-top: 2px;
+}
+
+.logout-menu {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, margin-top 0.3s ease;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.logout-menu.active {
+    max-height: 50px;
+    margin-top: 10px;
+}
+
+.logout-menu button {
+    background: #000000;
+    color: var(--neon-orange);
+    border: 2px solid var(--neon-orange);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 0.8rem;
+    box-shadow: 0 0 10px rgba(255, 51, 51, 0.3);
+}
+
+.logout-menu button:hover {
+    background: var(--neon-orange);
+    color: #000;
+    border: 2px solid var(--neon-orange);
+}
+
+/* ─── Modal Background ─────────────────────────────────────────────── */
+.modal-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(5px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: var(--bg-top);
+    border: 1px solid var(--glass-border-light);
+    border-radius: 16px;
+    padding: 30px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+    max-height: 90vh;
+    overflow-y: auto;
+    scrollbar-width: none;
+}
+
+.modal::-webkit-scrollbar {
+    display: none;
+}
+
+.modal h2 {
+    margin-bottom: 25px;
+    font-size: 1.5rem;
+    color: var(--neon-orange);
+}
+
+/* ─── Auth Tabs ────────────────────────────────────────────────────── */
+.auth-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 25px;
+    border-bottom: 1px solid var(--glass-border-light);
+    padding-bottom: 10px;
+}
+
+.tab-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    padding: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.9rem;
+    position: relative;
+    transition: color 0.2s;
+}
+
+.tab-btn:hover {
+    color: var(--text-dim);
+}
+
+.tab-btn.active {
+    color: var(--neon-orange);
+}
+
+.tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -11px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: var(--neon-orange);
+    box-shadow: 0 0 10px var(--neon-orange);
+}
+
+/* ─── Auth Section ─────────────────────────────────────────────────── */
+.auth-section {
+    display: none;
+    flex-direction: column;
+}
+
+.auth-section.active {
+    display: flex;
+}
+
+/* ─── Auth Buttons ─────────────────────────────────────────────────── */
+.auth-btn {
+    width: 100%;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border-light);
+    color: #fff;
+    padding: 12px;
+    margin-bottom: 15px;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.auth-btn:hover {
+    background: rgba(247, 147, 26, 0.2);
+    border-color: var(--neon-orange);
+    color: var(--neon-orange);
+}
+
+.auth-btn.secondary {
+    background: transparent;
+    border: 1px solid var(--text-dim);
+    color: var(--text-dim);
+    font-size: 0.9rem;
+}
+
+.auth-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--text-dim);
+    color: #fff;
+}
+
+/* ─── NWC Section ──────────────────────────────────────────────────── */
+.nwc-section {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.nwc-section .nwc-input {
+    width: 100%;
+    padding: 10px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border-light);
+    color: #fff;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+    box-sizing: border-box;
+}
+
+.nwc-section .nwc-input::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.nwc-section .nwc-input:focus {
+    outline: none;
+    border-color: var(--neon-orange);
+}
+
+.nwc-section .auth-btn {
+    margin-bottom: 0;
+    padding: 10px;
+    font-size: 1rem;
+}
+
+.nwc-section.bunker-manual {
+    margin-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 20px;
+}
+
+/* ─── NWC Guide ────────────────────────────────────────────────────── */
+.nwc-guide {
+    text-align: left;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+}
+
+.nwc-guide p {
+    margin-bottom: 8px;
+    color: var(--neon-orange);
+}
+
+.nwc-guide ol {
+    margin-left: 18px;
+    line-height: 1.4;
+}
+
+.nwc-guide li {
+    margin-bottom: 5px;
+}
+
+/* ─── QR Container ─────────────────────────────────────────────────── */
+.qr-container {
+    background: #fff;
+    padding: 15px;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto 20px;
+    width: 200px;
+    height: 200px;
+}
+
+.connect-uri {
+    display: block;
+    font-size: 0.7rem;
+    word-break: break-all;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+/* ─── PIN View ─────────────────────────────────────────────────────── */
+.pin-desc {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-bottom: 20px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.pin-input-container {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.pin-digit {
+    width: 50px;
+    height: 60px;
+    background: var(--glass-bg);
+    border: 2px solid var(--glass-border-light);
+    border-radius: 10px;
+    color: var(--neon-orange);
+    font-size: 2rem;
+    text-align: center;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.pin-digit:focus {
+    border-color: var(--neon-orange);
+    box-shadow: 0 0 15px rgba(247, 147, 26, 0.4);
+    background: rgba(247, 147, 26, 0.1);
+}
+
+.pin-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.pin-buttons .auth-btn {
+    flex: 1;
+}
+
+/* ─── Auth Error ──────────────────────────────────────────────────── */
+.auth-error {
+    color: var(--neon-red);
+    min-height: 20px;
+    margin-bottom: 15px;
+    font-size: 0.9rem;
+}
+
+/* ─── Close Button ─────────────────────────────────────────────────── */
+.close-btn {
+    background: transparent;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    text-decoration: underline;
+    font-size: 0.9rem;
+}
+
+.close-btn:hover {
+    color: #999;
+}
+
+/* ─── Auth Modal specific ──────────────────────────────────────────── */
+.auth-modal {
+    max-width: 450px;
+    text-align: left;
+}
+
+/* ─── User Panel ──────────────────────────────────────────────────── */
+.user-panel {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(247, 147, 26, 0.2);
+    border: 1px solid var(--neon-orange);
+    color: var(--neon-orange);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: bold;
+    transition: opacity 0.3s ease;
+    z-index: 100;
+    cursor: pointer;
+}
+
+.user-alias {
+    display: block;
+    font-size: 0.9rem;
+}
+
+.method-badge {
+    display: block;
+    font-size: 0.55rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.5;
+    margin-top: 2px;
+}
+
+.logout-menu {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, margin-top 0.3s ease;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.logout-menu.active {
+    max-height: 50px;
+    margin-top: 10px;
+}
+
+.logout-menu button {
+    background: #000000;
+    color: var(--neon-orange);
+    border: 2px solid var(--neon-orange);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 0.8rem;
+    box-shadow: 0 0 10px rgba(255, 51, 51, 0.3);
+}
+
+.logout-menu button:hover {
+    background: var(--neon-orange);
+    color: #000;
+    border: 2px solid var(--neon-orange);
+}
+
+@media (max-width: 800px) {
+    .user-panel {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        max-width: 100%;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        border-top: none;
+        background: rgba(247, 147, 26, 0.2);
+        backdrop-filter: blur(10px);
+        margin-bottom: 0;
+        font-size: 0.85rem;
+        padding: 10px;
+        text-align: center;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
     }
 }

@@ -6,6 +6,8 @@ import { useGame } from '../contexts/GameContext';
 import { usePayment } from '../hooks/usePayment';
 import { CenterButton } from './CenterButton';
 import { FreezeHelpModal } from './modals/FreezeHelpModal';
+import { ChangeNumberModal } from './modals/ChangeNumberModal';
+import type { Bet } from '../types';
 
 const BLOCKS = 21;
 const MARKER_RADIUS = 230;
@@ -18,8 +20,10 @@ interface ClockProps {
 export function Clock({ onShowLogin, onShowFrozenHelp }: ClockProps) {
     const { state: authState } = useAuth();
     const { state: gameState, selectNumber, isFrozen, isResolving } = useGame();
-    const { makePayment, paymentStatus, paymentError } = usePayment();
+    const { makePayment, paymentStatus, paymentError, resetPaymentStatus } = usePayment();
     const [showFreezeHelpModal, setShowFreezeHelpModal] = useState(false);
+    const [showChangeModal, setShowChangeModal] = useState(false);
+    const [existingBetNumber, setExistingBetNumber] = useState<number | null>(null);
 
     // Update body classes based on game phase and auth
     useEffect(() => {
@@ -74,8 +78,19 @@ export function Clock({ onShowLogin, onShowFrozenHelp }: ClockProps) {
         }
         if (isFrozen || isResolving) return;
         if (gameState.selectedNumber === null) return;
+
+        const existingBet = gameState.bets.find(
+            (bet: Bet) => bet.pubkey.toLowerCase() === authState.pubkey?.toLowerCase()
+        );
+
+        if (existingBet && Number(existingBet.selected_number) !== gameState.selectedNumber) {
+            setExistingBetNumber(Number(existingBet.selected_number));
+            setShowChangeModal(true);
+            return;
+        }
+
         return await makePayment();
-    }, [authState.pubkey, isFrozen, isResolving, gameState.selectedNumber, makePayment, onShowLogin]);
+    }, [authState.pubkey, isFrozen, isResolving, gameState.selectedNumber, makePayment, onShowLogin, gameState.bets]);
 
 
 
@@ -103,7 +118,7 @@ export function Clock({ onShowLogin, onShowFrozenHelp }: ClockProps) {
                 {segments.map(({ num, deg }) => (
                     <div
                         key={num}
-                        className={`number-segment ${gameState.selectedNumber === num ? 'selected' : ''}`}
+                        className={`number-segment ${gameState.selectedNumber === num ? 'selected' : ''} ${paymentStatus === 'paying' && gameState.selectedNumber === num ? 'paying' : ''} ${paymentStatus === 'error' && gameState.selectedNumber === num ? 'error' : ''}`}
                         style={{ transform: `translateX(-50%) rotate(${deg}deg)` }}
                         onClick={() => handleNumberClick(num)}
                     >
@@ -135,10 +150,21 @@ export function Clock({ onShowLogin, onShowFrozenHelp }: ClockProps) {
                 pubkey={authState.pubkey ?? undefined}
                 onShowLogin={onShowLogin}
                 onPaymentStart={handleCenterClick}
+                onReset={resetPaymentStatus}
             />
             <FreezeHelpModal
                 isOpen={showFreezeHelpModal}
                 onClose={() => setShowFreezeHelpModal(false)}
+            />
+            <ChangeNumberModal
+                isOpen={showChangeModal}
+                oldNumber={existingBetNumber ?? 0}
+                newNumber={gameState.selectedNumber ?? 0}
+                onConfirm={() => {
+                    setShowChangeModal(false);
+                    makePayment();
+                }}
+                onCancel={() => setShowChangeModal(false)}
             />
         </div>
     );

@@ -3,35 +3,59 @@
 import { useState, useCallback, useEffect } from 'react';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { GameProvider, useGame } from '../contexts/GameContext';
+import { hasStoredNwc, isLocked } from '../lib/crypto';
 import { Clock } from '../components/Clock';
+import { UserPanel } from '../components/UserPanel';
 import { BetsTable } from '../components/BetsTable';
 import { ChampionsTable } from '../components/ChampionsTable';
 import { ResultPanel } from '../components/ResultPanel';
 import { JackpotPanel } from '../components/JackpotPanel';
-import { Modal } from '../components/modals/Modal';
 import { LoginModal } from '../components/modals/LoginModal';
-import '@/src/globals.css';
+import { PinModal } from '../components/modals/PinModal';
 
 function GameContent() {
-    const { state: authState } = useAuth();
+    const auth = useAuth();
     const { state: gameState } = useGame();
     const [showLoginModal, setShowLoginModal] = useState(false);
-    const [mounted, setMounted] = useState(false);
 
-    useEffect(() => { setMounted(true); }, []);
-
-    const handleShowLogin = useCallback(() => {
+    const handleShowLogin = useCallback(async () => {
+        if (!auth.state.pubkey) {
+            const hasStored = await hasStoredNwc();
+            const locked = isLocked();
+            if (hasStored && !locked) {
+                auth.checkStoredNwcAndPrompt();
+                return;
+            }
+        }
         setShowLoginModal(true);
-    }, []);
+    }, [auth]);
 
     const handleCloseLogin = useCallback(() => {
         setShowLoginModal(false);
     }, []);
 
-    if (!mounted) return <div id="outerRing"></div>;
+    const handleClosePinModal = useCallback(() => {
+        auth.closePinModal();
+    }, [auth]);
+
+    // No auto-check on mount - only show PinModal when user clicks JUGAR
 
     return (
         <div id="app">
+            {/* PinModal - global, appears on mount if NWC stored, or from LoginModal NWC flow */}
+            {auth.state.pinModal.showPinModal && (
+                <PinModal
+                    mode={auth.state.pinModal.pinModalMode}
+                    error={auth.state.pinModal.pinError}
+                    attemptsLeft={auth.state.pinModal.pinAttemptsLeft}
+                    onVerify={(pin) => auth.verifyPinForNwc(pin)}
+                    onCreate={(pin) => auth.createPinForNwc(pin)}
+                    onCancel={handleClosePinModal}
+                />
+            )}
+
+            <UserPanel />
+
             {/* Header */}
             <div className="header">
                 <h1><span>SatLotto</span></h1>

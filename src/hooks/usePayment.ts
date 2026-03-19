@@ -11,7 +11,7 @@ import { NIP07 } from '../lib/nip07';
 import { NWC } from '../lib/nwc';
 import type { Bet, SignedEvent } from '../types';
 
-export type PaymentStatus = 'idle' | 'signing' | 'paying' | 'success' | 'error';
+export type PaymentStatus = 'idle' | 'generating' | 'signing' | 'paying' | 'success' | 'error';
 
 interface PaymentResult {
     paymentRequest: string;
@@ -23,6 +23,7 @@ interface UsePaymentReturn {
     paymentError: string | null;
     makePayment: () => Promise<PaymentResult | void>;
     confirmBet: (paymentHash: string) => Promise<any>;
+    resetPaymentStatus: () => void;
 }
 
 export function usePayment(): UsePaymentReturn {
@@ -95,6 +96,11 @@ export function usePayment(): UsePaymentReturn {
         return apiClient.post('/api/bet', { paymentHash, action: 'confirm' });
     }, []);
 
+    const resetPaymentStatus = useCallback(() => {
+        setPaymentStatus('idle');
+        setPaymentError(null);
+    }, []);
+
     const makePayment = useCallback(async () => {
         if (gameState.selectedNumber === null) return;
         if (!authState.pubkey) {
@@ -102,16 +108,11 @@ export function usePayment(): UsePaymentReturn {
             return;
         }
 
-        setPaymentStatus('signing');
+        setPaymentStatus('generating');
         setPaymentError(null);
 
         try {
             await refreshGame();
-            const existingBet = gameState.bets.find(
-                (bet: Bet) => bet.pubkey.toLowerCase() === authState.pubkey?.toLowerCase()
-            );
-
-            // TODO: Handle number change confirmation modal in React
 
             if (authState.loginMethod === 'amber') {
                 const result = await fetch(
@@ -120,47 +121,53 @@ export function usePayment(): UsePaymentReturn {
                 if (!result.ok) throw new Error('No se pudo generar la invoice');
                 const { paymentRequest, paymentHash } = await result.json();
                 setPaymentStatus('paying');
-                // TODO: Show invoice modal, then confirm
                 return { paymentRequest, paymentHash };
             }
 
+            setPaymentStatus('signing');
             const result = await submitBet(gameState.targetBlock, gameState.selectedNumber);
             if (!result) throw new Error('No response from server');
 
             const { paymentRequest, paymentHash } = result;
             setPaymentStatus('paying');
 
-            // NWC auto-pay
-            if (authState.nwcUrl) {
-                await NWC.payInvoice(paymentRequest);
-                await confirmBetHandler(paymentHash);
-                await refreshGame();
-                setPaymentStatus('success');
-                selectNumber(null);
-                return;
+            if (authState.loginMethod === 'nwc') {
+                try {
+                    await NWC.payInvoice(paymentRequest, authState.nwcUrl!);
+                    await confirmBetHandler(paymentHash);
+                    await refreshGame();
+                    setPaymentStatus('success');
+                    selectNumber(null);
+                    setTimeout(resetPaymentStatus, 4000);
+                    return;
+                } catch (err: any) {
+                    setPaymentError(err.message || 'Error en el pago con NWC');
+                    setPaymentStatus('error');
+                    return;
+                }
             }
 
-            // Extension WebLN
-            if (NIP07.canPay) {
+            if (authState.loginMethod === 'extension') {
                 try {
                     await NIP07.payInvoice(paymentRequest);
                     await confirmBetHandler(paymentHash);
                     await refreshGame();
                     setPaymentStatus('success');
                     selectNumber(null);
+                    setTimeout(resetPaymentStatus, 4000);
                     return;
-                } catch (err) {
-                    console.warn('[makePayment] WebLN failed/canceled');
+                } catch (err: any) {
+                    setPaymentError(err.message || 'Error en el pago con extensión');
+                    setPaymentStatus('error');
+                    return;
                 }
             }
 
-            // Manual invoice modal - return invoice data for parent to handle
             return { paymentRequest, paymentHash };
         } catch (e: any) {
             console.error('[makePayment] Error:', e);
             setPaymentError(e.message);
             setPaymentStatus('error');
-            setTimeout(() => setPaymentStatus('idle'), 5000);
         }
     }, [authState, gameState, refreshGame, selectNumber, submitBet, confirmBetHandler]);
 
@@ -169,5 +176,6 @@ export function usePayment(): UsePaymentReturn {
         paymentError,
         makePayment,
         confirmBet: confirmBetHandler,
+        resetPaymentStatus,
     };
 }

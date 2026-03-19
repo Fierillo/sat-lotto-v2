@@ -16,6 +16,7 @@ interface CenterButtonProps {
   pubkey?: string;
   onShowLogin?: () => void;
   onPaymentStart: () => Promise<any>;
+  onReset?: () => void;
 }
 
 export function CenterButton({
@@ -28,6 +29,7 @@ export function CenterButton({
   pubkey,
   onShowLogin,
   onPaymentStart,
+  onReset,
 }: CenterButtonProps) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [keepGlow, setKeepGlow] = useState<'success' | 'error' | null>(null);
@@ -65,6 +67,15 @@ export function CenterButton({
     button.classList.toggle('error-glow', keepGlow === 'error');
   }, [keepGlow]);
 
+  // flash-green effect on success
+  useEffect(() => {
+    if (paymentStatus === 'success') {
+      document.body.classList.add('flash-green');
+    } else {
+      document.body.classList.remove('flash-green');
+    }
+  }, [paymentStatus]);
+
   // Determine button visibility
   const shouldShow = !pubkey || isFrozen || isResolving || selectedNumber !== null || paymentStatus === 'success' || paymentStatus === 'error';
 
@@ -89,30 +100,35 @@ export function CenterButton({
     switch (paymentStatus) {
       case 'idle':
         buttonContent = 'APOSTAR';
+        if (selectedNumber !== null) {
+          buttonClass += ' selected';
+        }
+        break;
+      case 'generating':
+        buttonContent = 'GENERANDO...';
+        buttonClass += ' generating';
+        disabled = true;
         break;
       case 'signing':
         buttonContent = 'FIRMANDO...';
+        buttonClass += ' signing';
         disabled = true;
         break;
       case 'paying':
         if (loginMethod === 'nwc') {
-          buttonContent = 'PAGANDO CON NWC...';
-          buttonClass += ' blink-purple';
-        } else if (loginMethod === 'nip07') {
-          buttonContent = 'PAGANDO CON EXTENSIÓN...';
-        } else if (loginMethod === 'amber') {
-          buttonContent = 'PAGANDO CON AMBER...';
+          buttonContent = 'PAGANDO NWC...';
         } else {
           buttonContent = 'PAGANDO...';
         }
+        buttonClass += ' paying';
         disabled = true;
         break;
       case 'success':
-        buttonContent = '¡PAGADO!';
+        buttonContent = 'PAGO APROBADO';
         disabled = true;
         break;
       case 'error':
-        buttonContent = 'ERROR (clic para detalles)';
+        buttonContent = 'ERROR';
         disabled = false;
         break;
       default:
@@ -122,15 +138,19 @@ export function CenterButton({
 
   const handleClick = async () => {
     if (disabled) return;
-    if (isFrozen || isResolving) return;
-    if (paymentStatus === 'error') {
-      setShowErrorModal(true);
-      return;
-    }
+
     if (!pubkey) {
       onShowLogin?.();
       return;
     }
+
+    if (isFrozen || isResolving) return;
+
+    if (paymentStatus === 'error') {
+      setShowErrorModal(true);
+      return;
+    }
+
     if (paymentStatus === 'idle' && selectedNumber !== null) {
       const result = await onPaymentStart();
       if (result && typeof result === 'object' && 'paymentRequest' in result && 'paymentHash' in result) {
@@ -156,7 +176,10 @@ export function CenterButton({
       </div>
       <ErrorModal
         isOpen={showErrorModal}
-        onClose={() => setShowErrorModal(false)}
+        onClose={() => {
+          setShowErrorModal(false);
+          onReset?.();
+        }}
         error={paymentError}
       />
       {invoiceData && (

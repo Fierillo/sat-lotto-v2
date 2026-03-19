@@ -1,8 +1,20 @@
 'use client';
 
 import { createContext, useContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
+import { NIP07 } from '../lib/nip07';
+import { NWC, restoreSigner } from '../lib/nwc';
+import { hasStoredNwc, isLocked, createPin as cryptoCreatePin, verifyPin, encryptNwc, decryptNwc, clearNwcStorage, getAttemptsLeft } from '../lib/crypto';
+import { NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 
 // ─── State Type ───────────────────────────────────────────────────────
+
+interface PinModalState {
+    showPinModal: boolean;
+    pinModalMode: 'create' | 'verify';
+    pinModalUrl: string | null;
+    pinError: string | null;
+    pinAttemptsLeft: number;
+}
 
 interface AuthContextState {
     pubkey: string | null;
@@ -15,6 +27,8 @@ interface AuthContextState {
     lastCelebratedBlock: number;
     loginMethod: string | null;
     isInitialized: boolean;
+    error: string | null;
+    pinModal: PinModalState;
 }
 
 // ─── Action Types ─────────────────────────────────────────────────────
@@ -26,7 +40,11 @@ type AuthAction =
     | { type: 'SET_NWC_URL'; payload: string }
     | { type: 'SET_LOGIN_EVENT'; payload: any }
     | { type: 'SET_CELEBRATED_BLOCK'; payload: number }
-    | { type: 'INITIALIZED' };
+    | { type: 'INITIALIZED' }
+    | { type: 'SET_ERROR'; payload: string | null }
+    | { type: 'OPEN_PIN_MODAL'; payload: { mode: 'create' | 'verify'; nwcUrl?: string } }
+    | { type: 'CLOSE_PIN_MODAL' }
+    | { type: 'SET_PIN_ERROR'; payload: { error: string | null; attemptsLeft: number } };
 
 // ─── Initial State ────────────────────────────────────────────────────
 
@@ -41,6 +59,14 @@ const initialState: AuthContextState = {
     lastCelebratedBlock: 0,
     loginMethod: null,
     isInitialized: false,
+    error: null,
+    pinModal: {
+        showPinModal: false,
+        pinModalMode: 'verify',
+        pinModalUrl: null,
+        pinError: null,
+        pinAttemptsLeft: 3,
+    },
 };
 
 // ─── Reducer ──────────────────────────────────────────────────────────
@@ -61,6 +87,33 @@ function authReducer(state: AuthContextState, action: AuthAction): AuthContextSt
             return { ...state, lastCelebratedBlock: action.payload };
         case 'INITIALIZED':
             return { ...state, isInitialized: true };
+        case 'SET_ERROR':
+            return { ...state, error: action.payload };
+        case 'OPEN_PIN_MODAL':
+            return {
+                ...state,
+                pinModal: {
+                    showPinModal: true,
+                    pinModalMode: action.payload.mode,
+                    pinModalUrl: action.payload.nwcUrl ?? null,
+                    pinError: null,
+                    pinAttemptsLeft: getAttemptsLeft(),
+                },
+            };
+        case 'CLOSE_PIN_MODAL':
+            return {
+                ...state,
+                pinModal: { ...state.pinModal, showPinModal: false },
+            };
+        case 'SET_PIN_ERROR':
+            return {
+                ...state,
+                pinModal: {
+                    ...state.pinModal,
+                    pinError: action.payload.error,
+                    pinAttemptsLeft: action.payload.attemptsLeft,
+                },
+            };
         default:
             return state;
     }
@@ -76,6 +129,14 @@ interface AuthContextValue {
     setNwcUrl: (url: string) => void;
     setLoginEvent: (event: any) => void;
     setCelebratedBlock: (block: number) => void;
+    setError: (error: string | null) => void;
+    loginWithExtension: () => Promise<void>;
+    loginWithNwc: (url: string) => Promise<void>;
+    loginWithBunker: (url: string) => Promise<void>;
+    verifyPinForNwc: (pin: string) => Promise<boolean>;
+    createPinForNwc: (pin: string) => Promise<boolean>;
+    closePinModal: () => void;
+    checkStoredNwcAndPrompt: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -120,10 +181,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             localStorage.removeItem('satlotto_pubkey');
         }
 
-        if (state.nwcUrl) {
-            localStorage.setItem('satlotto_nwc', state.nwcUrl);
-        }
-
         if (state.bunkerTarget) {
             localStorage.setItem('satlotto_bunker', state.bunkerTarget);
         }
@@ -139,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (state.loginMethod) {
             localStorage.setItem('satlotto_login_method', state.loginMethod);
         }
-    }, [state.pubkey, state.nwcUrl, state.bunkerTarget, state.localPrivkey, state.nip05, state.loginMethod, state.isInitialized]);
+    }, [state.pubkey, state.bunkerTarget, state.localPrivkey, state.nip05, state.loginMethod, state.isInitialized]);
 
     const login = useCallback((payload: Partial<AuthContextState>) => {
         dispatch({ type: 'LOGIN', payload });
@@ -171,8 +228,189 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('satlotto_last_victory_block', block.toString());
     }, []);
 
+    const setError = useCallback((error: string | null) => {
+        dispatch({ type: 'SET_ERROR', payload: error });
+    }, []);
+
+    const closePinModal = useCallback(() => {
+        dispatch({ type: 'CLOSE_PIN_MODAL' });
+    }, []);
+
+    // Check if there's stored NWC and prompt for PIN
+    const checkStoredNwcAndPrompt = useCallback(async (): Promise<boolean> => {
+        const hasStored = await hasStoredNwc();
+        if (hasStored && !isLocked()) {
+            dispatch({ type: 'OPEN_PIN_MODAL', payload: { mode: 'verify' } });
+            return true;
+        }
+        if (hasStored && isLocked()) {
+            clearNwcStorage();
+        }
+        return false;
+    }, []);
+
+    // Login with NIP-07 extension (Alby, nos2x)
+    const loginWithExtension = useCallback(async (): Promise<void> => {
+        dispatch({ type: 'SET_ERROR', payload: null });
+        try {
+            if (!NIP07.isAvailable()) {
+                throw new Error('No se detectó ninguna extensión de Nostr. Instalá Alby o usá una URL de NWC/Bunker para continuar.');
+            }
+            const pubkey = await NIP07.getPublicKey();
+            login({
+                pubkey,
+                loginMethod: 'extension',
+                signer: window.nostr,
+            });
+        } catch (e: any) {
+            dispatch({ type: 'SET_ERROR', payload: e.message });
+            throw e;
+        }
+    }, [login]);
+
+    // Login with NWC URL
+    const loginWithNwc = useCallback(async (url: string): Promise<void> => {
+        dispatch({ type: 'SET_ERROR', payload: null });
+        
+        if (!url.startsWith('nostr+walletconnect://')) {
+            throw new Error('URL inválida. Debe empezar con nostr+walletconnect://');
+        }
+
+        try {
+            const secret = new URL(url.replace('nostr+walletconnect:', 'http:')).searchParams.get('secret');
+            if (!secret) {
+                throw new Error('La URL no contiene la clave secreta (secret)');
+            }
+        } catch (e: any) {
+            throw new Error('URL inválida: ' + e.message);
+        }
+
+        const hasStored = await hasStoredNwc();
+        const locked = isLocked();
+
+        if (hasStored && locked) {
+            clearNwcStorage();
+            dispatch({ type: 'SET_ERROR', payload: 'Tu NWC fue borrado por seguridad. Conectá uno nuevo.' });
+            dispatch({ type: 'OPEN_PIN_MODAL', payload: { mode: 'create', nwcUrl: url } });
+            return;
+        }
+
+        if (hasStored && !locked) {
+            dispatch({ type: 'OPEN_PIN_MODAL', payload: { mode: 'verify', nwcUrl: url } });
+        } else {
+            dispatch({ type: 'OPEN_PIN_MODAL', payload: { mode: 'create', nwcUrl: url } });
+        }
+    }, []);
+
+    // Verify PIN for stored NWC
+    const verifyPinForNwc = useCallback(async (pin: string): Promise<boolean> => {
+        const result = await verifyPin(pin);
+
+        if (result.locked) {
+            clearNwcStorage();
+            dispatch({
+                type: 'SET_PIN_ERROR',
+                payload: { error: 'Demasiados intentos. Clave borrada por seguridad.', attemptsLeft: 0 }
+            });
+            return false;
+        }
+
+        if (!result.success) {
+            dispatch({
+                type: 'SET_PIN_ERROR',
+                payload: {
+                    error: `PIN incorrecto. Quedan ${result.attemptsLeft} intentos.`,
+                    attemptsLeft: result.attemptsLeft
+                }
+            });
+            return false;
+        }
+
+        const nwcUrl = await decryptNwc(pin);
+        if (!nwcUrl) {
+            dispatch({ type: 'SET_PIN_ERROR', payload: { error: 'Error al desencriptar.', attemptsLeft: result.attemptsLeft } });
+            return false;
+        }
+
+        try {
+            const signer = restoreSigner(nwcUrl);
+            if (!signer) {
+                dispatch({ type: 'SET_PIN_ERROR', payload: { error: 'No se pudo crear el signer.', attemptsLeft: result.attemptsLeft } });
+                return false;
+            }
+            const user = await signer.user();
+            login({
+                nwcUrl,
+                pubkey: user.pubkey,
+                signer,
+                loginMethod: 'nwc',
+            });
+            dispatch({ type: 'CLOSE_PIN_MODAL' });
+            return true;
+        } catch (e: any) {
+            dispatch({ type: 'SET_PIN_ERROR', payload: { error: 'Error al conectar: ' + e.message, attemptsLeft: result.attemptsLeft } });
+            return false;
+        }
+    }, [login]);
+
+    // Create PIN for new NWC
+    const createPinForNwc = useCallback(async (pin: string): Promise<boolean> => {
+        const nwcUrl = state.pinModal.pinModalUrl;
+        if (!nwcUrl) {
+            dispatch({ type: 'SET_PIN_ERROR', payload: { error: 'URL de wallet no disponible.', attemptsLeft: 3 } });
+            return false;
+        }
+
+        try {
+            await cryptoCreatePin(pin);
+            await encryptNwc(nwcUrl, pin);
+
+            const signer = restoreSigner(nwcUrl);
+            if (!signer) {
+                dispatch({ type: 'SET_PIN_ERROR', payload: { error: 'No se pudo crear el signer.', attemptsLeft: 3 } });
+                return false;
+            }
+            const user = await signer.user();
+            login({
+                nwcUrl,
+                pubkey: user.pubkey,
+                signer,
+                loginMethod: 'nwc',
+            });
+            dispatch({ type: 'CLOSE_PIN_MODAL' });
+            return true;
+        } catch (e: any) {
+            dispatch({ type: 'SET_PIN_ERROR', payload: { error: 'Error: ' + e.message, attemptsLeft: 3 } });
+            return false;
+        }
+    }, [login, state.pinModal.pinModalUrl]);
+
+    // Login with bunker
+    const loginWithBunker = useCallback(async (url: string): Promise<void> => {
+        dispatch({ type: 'SET_ERROR', payload: null });
+        throw new Error('Bunker login not implemented yet');
+    }, []);
+
     return (
-        <AuthContext.Provider value={{ state, login, logout, setSigner, setNwcUrl, setLoginEvent, setCelebratedBlock }}>
+        <AuthContext.Provider
+            value={{
+                state,
+                login,
+                logout,
+                setSigner,
+                setNwcUrl,
+                setLoginEvent,
+                setCelebratedBlock,
+                setError,
+                loginWithExtension,
+                loginWithNwc,
+                loginWithBunker,
+                verifyPinForNwc,
+                createPinForNwc,
+                closePinModal,
+                checkStoredNwcAndPrompt,
+            }}
+        >
             {children}
         </AuthContext.Provider>
     );
