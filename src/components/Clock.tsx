@@ -1,9 +1,11 @@
 'use client';
 
-import { useMemo, useCallback, useEffect } from 'react';
+import { useMemo, useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { usePayment } from '../hooks/usePayment';
+import { CenterButton } from './CenterButton';
+import { FreezeHelpModal } from './modals/FreezeHelpModal';
 
 const BLOCKS = 21;
 const MARKER_RADIUS = 230;
@@ -16,7 +18,8 @@ interface ClockProps {
 export function Clock({ onShowLogin, onShowFrozenHelp }: ClockProps) {
     const { state: authState } = useAuth();
     const { state: gameState, selectNumber, isFrozen, isResolving } = useGame();
-    const { makePayment } = usePayment();
+    const { makePayment, paymentStatus, paymentError } = usePayment();
+    const [showFreezeHelpModal, setShowFreezeHelpModal] = useState(false);
 
     // Update body classes based on game phase and auth
     useEffect(() => {
@@ -71,21 +74,10 @@ export function Clock({ onShowLogin, onShowFrozenHelp }: ClockProps) {
         }
         if (isFrozen || isResolving) return;
         if (gameState.selectedNumber === null) return;
-        await makePayment();
+        return await makePayment();
     }, [authState.pubkey, isFrozen, isResolving, gameState.selectedNumber, makePayment, onShowLogin]);
 
-    // Button state
-    const showButton = !authState.pubkey || isFrozen || isResolving || gameState.selectedNumber !== null;
-    const buttonContent = !authState.pubkey
-        ? 'JUGAR'
-        : isResolving
-            ? <span>FIN DE<br />RONDA</span>
-            : isFrozen
-                ? <span>NO PODÉS<br />APOSTAR</span>
-                : gameState.selectedNumber !== null
-                    ? 'APOSTAR'
-                    : null;
-    const isButtonFrozen = !authState.pubkey ? false : (isFrozen || isResolving);
+
 
     return (
         <div id="clock">
@@ -129,21 +121,25 @@ export function Clock({ onShowLogin, onShowFrozenHelp }: ClockProps) {
             <div id="frozenHelp" className="help-icon" onClick={(e) => {
                 e.stopPropagation();
                 onShowFrozenHelp?.();
+                setShowFreezeHelpModal(true);
             }}>?</div>
 
             {/* Center button */}
-            {showButton && (
-                <div id="paymentStep">
-                    <button
-                        id="centerBtn"
-                        className={`pay-btn ${isButtonFrozen ? 'frozen' : ''}`}
-                        onClick={isButtonFrozen ? undefined : handleCenterClick}
-                        disabled={isButtonFrozen}
-                    >
-                        {buttonContent}
-                    </button>
-                </div>
-            )}
+            <CenterButton
+                paymentStatus={paymentStatus}
+                paymentError={paymentError}
+                loginMethod={authState.loginMethod ?? undefined}
+                isFrozen={isFrozen}
+                isResolving={isResolving}
+                selectedNumber={gameState.selectedNumber}
+                pubkey={authState.pubkey ?? undefined}
+                onShowLogin={onShowLogin}
+                onPaymentStart={handleCenterClick}
+            />
+            <FreezeHelpModal
+                isOpen={showFreezeHelpModal}
+                onClose={() => setShowFreezeHelpModal(false)}
+            />
         </div>
     );
 }

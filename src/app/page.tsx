@@ -8,6 +8,8 @@ import { BetsTable } from '../components/BetsTable';
 import { ChampionsTable } from '../components/ChampionsTable';
 import { ResultPanel } from '../components/ResultPanel';
 import { JackpotPanel } from '../components/JackpotPanel';
+import { Modal } from '../components/modals/Modal';
+import { LoginModal } from '../components/modals/LoginModal';
 import '@/src/globals.css';
 
 function GameContent() {
@@ -93,15 +95,7 @@ function GameContent() {
             </div>
 
             {/* Login Modal */}
-            {showLoginModal && (
-                <div className="modal-bg" onClick={handleCloseLogin}>
-                    <div className="modal auth-modal" onClick={(e) => e.stopPropagation()}>
-                        <h2>Conectá tu Wallet</h2>
-                        <p>Login modal - TODO: implement</p>
-                        <button className="auth-btn" onClick={handleCloseLogin}>Cerrar</button>
-                    </div>
-                </div>
-            )}
+            <LoginModal isOpen={showLoginModal} onClose={handleCloseLogin} />
         </div>
     );
 }
