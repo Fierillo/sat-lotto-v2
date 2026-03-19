@@ -358,53 +358,11 @@ body.phase-resolving .number-segment.selected {
     left: 50%;
     transform: translate(-50%, -50%);
     text-align: center;
-    display: none;
+    display: block;
     z-index: 20;
 }
 
-.pay-btn {
-    position: relative;
-    background: #5d5f65;
-    border: 1px solid #444;
-    color: #aaa;
-    width: 130px;
-    height: 130px;
-    border-radius: 50%;
-    font-size: 1.2rem;
-    font-weight: 800;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    letter-spacing: 1px;
-}
 
-.pay-btn:hover {
-    background: var(--neon-green);
-    border-color: var(--neon-green);
-    color: #000;
-    box-shadow: 0 0 30px rgba(0, 255, 157, 0.5);
-}
-
-.pay-btn.frozen {
-    background: #5d5f65 !important;
-    border: 1px solid #444 !important;
-    color: #aaa !important;
-    cursor: not-allowed !important;
-    text-align: center;
-    line-height: 1.2;
-    font-size: 0.82rem !important;
-    text-transform: uppercase;
-    box-shadow: none !important;
-}
-
-.pay-btn.frozen:hover {
-    background: #00f2ff !important;
-    color: #010000 !important;
-    box-shadow: 0 0 30px rgba(0, 242, 255, 0.5), inset 0 0 15px rgba(0, 242, 255, 0.1) !important;
-}
 
 #frozenHelp {
     position: absolute;
@@ -799,25 +757,34 @@ body:not(.logged-out) .bets-panel {
 /* Modal and other missing styles */
 .modal-bg {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    inset: 0;
     background: rgba(0, 0, 0, 0.8);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 9999;
+    z-index: 99999;
 }
 
 .modal {
     background: #1a1a2e;
     border-radius: 1rem;
     padding: 2rem;
-    max-width: 450px;
     width: 90%;
     border: 1px solid rgba(255, 255, 255, 0.1);
     text-align: left;
+}
+
+/* Tamaños de modal */
+.modal-small { max-width: 300px; }
+.modal-medium { max-width: 450px; }
+.modal-large { max-width: 600px; }
+
+/* Footer del modal */
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 1.5rem;
 }
 
 .auth-modal {
@@ -840,6 +807,125 @@ body:not(.logged-out) .bets-panel {
     background: #e8820c;
 }
 
+/* Botón central original */
+.pay-btn {
+    position: relative;
+    background: #5d5f65;
+    border: 2px solid #5d5f65;
+    color: #aaa;
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: 1px;
+}
+
+.pay-btn:hover {
+    background: var(--neon-green);
+    border-color: var(--neon-green);
+    color: #000;
+    box-shadow: 0 0 30px rgba(0, 255, 157, 0.5);
+}
+
+.pay-btn.success-glow {
+    background: var(--neon-green);
+    border-color: var(--neon-green);
+    color: #000;
+    box-shadow: 0 0 40px rgba(0, 255, 157, 0.8);
+}
+
+.pay-btn.error-glow {
+    background: var(--neon-red);
+    border-color: var(--neon-red);
+    color: #fff;
+    box-shadow: 0 0 40px rgba(255, 51, 51, 0.8);
+}
+
+.pay-btn:disabled {
+    cursor: not-allowed;
+}
+
+@keyframes blinkPurple {
+    0%, 100% { box-shadow: 0 0 0 transparent; }
+    50% {
+        background: rgba(176, 38, 255, 0.3);
+        border-color: var(--neon-purple);
+        color: #fff;
+        box-shadow: 0 0 40px rgba(176, 38, 255, 0.8);
+    }
+}
+
+.pay-btn.blink-purple {
+    animation: blinkPurple 0.6s ease-in-out infinite;
+}
+
+.pay-btn.frozen {
+    background: #5d5f65 !important;
+    border: 1px solid #444 !important;
+    color: #aaa !important;
+    cursor: not-allowed !important;
+    text-align: center;
+    line-height: 1.2;
+    font-size: 0.82rem !important;
+    text-transform: uppercase;
+    transition: all 0.3s ease;
+    box-shadow: none !important;
+}
+
+.pay-btn.frozen:hover {
+    background: #00f2ff !important;
+    color: #010000 !important;
+    box-shadow: 0 0 30px rgba(0, 242, 255, 0.5), inset 0 0 15px rgba(0, 242, 255, 0.1) !important;
+    text-shadow: 0 0 8px var(--neon-blue);
+}
+
+body.processing #clock {
+    pointer-events: none;
+    opacity: 0.8;
+}
+
+.modal-title {
+    text-align: center;
+    color: #fff;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    font-weight: bold;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.modal-text {
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.4;
+}
+
+.modal-hash {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(255, 255, 212, 0.05);
+}
+
+.copy-status {
+    color: var(--neon-green);
+    font-size: 0.65rem;
+    text-align: center;
+    margin-top: -10px;
+    margin-bottom: 0;
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-weight: bold;
+}
+
 .help-icon {
     display: inline-flex;
     align-items: center;
@@ -859,16 +945,46 @@ body:not(.logged-out) .bets-panel {
 }
 
 .verify-command {
-    cursor: pointer;
+    background: #000;
     padding: 12px;
+    border-radius: 8px;
+    color: var(--neon-green);
+    font-family: monospace;
+    font-size: 0.82rem;
     display: block;
-    background: rgba(0,0,0,0.4);
-    position: relative;
-    margin: 5px 0;
+    margin: 15px 0;
+    word-break: break-all;
+    border: 1px solid rgba(0, 255, 157, 0.2);
+    text-align: left;
+    transition: all 0.2s;
+    cursor: pointer;
 }
 
 .verify-command.copied {
-    /* maybe add a glow effect */
+    background: rgba(0, 255, 157, 0.15);
+    border-color: var(--neon-green);
+    transform: scale(1.02);
+}
+
+.qr-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.qr-placeholder {
+    width: 200px;
+    height: 200px;
+    background: white;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+}
+
+.invoice-modal .qr-container div {
+    animation: pulse-orange 2s infinite ease-in-out;
 }
 
 .winner-overlay {
@@ -906,4 +1022,45 @@ body:not(.logged-out) .bets-panel {
     15% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); filter: blur(0); }
     85% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     100% { opacity: 0; transform: translate(-50%, -50%) scale(1.3); filter: blur(20px); }
+}
+
+
+
+/* Estilos para modales específicos */
+.invoice-modal .qr-container div {
+    animation: pulse-orange 2s infinite ease-in-out;
+}
+
+.verify-command {
+    transition: all 0.2s;
+    user-select: all;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.verify-command:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-color: var(--neon-green) !important;
+}
+
+.verify-command:active {
+    transform: scale(0.98);
+    background: rgba(0, 255, 157, 0.1) !important;
+}
+
+.verify-command.copied {
+    background: rgba(0, 255, 157, 0.15);
+    border-color: var(--neon-green);
+    transform: scale(1.02);
+}
+
+@keyframes pulse-orange {
+    0% {
+        box-shadow: 0 0 15px rgba(247, 147, 26, 0.2);
+    }
+    50% {
+        box-shadow: 0 0 35px rgba(247, 147, 26, 0.4);
+    }
+    100% {
+        box-shadow: 0 0 15px rgba(247, 147, 26, 0.2);
+    }
 }
