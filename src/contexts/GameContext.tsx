@@ -177,7 +177,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('satlotto_last_victory_block', block.toString());
     }, []);
 
-    const isFrozen = state.currentBlock >= state.targetBlock - 2;
+    const isFrozen = state.targetBlock > 0 && state.currentBlock >= state.targetBlock - 2;
     const isResolving = state.currentBlock === state.targetBlock;
 
     return (
