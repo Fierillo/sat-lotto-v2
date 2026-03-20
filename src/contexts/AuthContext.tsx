@@ -5,7 +5,8 @@ import { NIP07 } from '../lib/nip07';
 import { NWC, restoreSigner } from '../lib/nwc';
 import { hasStoredNwc, isLocked, createPin as cryptoCreatePin, verifyPin, encryptNwc, decryptNwc, clearNwcStorage, getAttemptsLeft } from '../lib/crypto';
 import { resolveAlias } from '../lib/alias-resolver';
-import { createBunkerSession, restoreBunkerSession, deserializeSession } from '../lib/nip46';
+import { createBunkerSession, restoreBunkerSession, deserializeSession, NIP46_RELAYS } from '../lib/nip46';
+import { NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 
 // ─── State Type ───────────────────────────────────────────────────────
 
@@ -133,7 +134,7 @@ interface AuthContextValue {
     setError: (error: string | null) => void;
     loginWithExtension: () => Promise<void>;
     loginWithNwc: (url: string) => Promise<void>;
-    loginWithBunker: (url: string) => Promise<void>;
+    loginWithBunker: (url: string, signer?: any) => Promise<void>;
     verifyPinForNwc: (pin: string) => Promise<boolean>;
     createPinForNwc: (pin: string) => Promise<boolean>;
     closePinModal: () => void;
@@ -398,7 +399,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, [login, state.pinModal.pinModalUrl]);
 
     // Login with bunker
-    const loginWithBunker = useCallback(async (url: string): Promise<void> => {
+    const loginWithBunker = useCallback(async (url: string, existingSigner?: NDKPrivateKeySigner): Promise<void> => {
         dispatch({ type: 'SET_ERROR', payload: null });
         
         if (!url.startsWith('bunker://') && !url.includes('@')) {
@@ -406,7 +407,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         
         try {
-            const { session, signer } = await createBunkerSession(url);
+            const { session, signer } = await createBunkerSession(url, existingSigner);
             const user = await signer.user();
             const pubkey = user.pubkey;
             const nip05 = await resolveAlias(pubkey);

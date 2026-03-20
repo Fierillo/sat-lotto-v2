@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { generateConnectUri } from '../../lib/nip46';
 import { QRCodeSVG } from 'qrcode.react';
 import { CopyText } from '../CopyText';
+import { NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -12,6 +13,8 @@ interface LoginModalProps {
 }
 
 type TabType = 'manual' | 'bunker';
+
+const QR_EXPIRY_MS = 120000; // 2 minutes
 
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const { state, loginWithExtension, loginWithNwc, loginWithBunker, setError } = useAuth();
@@ -21,12 +24,22 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [loading, setLoading] = useState(false);
   const [connectUri, setConnectUri] = useState('');
   const [qrExpired, setQrExpired] = useState(false);
+  const [localSigner, setLocalSigner] = useState<NDKPrivateKeySigner | null>(null);
+  const qrTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (activeTab === 'bunker' && !connectUri) {
       handleRefreshConnect();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    return () => {
+      if (qrTimerRef.current) {
+        clearTimeout(qrTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
@@ -79,7 +92,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     }
     setLoading(true);
     try {
-      await loginWithBunker(bunkerUrl);
+      await loginWithBunker(bunkerUrl, localSigner || undefined);
       onClose();
     } catch (e: any) {
       setError(e.message);
@@ -89,9 +102,17 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   };
 
   const handleRefreshConnect = () => {
-    const { uri } = generateConnectUri();
+    const { uri, signer } = generateConnectUri();
     setConnectUri(uri);
+    setLocalSigner(signer);
     setQrExpired(false);
+    
+    if (qrTimerRef.current) {
+      clearTimeout(qrTimerRef.current);
+    }
+    qrTimerRef.current = setTimeout(() => {
+      setQrExpired(true);
+    }, QR_EXPIRY_MS);
   };
 
   if (!isOpen) return null;
@@ -166,7 +187,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                 </div>
               ) : connectUri ? (
                 <>
-                  <QRCodeSVG value={connectUri} size={180} />
+                  <QRCodeSVG value={connectUri} size={200} />
                   <button 
                     className="qr-regenerate-btn" 
                     onClick={handleRefreshConnect}
