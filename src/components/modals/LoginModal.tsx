@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { QR } from '../QR';
 import { NDKPrivateKeySigner, NDKNip46Signer } from '@nostr-dev-kit/ndk';
@@ -12,12 +12,38 @@ interface LoginModalProps {
 
 type TabType = 'manual' | 'bunker';
 
+function parseBunkerUrl(url: string): { bunkerPubkey: string; relays: string[]; secret?: string } | null {
+  try {
+    if (!url.startsWith('bunker://')) return null;
+    const bunkerUrlMatch = url.match(/^bunker:\/\/([a-f0-9]{64})/i);
+    const bunkerPubkey = bunkerUrlMatch ? bunkerUrlMatch[1] : null;
+    if (!bunkerPubkey) return null;
+    const urlObj = new URL(url.replace('bunker://', 'bunker://placeholder/'));
+    const relays = urlObj.searchParams.getAll('relay');
+    const secret = urlObj.searchParams.get('secret') || undefined;
+    if (relays.length === 0) return null;
+    return { bunkerPubkey, relays, secret };
+  } catch {
+    return null;
+  }
+}
+
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const { state, loginWithExtension, loginWithNwc, loginWithBunker, setError } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('manual');
   const [nwcUrl, setNwcUrl] = useState('');
   const [bunkerUrl, setBunkerUrl] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setBunkerUrl('');
+      setNwcUrl('');
+      setLoading(false);
+      setError(null);
+      setActiveTab('manual');
+    }
+  }, [isOpen]);
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
@@ -124,7 +150,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           </div>
 
           <div id="connect-section" className={`auth-section ${activeTab === 'bunker' ? 'active' : ''}`}>
-            <QR onConnect={handleBunkerConnect} onError={setError} />
+            <QR shouldConnect={activeTab === 'bunker'} onConnect={handleBunkerConnect} onError={setError} />
 
             <div className="divider">
               <span>ó</span>
@@ -141,10 +167,29 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               />
               <button 
                 className="auth-btn" 
-                onClick={() => handleBunkerConnect('bunker://', null as any, '')}
+                onClick={async () => {
+                  const parsed = parseBunkerUrl(bunkerUrl);
+                  if (!parsed) {
+                    setError('URL de bunker inválida');
+                    return;
+                  }
+                  setLoading(true);
+                  setError(null);
+                  try {
+                    const signer = NDKPrivateKeySigner.generate();
+                    const secret = parsed.secret || Math.random().toString(36).substring(2, 15);
+                    const bunkerConnectUrl = `bunker://${parsed.bunkerPubkey}`;
+                    await loginWithBunker(bunkerConnectUrl, signer, secret, parsed.relays);
+                    onClose();
+                  } catch (e: any) {
+                    setError(e.message);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
                 disabled={loading}
               >
-                Conectar Bunker
+                {loading ? 'Conectando...' : 'Conectar Bunker'}
               </button>
             </div>
           </div>

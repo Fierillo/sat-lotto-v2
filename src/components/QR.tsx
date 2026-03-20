@@ -7,6 +7,7 @@ import { NDKPrivateKeySigner, NDKNip46Signer } from '@nostr-dev-kit/ndk';
 import { CopyText } from './CopyText';
 
 interface QRProps {
+    shouldConnect: boolean;
     onConnect: (bunkerUrl: string, signer: NDKNip46Signer, secret: string) => void;
     onError: (error: string) => void;
 }
@@ -15,7 +16,7 @@ const QR_EXPIRY_MS = 120000;
 const CELL_SIZE = 2;
 const MARGIN = 2;
 
-export function QR({ onConnect, onError }: QRProps) {
+export function QR({ shouldConnect, onConnect, onError }: QRProps) {
     const [connectUri, setConnectUri] = useState('');
     const [qrExpired, setQrExpired] = useState(false);
     const [localSigner, setLocalSigner] = useState<NDKPrivateKeySigner | null>(null);
@@ -24,16 +25,32 @@ export function QR({ onConnect, onError }: QRProps) {
     const connectedRef = useRef(false);
 
     useEffect(() => {
+        if (!shouldConnect) {
+            setConnectUri('');
+            setLocalSigner(null);
+            setConnectSecret('');
+            setQrExpired(false);
+            setConnected(false);
+            connectedRef.current = false;
+            return;
+        }
+
         const { uri, secret, signer } = generateConnectUri();
         setConnectUri(uri);
         setLocalSigner(signer);
         setConnectSecret(secret);
+        connectedRef.current = false;
         qrTimerRef.current = setTimeout(() => setQrExpired(true), QR_EXPIRY_MS);
-        return () => clearTimeout(qrTimerRef.current!);
-    }, []);
+
+        return () => {
+            if (qrTimerRef.current) {
+                clearTimeout(qrTimerRef.current);
+            }
+        };
+    }, [shouldConnect]);
 
     useEffect(() => {
-        if (!localSigner || !connectSecret || connectedRef.current) return;
+        if (!shouldConnect || !localSigner || !connectSecret || connectedRef.current) return;
         connectedRef.current = true;
 
         console.log('[QR] Iniciando conexion con bunker...');
@@ -46,7 +63,7 @@ export function QR({ onConnect, onError }: QRProps) {
                 console.error('[QR] Error:', e.message);
                 onError(e.message);
             });
-    }, [localSigner, connectSecret]);
+    }, [shouldConnect, localSigner, connectSecret]);
 
     const qrDataUrl = useMemo(() => {
         if (!connectUri) return '';
@@ -67,6 +84,10 @@ export function QR({ onConnect, onError }: QRProps) {
         qrTimerRef.current = setTimeout(() => setQrExpired(true), QR_EXPIRY_MS);
     };
 
+    const setConnected = (value: boolean) => {
+        connectedRef.current = value;
+    };
+
     if (qrExpired) {
         return (
             <div className="qr-box expired">
@@ -76,19 +97,23 @@ export function QR({ onConnect, onError }: QRProps) {
         );
     }
 
+    if (!connectUri) {
+        return (
+            <div className="qr-box">
+                <div className="qr-placeholder">
+                    <span className="qr-loading">Esperando bunker...</span>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="qr-box">
             <div className="qr-wrapper" onClick={handleRefresh}>
-                {connectUri ? (
-                    <>
-                        <img src={qrDataUrl} alt="QR Code" />
-                        <div className="qr-hint">Presioná para regenerar</div>
-                    </>
-                ) : (
-                    <span className="qr-loading">Generando...</span>
-                )}
+                <img src={qrDataUrl} alt="QR Code" />
+                <div className="qr-hint">Presioná para regenerar</div>
             </div>
-            {connectUri && <CopyText text={connectUri} truncate={50} />}
+            <CopyText text={connectUri} truncate={50} />
         </div>
     );
 }
