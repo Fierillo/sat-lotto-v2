@@ -1,10 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { generateConnectUri } from '../../lib/nip46';
-import { QRCodeSVG } from 'qrcode.react';
-import { CopyText } from '../CopyText';
+import { QR } from '../QR';
 import { NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 
 interface LoginModalProps {
@@ -14,39 +12,16 @@ interface LoginModalProps {
 
 type TabType = 'manual' | 'bunker';
 
-const QR_EXPIRY_MS = 120000; // 2 minutes
-
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const { state, loginWithExtension, loginWithNwc, loginWithBunker, setError } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('manual');
   const [nwcUrl, setNwcUrl] = useState('');
   const [bunkerUrl, setBunkerUrl] = useState('');
   const [loading, setLoading] = useState(false);
-  const [connectUri, setConnectUri] = useState('');
-  const [qrExpired, setQrExpired] = useState(false);
-  const [localSigner, setLocalSigner] = useState<NDKPrivateKeySigner | null>(null);
-  const qrTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    if (activeTab === 'bunker' && !connectUri) {
-      handleRefreshConnect();
-    }
-  }, [activeTab]);
-
-  useEffect(() => {
-    return () => {
-      if (qrTimerRef.current) {
-        clearTimeout(qrTimerRef.current);
-      }
-    };
-  }, []);
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
     setError(null);
-    if (tab === 'bunker') {
-      handleRefreshConnect();
-    }
   };
 
   const handleExtensionLogin = async () => {
@@ -80,39 +55,17 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     }
   };
 
-  const handleBunkerLogin = async () => {
-    setError(null);
-    if (!bunkerUrl.trim()) {
-      setError('Ingresá la URL de tu bunker');
-      return;
-    }
-    if (!bunkerUrl.startsWith('bunker://')) {
-      setError('La URL debe empezar con bunker://');
-      return;
-    }
+  const handleBunkerConnect = async (url: string, signer: NDKPrivateKeySigner, secret: string) => {
     setLoading(true);
+    setError(null);
     try {
-      await loginWithBunker(bunkerUrl, localSigner || undefined);
+      await loginWithBunker(url, signer, secret);
       onClose();
     } catch (e: any) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleRefreshConnect = () => {
-    const { uri, signer } = generateConnectUri();
-    setConnectUri(uri);
-    setLocalSigner(signer);
-    setQrExpired(false);
-    
-    if (qrTimerRef.current) {
-      clearTimeout(qrTimerRef.current);
-    }
-    qrTimerRef.current = setTimeout(() => {
-      setQrExpired(true);
-    }, QR_EXPIRY_MS);
   };
 
   if (!isOpen) return null;
@@ -171,41 +124,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           </div>
 
           <div id="connect-section" className={`auth-section ${activeTab === 'bunker' ? 'active' : ''}`}>
-            <div id="qrContainer" className="qr-container">
-              {qrExpired ? (
-                <div className="qr-expired">
-                  <span style={{ color: '#000', fontSize: '0.9rem' }}>
-                    QR Venció
-                  </span>
-                  <button 
-                    className="auth-btn small" 
-                    onClick={handleRefreshConnect}
-                    style={{ marginTop: '8px' }}
-                  >
-                    Regenerar
-                  </button>
-                </div>
-              ) : connectUri ? (
-                <>
-                  <QRCodeSVG value={connectUri} size={200} />
-                  <button 
-                    className="qr-regenerate-btn" 
-                    onClick={handleRefreshConnect}
-                    title="Regenerar QR"
-                  >
-                    ↻
-                  </button>
-                </>
-              ) : (
-                <span style={{ color: '#000', fontSize: '0.9rem' }}>
-                  Generando...
-                </span>
-              )}
-            </div>
-            
-            {connectUri && (
-              <CopyText text={connectUri} truncate={60} />
-            )}
+            <QR onConnect={handleBunkerConnect} onError={setError} />
 
             <div className="divider">
               <span>ó</span>
@@ -220,7 +139,11 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                 value={bunkerUrl}
                 onChange={(e) => setBunkerUrl(e.target.value)}
               />
-              <button className="auth-btn" onClick={handleBunkerLogin} disabled={loading}>
+              <button 
+                className="auth-btn" 
+                onClick={() => handleBunkerConnect('bunker://', null as any, '')}
+                disabled={loading}
+              >
                 Conectar Bunker
               </button>
             </div>

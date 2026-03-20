@@ -134,7 +134,7 @@ interface AuthContextValue {
     setError: (error: string | null) => void;
     loginWithExtension: () => Promise<void>;
     loginWithNwc: (url: string) => Promise<void>;
-    loginWithBunker: (url: string, signer?: any) => Promise<void>;
+    loginWithBunker: (url: string, signer: any, secret: string) => Promise<void>;
     verifyPinForNwc: (pin: string) => Promise<boolean>;
     createPinForNwc: (pin: string) => Promise<boolean>;
     closePinModal: () => void;
@@ -399,25 +399,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, [login, state.pinModal.pinModalUrl]);
 
     // Login with bunker
-    const loginWithBunker = useCallback(async (url: string, existingSigner?: NDKPrivateKeySigner): Promise<void> => {
+    const loginWithBunker = useCallback(async (
+        url: string,
+        signer: NDKPrivateKeySigner,
+        secret: string
+    ): Promise<void> => {
         dispatch({ type: 'SET_ERROR', payload: null });
-        
+
         if (!url.startsWith('bunker://') && !url.includes('@')) {
             throw new Error('URL de bunker inválida. Debe empezar con bunker:// o ser un handle@domain');
         }
-        
+
         try {
-            const { session, signer } = await createBunkerSession(url, existingSigner);
-            const user = await signer.user();
+            const { session, signer: bunkerSigner } = await createBunkerSession(url, signer, secret);
+            const user = await bunkerSigner.user();
             const pubkey = user.pubkey;
             const nip05 = await resolveAlias(pubkey);
-            
+
             login({
                 pubkey,
                 nip05,
                 bunkerTarget: url,
                 bunkerSession: JSON.stringify(session),
-                signer,
+                signer: bunkerSigner,
                 loginMethod: 'bunker',
             });
         } catch (e: any) {
