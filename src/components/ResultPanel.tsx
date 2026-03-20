@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { resolveName } from '../utils/nostr-service';
 import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { Modal } from './modals/Modal';
@@ -41,7 +40,7 @@ export function ResultPanel({ lastResult, targetBlock }: ResultPanelProps) {
     if (!lastResult?.resolved) return null;
 
     const winnersText = lastResult.winners?.length
-        ? lastResult.winners.map((winner: Bet) => winner.alias || resolveName(winner.pubkey)).join(', ')
+        ? lastResult.winners.map((winner: Bet) => winner.alias || `${winner.pubkey.slice(0, 8)}...`).join(', ')
         : 'Nadie';
 
 
