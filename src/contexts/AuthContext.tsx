@@ -134,7 +134,7 @@ interface AuthContextValue {
     setError: (error: string | null) => void;
     loginWithExtension: () => Promise<void>;
     loginWithNwc: (url: string) => Promise<void>;
-    loginWithBunker: (url: string, signer: any, secret: string, relays?: string[]) => Promise<void>;
+    loginWithBunker: (url: string, signer: any, secret: string, relays?: string[], skipHandshake?: boolean) => Promise<void>;
     verifyPinForNwc: (pin: string) => Promise<boolean>;
     createPinForNwc: (pin: string) => Promise<boolean>;
     closePinModal: () => void;
@@ -403,7 +403,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         url: string,
         signer: NDKNip46Signer | NDKPrivateKeySigner,
         secret: string,
-        relays?: string[]
+        relays?: string[],
+        skipHandshake?: boolean
     ): Promise<void> => {
         dispatch({ type: 'SET_ERROR', payload: null });
 
@@ -421,7 +422,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 sessionData = state.bunkerSession;
             } else {
                 console.log('[Auth] Creando nueva sesion bunker...');
-                const result = await createBunkerSession(url, signer, secret, relays);
+                const result = await createBunkerSession(url, signer, secret, relays, skipHandshake);
                 bunkerSigner = result.signer;
                 sessionData = JSON.stringify(result.session);
             }

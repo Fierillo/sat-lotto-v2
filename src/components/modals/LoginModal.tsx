@@ -179,7 +179,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                     const signer = NDKPrivateKeySigner.generate();
                     const secret = parsed.secret || Math.random().toString(36).substring(2, 15);
                     const bunkerConnectUrl = `bunker://${parsed.bunkerPubkey}`;
-                    await loginWithBunker(bunkerConnectUrl, signer, secret, parsed.relays);
+                    await loginWithBunker(bunkerConnectUrl, signer, secret, parsed.relays, true);
                     onClose();
                   } catch (e: any) {
                     setError(e.message);

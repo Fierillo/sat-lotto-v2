@@ -37,13 +37,31 @@ export async function createBunkerSession(
     bunkerUrl: string,
     signer: NDKPrivateKeySigner,
     secret: string,
-    relays: string[] = NIP46_RELAYS
+    relays: string[] = NIP46_RELAYS,
+    skipHandshake: boolean = false
 ): Promise<{ session: BunkerSession; signer: NDKNip46Signer }> {
     const ndkInstance = new NDK({ explicitRelayUrls: relays });
     await ndkInstance.connect(5000);
 
     const localPubkey = signer.pubkey;
     const localPrivkey = (signer as any)._privateKey;
+
+    const bunkerPubkeyMatch = bunkerUrl.match(/^bunker:\/\/([a-f0-9]{64})/i);
+    const bunkerPubkey = bunkerPubkeyMatch ? bunkerPubkeyMatch[1] : null;
+
+    if (skipHandshake && bunkerPubkey) {
+        console.log('[NIP-46] Skip handshake mode - usando bunker pubkey directo');
+        const bunkerSigner = new NDKNip46Signer(ndkInstance, bunkerPubkey, signer);
+        (bunkerSigner as any).remotePubkey = bunkerPubkey;
+
+        const session: BunkerSession = {
+            bunkerTarget: bunkerUrl,
+            localSignerPrivkey: localPrivkey,
+            remotePubkey: bunkerPubkey,
+        };
+
+        return { session, signer: bunkerSigner };
+    }
 
     console.log('[NIP-46] Iniciando handshake...');
     console.log('[NIP-46] Local pubkey:', localPubkey);
