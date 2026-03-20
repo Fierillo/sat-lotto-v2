@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo } from 'react';
-import { resolveName } from '../utils/nostr-service';
 import type { Bet } from '../types';
 
 interface BetsTableProps {
@@ -39,7 +38,7 @@ export function BetsTable({ bets }: BetsTableProps) {
                 <tbody>
                     {sortedBets.map((bet, index) => (
                         <tr key={`${bet.pubkey}-${bet.selected_number}-${index}`} className="hover:bg-white/5">
-                            <td>{bet.alias || resolveName(bet.pubkey)}</td>
+                            <td>{bet.alias || `${bet.pubkey.slice(0, 8)}...`}</td>
                             <td>{bet.selected_number}</td>
                         </tr>
                     ))}

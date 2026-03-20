@@ -1,6 +1,5 @@
 'use client';
 
-import { resolveName } from '../utils/nostr-service';
 import type { Champion } from '../types';
 
 interface ChampionsTableProps {
@@ -30,7 +29,7 @@ export function ChampionsTable({ champions }: ChampionsTableProps) {
                 <tbody>
                     {champions.map((champion) => (
                         <tr key={champion.pubkey} className="hover:bg-white/5">
-                            <td>{champion.alias || resolveName(champion.pubkey)}</td>
+                            <td>{champion.alias || `${champion.pubkey.slice(0, 8)}...`}</td>
                             <td className="text-neon-orange font-bold">
                                 {champion.sats_earned.toLocaleString()} sats
                             </td>
