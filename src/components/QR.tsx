@@ -53,14 +53,11 @@ export function QR({ shouldConnect, onConnect, onError }: QRProps) {
         if (!shouldConnect || !localSigner || !connectSecret || connectedRef.current) return;
         connectedRef.current = true;
 
-        console.log('[QR] Iniciando conexion con bunker...');
         createBunkerSession('bunker://', localSigner, connectSecret)
             .then(({ signer: bunkerSigner }) => {
-                console.log('[QR] ██ CONEXION EXITOSA');
                 onConnect('bunker://', bunkerSigner, connectSecret);
             })
             .catch((e: any) => {
-                console.error('[QR] Error:', e.message);
                 onError(e.message);
             });
     }, [shouldConnect, localSigner, connectSecret]);

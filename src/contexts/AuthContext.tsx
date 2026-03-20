@@ -417,11 +417,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             let sessionData: string | null = null;
 
             if (signer instanceof NDKNip46Signer) {
-                console.log('[Auth] Usando signer pre-aprobado (NDKNip46Signer)');
                 bunkerSigner = signer;
                 sessionData = state.bunkerSession;
             } else {
-                console.log('[Auth] Creando nueva sesion bunker...');
                 const result = await createBunkerSession(url, signer, secret, relays, skipHandshake);
                 bunkerSigner = result.signer;
                 sessionData = JSON.stringify(result.session);

@@ -50,7 +50,6 @@ export async function createBunkerSession(
     const bunkerPubkey = bunkerPubkeyMatch ? bunkerPubkeyMatch[1] : null;
 
     if (skipHandshake && bunkerPubkey) {
-        console.log('[NIP-46] Skip handshake mode - usando bunker pubkey directo');
         const bunkerSigner = new NDKNip46Signer(ndkInstance, bunkerPubkey, signer);
         (bunkerSigner as any).remotePubkey = bunkerPubkey;
 
@@ -63,14 +62,8 @@ export async function createBunkerSession(
         return { session, signer: bunkerSigner };
     }
 
-    console.log('[NIP-46] Iniciando handshake...');
-    console.log('[NIP-46] Local pubkey:', localPubkey);
-    console.log('[NIP-46] Esperando secreto:', secret);
-    console.log('[NIP-46] Usando relays:', relays);
-
     return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-            console.log('[NIP-46] TIMEOUT - No se recibió respuesta en 60s');
             reject(new Error('Timeout esperando respuesta del bunker (60s)'));
         }, 60000);
 
@@ -79,11 +72,7 @@ export async function createBunkerSession(
             { closeOnEose: false }
         );
 
-        console.log('[NIP-46] Suscrito a kind 24133, esperando eventos...');
-
         sub.on('event', async (event: NDKEvent) => {
-            console.log('[NIP-46] ██ Evento recibido de:', event.pubkey.slice(0, 8));
-
             try {
                 const privKeyBytes = typeof localPrivkey === 'string'
                     ? new Uint8Array(localPrivkey.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)))
@@ -93,10 +82,7 @@ export async function createBunkerSession(
                 const decrypted = nip44.v2.decrypt(event.content, conversationKey);
                 const data = JSON.parse(decrypted);
 
-                console.log('[NIP-46] ██ Contenido descifrado:', JSON.stringify(data));
-
                 if (data.result === secret) {
-                    console.log('[NIP-46] ██ SECRET COINCIDE! Handshake exitoso!');
                     clearTimeout(timeout);
 
                     const bunkerSigner = new NDKNip46Signer(ndkInstance, event.pubkey, signer);
@@ -109,16 +95,10 @@ export async function createBunkerSession(
                     };
 
                     resolve({ session, signer: bunkerSigner });
-                } else {
-                    console.log('[NIP-46] ██ Secret no coincide:', data.result, 'vs', secret);
                 }
-            } catch (e: any) {
-                console.log('[NIP-46] ██ Error al descifrar:', e.message);
+            } catch {
+                // Decryption failed, ignore event
             }
-        });
-
-        sub.on('eose', () => {
-            console.log('[NIP-46] EOSE recibido');
         });
 
         setTimeout(() => {
