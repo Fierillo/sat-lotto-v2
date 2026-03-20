@@ -5,6 +5,7 @@ import { NIP07 } from '../lib/nip07';
 import { NWC, restoreSigner } from '../lib/nwc';
 import { hasStoredNwc, isLocked, createPin as cryptoCreatePin, verifyPin, encryptNwc, decryptNwc, clearNwcStorage, getAttemptsLeft } from '../lib/crypto';
 import { resolveAlias } from '../lib/alias-resolver';
+import { createBunkerSession, restoreBunkerSession, deserializeSession } from '../lib/nip46';
 
 // ─── State Type ───────────────────────────────────────────────────────
 
@@ -21,7 +22,7 @@ interface AuthContextState {
     signer: any | null;
     nwcUrl: string | null;
     bunkerTarget: string | null;
-    localPrivkey: string | null;
+    bunkerSession: string | null;
     nip05: string | null;
     loginEvent: any | null;
     lastCelebratedBlock: number;
@@ -53,7 +54,7 @@ const initialState: AuthContextState = {
     signer: null,
     nwcUrl: null,
     bunkerTarget: null,
-    localPrivkey: null,
+    bunkerSession: null,
     nip05: null,
     loginEvent: null,
     lastCelebratedBlock: 0,
@@ -150,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const pubkey = localStorage.getItem('satlotto_pubkey');
         const bunkerTarget = localStorage.getItem('satlotto_bunker');
-        const localPrivkey = localStorage.getItem('satlotto_local_privkey');
+        const bunkerSession = localStorage.getItem('satlotto_bunker_session');
         const nip05 = localStorage.getItem('satlotto_alias');
         const loginMethod = localStorage.getItem('satlotto_login_method');
         const lastCelebratedBlock = parseInt(localStorage.getItem('satlotto_last_victory_block') || '0');
@@ -161,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 payload: {
                     pubkey,
                     bunkerTarget,
-                    localPrivkey,
+                    bunkerSession,
                     nip05,
                     loginMethod,
                     lastCelebratedBlock,
@@ -183,10 +184,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (state.bunkerTarget) {
             localStorage.setItem('satlotto_bunker', state.bunkerTarget);
+        } else {
+            localStorage.removeItem('satlotto_bunker');
         }
 
-        if (state.localPrivkey) {
-            localStorage.setItem('satlotto_local_privkey', state.localPrivkey);
+        if (state.bunkerSession) {
+            localStorage.setItem('satlotto_bunker_session', state.bunkerSession);
+        } else {
+            localStorage.removeItem('satlotto_bunker_session');
         }
 
         if (state.nip05) {
@@ -196,7 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (state.loginMethod) {
             localStorage.setItem('satlotto_login_method', state.loginMethod);
         }
-    }, [state.pubkey, state.bunkerTarget, state.localPrivkey, state.nip05, state.loginMethod, state.isInitialized]);
+    }, [state.pubkey, state.bunkerTarget, state.bunkerSession, state.nip05, state.loginMethod, state.isInitialized]);
 
     const login = useCallback((payload: Partial<AuthContextState>) => {
         dispatch({ type: 'LOGIN', payload });
@@ -206,6 +211,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('satlotto_pubkey');
         localStorage.removeItem('satlotto_nwc');
         localStorage.removeItem('satlotto_bunker');
+        localStorage.removeItem('satlotto_bunker_session');
         localStorage.removeItem('satlotto_alias');
         localStorage.removeItem('satlotto_login_method');
         dispatch({ type: 'LOGOUT' });
@@ -394,8 +400,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Login with bunker
     const loginWithBunker = useCallback(async (url: string): Promise<void> => {
         dispatch({ type: 'SET_ERROR', payload: null });
-        throw new Error('Bunker login not implemented yet');
-    }, []);
+        
+        if (!url.startsWith('bunker://') && !url.includes('@')) {
+            throw new Error('URL de bunker inválida. Debe empezar con bunker:// o ser un handle@domain');
+        }
+        
+        try {
+            const { session, signer } = await createBunkerSession(url);
+            const user = await signer.user();
+            const pubkey = user.pubkey;
+            const nip05 = await resolveAlias(pubkey);
+            
+            login({
+                pubkey,
+                nip05,
+                bunkerTarget: url,
+                bunkerSession: JSON.stringify(session),
+                signer,
+                loginMethod: 'bunker',
+            });
+        } catch (e: any) {
+            dispatch({ type: 'SET_ERROR', payload: e.message || 'Error al conectar con bunker' });
+            throw e;
+        }
+    }, [login]);
 
     return (
         <AuthContext.Provider
