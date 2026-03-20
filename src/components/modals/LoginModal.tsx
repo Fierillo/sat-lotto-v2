@@ -1,7 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { generateConnectUri } from '../../lib/nip46';
+import { QRCodeSVG } from 'qrcode.react';
+import { CopyText } from '../CopyText';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -17,6 +20,13 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [bunkerUrl, setBunkerUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [connectUri, setConnectUri] = useState('');
+  const [qrExpired, setQrExpired] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'bunker' && !connectUri) {
+      handleRefreshConnect();
+    }
+  }, [activeTab]);
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
@@ -60,7 +70,11 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const handleBunkerLogin = async () => {
     setError(null);
     if (!bunkerUrl.trim()) {
-      setError('Bunker URL o NIP-05 requerido');
+      setError('Ingresá la URL de tu bunker');
+      return;
+    }
+    if (!bunkerUrl.startsWith('bunker://')) {
+      setError('La URL debe empezar con bunker://');
       return;
     }
     setLoading(true);
@@ -75,10 +89,9 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   };
 
   const handleRefreshConnect = () => {
-    const secret = Math.random().toString(36).substring(7);
-    const pubkey = 'generating...';
-    const uri = `nostrconnect://${pubkey}?relay=wss://relay.nsec.app&relay=wss://relay.damus.io&secret=${secret}&name=SatLotto`;
+    const { uri } = generateConnectUri();
     setConnectUri(uri);
+    setQrExpired(false);
   };
 
   if (!isOpen) return null;
@@ -138,34 +151,56 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
           <div id="connect-section" className={`auth-section ${activeTab === 'bunker' ? 'active' : ''}`}>
             <div id="qrContainer" className="qr-container">
-              <div className="qr-placeholder">
+              {qrExpired ? (
+                <div className="qr-expired">
+                  <span style={{ color: '#000', fontSize: '0.9rem' }}>
+                    QR Venció
+                  </span>
+                  <button 
+                    className="auth-btn small" 
+                    onClick={handleRefreshConnect}
+                    style={{ marginTop: '8px' }}
+                  >
+                    Regenerar
+                  </button>
+                </div>
+              ) : connectUri ? (
+                <>
+                  <QRCodeSVG value={connectUri} size={180} />
+                  <button 
+                    className="qr-regenerate-btn" 
+                    onClick={handleRefreshConnect}
+                    title="Regenerar QR"
+                  >
+                    ↻
+                  </button>
+                </>
+              ) : (
                 <span style={{ color: '#000', fontSize: '0.9rem' }}>
-                  {connectUri ? 'Escaneá con tu bunker' : 'Generando...'}
+                  Generando...
                 </span>
-              </div>
+              )}
             </div>
-            <code
-              id="connectUri"
-              className="connect-uri"
-              onClick={() => navigator.clipboard.writeText(connectUri)}
-            >
-              {connectUri.length > 50 ? connectUri.substring(0, 50) + '...' : connectUri}
-            </code>
-            <button className="auth-btn secondary" onClick={handleRefreshConnect}>
-              Generar nuevo QR
-            </button>
+            
+            {connectUri && (
+              <CopyText text={connectUri} truncate={60} />
+            )}
+
+            <div className="divider">
+              <span>ó</span>
+            </div>
 
             <div className="nwc-section bunker-manual">
               <input
                 type="text"
                 id="bunkerInput"
                 className="nwc-input"
-                placeholder="bunker://... o handle@domain"
+                placeholder="bunker://..."
                 value={bunkerUrl}
                 onChange={(e) => setBunkerUrl(e.target.value)}
               />
               <button className="auth-btn" onClick={handleBunkerLogin} disabled={loading}>
-                Conectar Bunker manual
+                Conectar Bunker
               </button>
             </div>
           </div>

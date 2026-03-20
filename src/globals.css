@@ -1393,9 +1393,110 @@ body.processing #clock {
 }
 
 .nwc-section.bunker-manual {
-    margin-top: 20px;
+    margin-top: 12px;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
-    padding-top: 20px;
+    padding-top: 12px;
+}
+
+/* ─── Bunker QR Styles ───────────────────────────────────────────────── */
+.uri-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border-light);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.uri-container:hover {
+    border-color: var(--neon-orange);
+    background: rgba(247, 147, 26, 0.1);
+}
+
+.uri-container .connect-uri {
+    margin-bottom: 0;
+    flex: 1;
+}
+
+.copy-icon {
+    font-size: 1.2rem;
+    opacity: 0.6;
+}
+
+.uri-hint {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.divider {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin: 5px 0;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.qr-expired {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 180px;
+    height: 180px;
+    background: rgba(247, 147, 26, 0.1);
+    border: 2px dashed var(--neon-orange);
+    border-radius: 12px;
+}
+
+.qr-regenerate-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border-light);
+    color: var(--neon-orange);
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.qr-regenerate-btn:hover {
+    background: var(--neon-orange);
+    color: #000;
+}
+
+#connect-section .qr-container {
+    position: relative;
+}
+
+#connect-section .qr-container > div:first-child {
+    position: relative;
+}
+
+.auth-btn.small {
+    padding: 8px 16px;
+    font-size: 0.85rem;
 }
 
 /* ─── NWC Guide ────────────────────────────────────────────────────── */
