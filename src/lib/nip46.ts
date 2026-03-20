@@ -44,18 +44,25 @@ export async function createBunkerSession(
     const localPubkey = signer.pubkey;
     const localPrivkey = (signer as any)._privateKey;
 
-    console.log('[NIP-46] Escuchando eventos kind 24133...');
+    console.log('[NIP-46] Iniciando handshake...');
+    console.log('[NIP-46] Local pubkey:', localPubkey);
+    console.log('[NIP-46] Esperando secreto:', secret);
 
     return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
+            console.log('[NIP-46] TIMEOUT - No se recibió respuesta en 60s');
             reject(new Error('Timeout esperando respuesta del bunker (60s)'));
         }, 60000);
 
-        ndkInstance.subscribe(
+        const sub = ndkInstance.subscribe(
             { kinds: [24133], '#p': [localPubkey] },
             { closeOnEose: false }
-        ).on('event', async (event: NDKEvent) => {
-            console.log('[NIP-46] Evento recibido de:', event.pubkey.slice(0, 8));
+        );
+
+        console.log('[NIP-46] Suscrito a kind 24133, esperando eventos...');
+
+        sub.on('event', async (event: NDKEvent) => {
+            console.log('[NIP-46] ██ Evento recibido de:', event.pubkey.slice(0, 8));
 
             try {
                 const privKeyBytes = typeof localPrivkey === 'string'
@@ -66,10 +73,10 @@ export async function createBunkerSession(
                 const decrypted = nip44.v2.decrypt(event.content, conversationKey);
                 const data = JSON.parse(decrypted);
 
-                console.log('[NIP-46] Contenido descifrado:', data);
+                console.log('[NIP-46] ██ Contenido descifrado:', JSON.stringify(data));
 
                 if (data.result === secret) {
-                    console.log('[NIP-46] ¡Secret coincide! Handshake exitoso.');
+                    console.log('[NIP-46] ██ SECRET COINCIDE! Handshake exitoso!');
                     clearTimeout(timeout);
 
                     const bunkerSigner = new NDKNip46Signer(ndkInstance, event.pubkey, signer);
@@ -82,10 +89,16 @@ export async function createBunkerSession(
                     };
 
                     resolve({ session, signer: bunkerSigner });
+                } else {
+                    console.log('[NIP-46] ██ Secret no coincide:', data.result, 'vs', secret);
                 }
             } catch (e: any) {
-                console.log('[NIP-46] Error al descifrar:', e.message);
+                console.log('[NIP-46] ██ Error al descifrar:', e.message);
             }
+        });
+
+        sub.on('eose', () => {
+            console.log('[NIP-46] EOSE recibido');
         });
 
         setTimeout(() => {

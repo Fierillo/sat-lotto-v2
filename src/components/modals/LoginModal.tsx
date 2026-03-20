@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { QR } from '../QR';
-import { NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
+import { NDKPrivateKeySigner, NDKNip46Signer } from '@nostr-dev-kit/ndk';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -55,7 +55,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     }
   };
 
-  const handleBunkerConnect = async (url: string, signer: NDKPrivateKeySigner, secret: string) => {
+  const handleBunkerConnect = async (url: string, signer: NDKNip46Signer, secret: string) => {
     setLoading(true);
     setError(null);
     try {

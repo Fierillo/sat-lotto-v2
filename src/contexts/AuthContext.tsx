@@ -6,7 +6,7 @@ import { NWC, restoreSigner } from '../lib/nwc';
 import { hasStoredNwc, isLocked, createPin as cryptoCreatePin, verifyPin, encryptNwc, decryptNwc, clearNwcStorage, getAttemptsLeft } from '../lib/crypto';
 import { resolveAlias } from '../lib/alias-resolver';
 import { createBunkerSession, restoreBunkerSession, deserializeSession, NIP46_RELAYS } from '../lib/nip46';
-import { NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
+import { NDKPrivateKeySigner, NDKNip46Signer } from '@nostr-dev-kit/ndk';
 
 // ─── State Type ───────────────────────────────────────────────────────
 
@@ -401,7 +401,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Login with bunker
     const loginWithBunker = useCallback(async (
         url: string,
-        signer: NDKPrivateKeySigner,
+        signer: NDKNip46Signer | NDKPrivateKeySigner,
         secret: string
     ): Promise<void> => {
         dispatch({ type: 'SET_ERROR', payload: null });
@@ -411,16 +411,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-            const { session, signer: bunkerSigner } = await createBunkerSession(url, signer, secret);
-            const user = await bunkerSigner.user();
-            const pubkey = user.pubkey;
+            let bunkerSigner: NDKNip46Signer;
+            let sessionData: string | null = null;
+
+            if (signer instanceof NDKNip46Signer) {
+                console.log('[Auth] Usando signer pre-aprobado (NDKNip46Signer)');
+                bunkerSigner = signer;
+                sessionData = state.bunkerSession;
+            } else {
+                console.log('[Auth] Creando nueva sesion bunker...');
+                const result = await createBunkerSession(url, signer, secret);
+                bunkerSigner = result.signer;
+                sessionData = JSON.stringify(result.session);
+            }
+
+            let pubkey: string;
+
+            try {
+                const user = await bunkerSigner.user();
+                pubkey = user.pubkey;
+            } catch {
+                pubkey = (bunkerSigner as any).remotePubkey;
+            }
+
             const nip05 = await resolveAlias(pubkey);
 
             login({
                 pubkey,
                 nip05,
                 bunkerTarget: url,
-                bunkerSession: JSON.stringify(session),
+                bunkerSession: sessionData,
                 signer: bunkerSigner,
                 loginMethod: 'bunker',
             });
@@ -428,7 +448,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             dispatch({ type: 'SET_ERROR', payload: e.message || 'Error al conectar con bunker' });
             throw e;
         }
-    }, [login]);
+    }, [login, state.bunkerSession]);
 
     return (
         <AuthContext.Provider
