@@ -4,7 +4,6 @@ import { createContext, useContext, useReducer, useEffect, useCallback, ReactNod
 import { NIP07 } from '../lib/nip07';
 import { NWC, restoreSigner } from '../lib/nwc';
 import { hasStoredNwc, isLocked, createPin as cryptoCreatePin, verifyPin, encryptNwc, decryptNwc, clearNwcStorage, getAttemptsLeft } from '../lib/crypto';
-import { NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 import { resolveAlias } from '../lib/alias-resolver';
 
 // ─── State Type ───────────────────────────────────────────────────────

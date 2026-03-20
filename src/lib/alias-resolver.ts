@@ -1,6 +1,6 @@
 import ndk from './ndk';
 
-const ALIAS_PREFIX = 'satlotto_alias_';
+const ALIAS_KEY = 'satlotto_alias';
 
 export async function resolveAlias(pubkey: string): Promise<string | null> {
     // 1. Try NDK first
@@ -10,8 +10,7 @@ export async function resolveAlias(pubkey: string): Promise<string | null> {
         const alias = profile?.nip05 || profile?.name || profile?.displayName;
 
         if (alias) {
-            // Persist to localStorage
-            localStorage.setItem(`${ALIAS_PREFIX}${pubkey}`, alias);
+            localStorage.setItem(ALIAS_KEY, alias);
             return alias;
         }
     } catch {
@@ -19,5 +18,5 @@ export async function resolveAlias(pubkey: string): Promise<string | null> {
     }
 
     // 2. Fallback to localStorage
-    return localStorage.getItem(`${ALIAS_PREFIX}${pubkey}`);
+    return localStorage.getItem(ALIAS_KEY);
 }
