@@ -12,8 +12,8 @@ interface QRProps {
 }
 
 const QR_EXPIRY_MS = 120000;
-const CELL_SIZE = 5;
-const MARGIN = 4;
+const CELL_SIZE = 2;
+const MARGIN = 2;
 
 export function QR({ onConnect, onError }: QRProps) {
     const [connectUri, setConnectUri] = useState('');

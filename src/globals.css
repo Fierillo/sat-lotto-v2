@@ -1084,7 +1084,16 @@ body.processing #clock {
     display: flex;
     flex-direction: column;
     align-items: center;
+    width: 280px;
     margin-bottom: 10px;
+}
+
+.qr-wrapper img {
+    max-width: 100%;
+    max-height: 100%;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
 }
 
 .qr-box.expired {
@@ -1163,7 +1172,6 @@ body.processing #clock {
     width: 280px;
     height: 280px;
     background: rgba(247, 147, 26, 0.1);
-    border: 2px dashed var(--neon-orange);
     border-radius: 12px;
     display: flex;
     align-items: center;
@@ -1404,6 +1412,7 @@ body.processing #clock {
 
 .auth-section.active {
     display: flex;
+    align-items: center;
 }
 
 /* ─── Auth Buttons ─────────────────────────────────────────────────── */
