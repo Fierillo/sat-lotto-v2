@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { apiClient } from '../utils/api-client';
-import ndk, { getAlias } from '../utils/nostr-service';
+import ndk, { resolveAlias } from '../utils/nostr-service';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { finalizeEvent } from 'nostr-tools';
 import { NIP07 } from '../lib/nip07';
@@ -35,6 +35,8 @@ export function usePayment(): UsePaymentReturn {
     const submitBet = useCallback(async (targetBlock: number, selectedNumber: number) => {
         if (!authState.pubkey) throw new Error('No estás logueado');
 
+        const alias = authState.nip05 || await resolveAlias(authState.pubkey);
+
         const unsigned = {
             kind: 1,
             created_at: Math.floor(Date.now() / 1000),
@@ -42,7 +44,7 @@ export function usePayment(): UsePaymentReturn {
             content: JSON.stringify({
                 bloque: targetBlock,
                 numero: selectedNumber,
-                alias: authState.nip05 || getAlias(authState.pubkey),
+                alias,
             }),
             pubkey: authState.pubkey,
         };
