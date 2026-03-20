@@ -5,6 +5,7 @@ import { NIP07 } from '../lib/nip07';
 import { NWC, restoreSigner } from '../lib/nwc';
 import { hasStoredNwc, isLocked, createPin as cryptoCreatePin, verifyPin, encryptNwc, decryptNwc, clearNwcStorage, getAttemptsLeft } from '../lib/crypto';
 import { NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
+import { resolveAlias } from '../lib/alias-resolver';
 
 // ─── State Type ───────────────────────────────────────────────────────
 
@@ -257,8 +258,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 throw new Error('No se detectó ninguna extensión de Nostr. Instalá Alby o usá una URL de NWC/Bunker para continuar.');
             }
             const pubkey = await NIP07.getPublicKey();
+            const nip05 = await resolveAlias(pubkey);
             login({
                 pubkey,
+                nip05,
                 loginMethod: 'extension',
                 signer: window.nostr,
             });
@@ -339,9 +342,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return false;
             }
             const user = await signer.user();
+            const nip05 = await resolveAlias(user.pubkey);
             login({
                 nwcUrl,
                 pubkey: user.pubkey,
+                nip05,
                 signer,
                 loginMethod: 'nwc',
             });
@@ -371,9 +376,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return false;
             }
             const user = await signer.user();
+            const nip05 = await resolveAlias(user.pubkey);
             login({
                 nwcUrl,
                 pubkey: user.pubkey,
+                nip05,
                 signer,
                 loginMethod: 'nwc',
             });
