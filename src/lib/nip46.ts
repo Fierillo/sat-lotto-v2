@@ -36,9 +36,10 @@ export function generateConnectUri(): {
 export async function createBunkerSession(
     bunkerUrl: string,
     signer: NDKPrivateKeySigner,
-    secret: string
+    secret: string,
+    relays: string[] = NIP46_RELAYS
 ): Promise<{ session: BunkerSession; signer: NDKNip46Signer }> {
-    const ndkInstance = new NDK({ explicitRelayUrls: NIP46_RELAYS });
+    const ndkInstance = new NDK({ explicitRelayUrls: relays });
     await ndkInstance.connect(5000);
 
     const localPubkey = signer.pubkey;
@@ -47,6 +48,7 @@ export async function createBunkerSession(
     console.log('[NIP-46] Iniciando handshake...');
     console.log('[NIP-46] Local pubkey:', localPubkey);
     console.log('[NIP-46] Esperando secreto:', secret);
+    console.log('[NIP-46] Usando relays:', relays);
 
     return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {

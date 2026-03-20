@@ -134,7 +134,7 @@ interface AuthContextValue {
     setError: (error: string | null) => void;
     loginWithExtension: () => Promise<void>;
     loginWithNwc: (url: string) => Promise<void>;
-    loginWithBunker: (url: string, signer: any, secret: string) => Promise<void>;
+    loginWithBunker: (url: string, signer: any, secret: string, relays?: string[]) => Promise<void>;
     verifyPinForNwc: (pin: string) => Promise<boolean>;
     createPinForNwc: (pin: string) => Promise<boolean>;
     closePinModal: () => void;
@@ -402,7 +402,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const loginWithBunker = useCallback(async (
         url: string,
         signer: NDKNip46Signer | NDKPrivateKeySigner,
-        secret: string
+        secret: string,
+        relays?: string[]
     ): Promise<void> => {
         dispatch({ type: 'SET_ERROR', payload: null });
 
@@ -420,20 +421,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 sessionData = state.bunkerSession;
             } else {
                 console.log('[Auth] Creando nueva sesion bunker...');
-                const result = await createBunkerSession(url, signer, secret);
+                const result = await createBunkerSession(url, signer, secret, relays);
                 bunkerSigner = result.signer;
                 sessionData = JSON.stringify(result.session);
             }
 
-            let pubkey: string;
-
-            try {
-                const user = await bunkerSigner.user();
-                pubkey = user.pubkey;
-            } catch {
-                pubkey = (bunkerSigner as any).remotePubkey;
-            }
-
+            const pubkey = (bunkerSigner as any).remotePubkey;
             const nip05 = await resolveAlias(pubkey);
 
             login({
