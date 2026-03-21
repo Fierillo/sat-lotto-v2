@@ -879,6 +879,9 @@ body:not(.logged-out) .bets-panel {
     font-size: 0.7rem;
     line-height: 1.2;
     letter-spacing: 0.5px;
+    background: var(--neon-green);
+    border-color: var(--neon-green);
+    color: #000;
 }
 
 .pay-btn.paying {
