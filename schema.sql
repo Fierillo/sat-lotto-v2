@@ -34,9 +34,11 @@ CREATE TABLE IF NOT EXISTS lotto_payouts (
     pubkey TEXT NOT NULL,
     block_height INTEGER NOT NULL,
     amount INTEGER NOT NULL,
-    type TEXT NOT NULL, -- 'winner', 'fee', 'cycle_resolved'
+    fee INTEGER DEFAULT 0,
+    type TEXT NOT NULL, -- 'winner', 'fee', 'cycle_resolved', 'bet'
     status TEXT DEFAULT 'pending', -- 'pending', 'paid', 'failed'
     tx_hash TEXT,
+    bet_id INTEGER REFERENCES lotto_bets(id),
     error_log TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(pubkey, block_height, type)
