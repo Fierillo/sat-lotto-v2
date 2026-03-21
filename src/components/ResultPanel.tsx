@@ -3,20 +3,30 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
-import { Modal } from './modals/Modal';
 import { TransparencyModal } from './modals/TransparencyModal';
-import type { SorteoResult, Bet } from '../types';
+import { PotentialWinnerModal } from './modals/PotentialWinnerModal';
+import { useVictoryCelebration } from '../hooks/useVictoryCelebration';
+import type { Bet } from '../types';
 
 interface ResultPanelProps {
-    lastResult: SorteoResult | null;
+    lastResult: {
+        resolved: boolean;
+        blockHash?: string;
+        winningNumber?: number;
+        winners?: Bet[];
+        targetBlock: number;
+        blocksUntilCelebration?: number;
+        hasConfirmed?: boolean;
+    } | null;
     targetBlock: number;
 }
 
 export function ResultPanel({ lastResult, targetBlock }: ResultPanelProps) {
     const { state: authState } = useAuth();
     const { setVictoryBlock } = useGame();
-    const [showVictory, setShowVictory] = useState(false);
+    const [showPotentialModal, setShowPotentialModal] = useState(false);
     const [showTransparency, setShowTransparency] = useState(false);
+    const { triggerCelebration, ChampionModal } = useVictoryCelebration();
 
     useEffect(() => {
         if (!authState.pubkey || !lastResult?.winners || !lastResult.resolved) return;
@@ -27,15 +37,23 @@ export function ResultPanel({ lastResult, targetBlock }: ResultPanelProps) {
 
         if (!isWinner) return;
 
-        const blockHeight = Math.floor(lastResult.targetBlock);
+        const blockHeight = lastResult.targetBlock;
         const effectiveLastCelebrated = Math.max(authState.lastCelebratedBlock || 0, 0);
 
         if (blockHeight > effectiveLastCelebrated) {
-            setShowVictory(true);
-            setVictoryBlock(blockHeight);
-            setTimeout(() => setShowVictory(false), 4500);
+            if (lastResult.hasConfirmed) {
+                setVictoryBlock(blockHeight);
+                triggerCelebration({
+                    satsWon: 0,
+                    lud16: null,
+                    pubkey: authState.pubkey || undefined,
+                    blockHeight
+                });
+            } else {
+                setShowPotentialModal(true);
+            }
         }
-    }, [lastResult, authState.pubkey, authState.lastCelebratedBlock, setVictoryBlock]);
+    }, [lastResult, authState.pubkey, authState.lastCelebratedBlock, setVictoryBlock, triggerCelebration]);
 
     if (!lastResult?.resolved) return null;
 
@@ -43,7 +61,10 @@ export function ResultPanel({ lastResult, targetBlock }: ResultPanelProps) {
         ? lastResult.winners.map((winner: Bet) => winner.alias || `${winner.pubkey.slice(0, 8)}...`).join(', ')
         : 'Nadie';
 
-
+    const handlePotentialClose = () => {
+        setShowPotentialModal(false);
+        setVictoryBlock(lastResult.targetBlock);
+    };
 
     return (
         <>
@@ -57,17 +78,16 @@ export function ResultPanel({ lastResult, targetBlock }: ResultPanelProps) {
                 Ganadores: <strong>{winnersText}</strong>
             </p>
 
-            {/* Victory overlay */}
-            {showVictory && (
-                <>
-                    <div className="winner-overlay" />
-                    <div className="victory-text-animation">
-                        ¡CAMPEÓN!
-                    </div>
-                </>
-            )}
+            <PotentialWinnerModal
+                isOpen={showPotentialModal}
+                onClose={handlePotentialClose}
+                blockHeight={lastResult.targetBlock}
+                winningNumber={lastResult.winningNumber}
+                pubkey={authState.pubkey || undefined}
+            />
 
-            {/* Transparency modal */}
+            {ChampionModal}
+
             <TransparencyModal
                 isOpen={showTransparency}
                 onClose={() => setShowTransparency(false)}

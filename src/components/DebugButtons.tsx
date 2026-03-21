@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useGame } from '../contexts/GameContext';
 import { PotentialWinnerModal } from './modals/PotentialWinnerModal';
+import { useVictoryCelebration } from '../hooks/useVictoryCelebration';
 
 const btnStyle: React.CSSProperties = {
     fontSize: '0.7rem',
@@ -26,6 +27,7 @@ export function DebugButtons() {
     const { state: gameState, triggerDebugVictory, triggerDebugPotential, clearDebugPotential, refreshGame } = useGame();
     const [isLoadingChampions, setIsLoadingChampions] = useState(false);
     const [championsActive, setChampionsActive] = useState(false);
+    const { triggerCelebration, ChampionModal } = useVictoryCelebration();
 
     const handleFlash = () => {
         document.body.classList.add('flash-green');
@@ -43,25 +45,12 @@ export function DebugButtons() {
     };
 
     const handleVictory = () => {
-        document.body.classList.add('celebrating');
-        const clock = document.getElementById('clock');
-        if (clock) clock.classList.add('victory-mode');
-
-        const overlay = document.createElement('div');
-        overlay.className = 'winner-overlay';
-        document.body.appendChild(overlay);
-
-        const msg = document.createElement('div');
-        msg.className = 'victory-text-animation';
-        msg.textContent = '¡CAMPEÓN!';
-        document.body.appendChild(msg);
-
-        setTimeout(() => {
-            document.body.classList.remove('celebrating');
-            if (clock) clock.classList.remove('victory-mode');
-            overlay.remove();
-            msg.remove();
-        }, 4500);
+        triggerCelebration({
+            satsWon: 0,
+            lud16: null,
+            pubkey: '',
+            blockHeight: gameState.targetBlock
+        });
     };
 
     const handleChampions = async () => {
@@ -157,6 +146,8 @@ export function DebugButtons() {
                 onClose={clearDebugPotential}
                 blockHeight={gameState.targetBlock}
             />
+
+            {ChampionModal}
         </>
     );
 }
