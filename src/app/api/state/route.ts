@@ -57,12 +57,17 @@ export async function GET(request: Request) {
                     WHERE b.target_block = $1 AND b.selected_number = $2 AND b.is_paid = TRUE AND b.betting_block >= ($1 - 21)
                 `, [lastResolvedBlock, result.winningNumber]);
                 
+                const blocksUntilCelebration = Math.max(0, (lastResolvedBlock + 2) - currentHeight);
+                const hasConfirmed = blocksUntilCelebration === 0;
+
                 lastResult = {
                     resolved: true,
                     blockHash: result.hash,
                     winningNumber: result.winningNumber,
                     winners,
-                    targetBlock: lastResolvedBlock
+                    targetBlock: lastResolvedBlock,
+                    blocksUntilCelebration,
+                    hasConfirmed
                 };
             }
         }
