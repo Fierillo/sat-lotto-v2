@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { queryNeon } from '@/src/lib/db';
+import { queryNeon, dbGet, dbGetAll, dbInsert } from '@/src/lib/db';
 import { createNwcInvoice } from '@/src/utils/payment-server';
 import { lookupNwcInvoice, payNwcInvoice } from '@/src/utils/payment-server';
 import { verifyEvent } from 'nostr-tools';
@@ -47,8 +47,32 @@ export async function POST(request: Request) {
             }
             
             const tx = await lookupNwcInvoice(nwcUrl, paymentHash) as any;
+            console.log('[DEBUG BET] lookupNwcInvoice result:', tx);
             if (tx && (tx.settled || tx.preimage)) {
+                console.log('[DEBUG BET] Pago confirmado, actualizando is_paid=true');
                 await queryNeon('UPDATE lotto_bets SET is_paid = TRUE WHERE payment_hash = $1', [paymentHash]);
+
+                const bet = await dbGet<{id: number, pubkey: string, target_block: number}>('lotto_bets', { payment_hash: paymentHash });
+                console.log('[DEBUG BET] Bet encontrado:', bet);
+                if (bet) {
+                    const existingPaidBets = await dbGetAll<{id: number}>('lotto_bets', { pubkey: bet.pubkey, target_block: bet.target_block, is_paid: true });
+                    console.log('[DEBUG BET] Apuestas pagadas existentes:', existingPaidBets.length);
+                    if (existingPaidBets.length > 1) {
+                        console.log('[DEBUG BET] Insertando payout para apuesta #', bet.id);
+                        await dbInsert('lotto_payouts', {
+                            pubkey: bet.pubkey,
+                            block_height: bet.target_block,
+                            amount: 21,
+                            fee: 2,
+                            type: 'bet',
+                            status: 'paid',
+                            tx_hash: paymentHash,
+                            bet_id: bet.id
+                        });
+                        console.log('[DEBUG BET] Payout insertado exitosamente');
+                    }
+                }
+
                 try {
                     const feeInvoice = await getInvoiceFromLNAddress('fierillo@lawalletilla.vercel.app', 2);
                     if (feeInvoice) await payNwcInvoice(nwcUrl, feeInvoice);
