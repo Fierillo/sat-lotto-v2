@@ -48,9 +48,14 @@ export function usePayment(): UsePaymentReturn {
         };
 
         let signed: SignedEvent | null = null;
-        const ext = window.nostr;
 
-        if (authState.signer) {
+        if (authState.signer && authState.signer === window.nostr) {
+            try {
+                signed = await NIP07.signEvent(unsigned);
+            } catch (e) {
+                console.error('[submitBet] Ext falló:', e);
+            }
+        } else if (authState.signer) {
             try {
                 const ev = new NDKEvent(ndk, unsigned);
                 const signPromise = ev.sign(authState.signer);
@@ -63,14 +68,6 @@ export function usePayment(): UsePaymentReturn {
                 if (!signed.sig) throw new Error('Firma vacía');
             } catch (e: any) {
                 console.error('[submitBet] Signer falló:', e.message || e);
-            }
-        }
-
-        if (!signed && ext) {
-            try {
-                signed = await ext.signEvent(unsigned);
-            } catch (e) {
-                console.error('[submitBet] Ext falló:', e);
             }
         }
 
