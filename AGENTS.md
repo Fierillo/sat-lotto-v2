@@ -229,3 +229,75 @@ async function getUserData(userId: string): Promise<User> {
     return user;
 }
 ```
+
+## Testing (TDD)
+
+### Framework
+
+We use **Vitest** for testing. Tests live in `tests/` with subdirectories:
+
+```
+tests/
+├── unit/         # Unit tests (db queries, pure functions)
+├── integration/  # Integration tests (API, NWC, full flows)
+├── security/     # Security/hacker tests (input validation, replay attacks, etc.)
+└── debug/        # Debug scripts, manual testing tools
+```
+
+### Running Tests
+
+```bash
+npm test              # Run all tests
+npm run test:unit     # Run unit tests only
+npm run test:integration  # Run integration tests only
+npm run test:security # Run security tests only
+npm run test:watch    # Watch mode for development
+```
+
+### TDD Cycle
+
+1. **Red**: Write a failing test first
+2. **Green**: Write minimal code to pass the test
+3. **Refactor**: Improve code while keeping tests passing
+
+```typescript
+// 1. RED - Write failing test first
+describe('parseBunkerUrl', () => {
+    it('should extract bunker URL from nostrconnect URI', () => {
+        const uri = 'nostrconnect://bunker123?relay=wss://relay.example.com';
+        const result = parseBunkerUrl(uri);
+        expect(result.bunkerUrl).toBe('bunker123');
+    });
+});
+
+// 2. GREEN - Write minimal code to pass
+function parseBunkerUrl(uri: string): { bunkerUrl: string; relay: string } {
+    const match = uri.match(/nostrconnect:\/\/([^?]+)/);
+    return { bunkerUrl: match?.[1] ?? '', relay: '' };
+}
+
+// 3. REFACTOR - Improve while keeping tests passing
+```
+
+### Test File Naming
+
+- Unit tests: `*.test.ts`
+- Integration tests: `*.test.ts`  
+- Security tests: `hacker-test-*.test.ts`
+- Debug scripts: `*.ts` (no .test suffix)
+
+### Test Structure
+
+```typescript
+import { describe, it, expect, beforeEach } from 'vitest';
+
+describe('featureName', () => {
+    beforeEach(() => {
+        // Setup
+    });
+
+    it('should do something specific', () => {
+        expect(actual).toBe(expected);
+    });
+});
+```
