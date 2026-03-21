@@ -7,7 +7,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ pubk
     const { pubkey } = await params;
     try {
         const rows = await queryNeon(`
-            SELECT alias, last_celebrated_block, sats_earned 
+            SELECT alias, last_celebrated_block, sats_earned, lud16 
             FROM lotto_identities WHERE pubkey = $1
             LIMIT 1
         `, [pubkey]);
@@ -15,7 +15,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ pubk
         return NextResponse.json({ 
             alias: rows[0]?.alias || null,
             lastCelebrated: rows[0]?.last_celebrated_block || 0,
-            sats_earned: rows[0]?.sats_earned || 0
+            sats_earned: rows[0]?.sats_earned || 0,
+            lud16: rows[0]?.lud16 || null
         });
     } catch (e: any) {
         console.error('[Identity GET] Error:', e.message);
