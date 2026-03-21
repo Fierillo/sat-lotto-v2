@@ -36,7 +36,12 @@ export async function syncData() {
     }
 
     try {
-        await processPayouts(cachedBlock.height);
+        const blocksUntilCelebration = (cachedBlock.target + 2) - cachedBlock.height;
+        if (blocksUntilCelebration <= 0) {
+            await processPayouts(cachedBlock.height);
+        } else {
+            console.log(`[Sync] Waiting for ${blocksUntilCelebration} blocks before celebrating/paying`);
+        }
     } catch (e: any) {
         console.error('[PayoutWorker] Error:', e.message || 'unknown');
     } finally {
