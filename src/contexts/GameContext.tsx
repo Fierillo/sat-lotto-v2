@@ -25,6 +25,12 @@ export interface GameContextState {
     // Loading state
     isLoading: boolean;
     error: string | null;
+
+    // Debug mode
+    debugMode: boolean;
+    debugShowVictory: boolean;
+    debugShowPotential: boolean;
+    debugShowChampions: boolean;
 }
 
 // ─── Action Types ─────────────────────────────────────────────────────
@@ -34,7 +40,11 @@ type GameAction =
     | { type: 'SELECT_NUMBER'; payload: number | null }
     | { type: 'SET_LOADING'; payload: boolean }
     | { type: 'SET_ERROR'; payload: string | null }
-    | { type: 'SET_VICTORY_BLOCK'; payload: number };
+    | { type: 'SET_VICTORY_BLOCK'; payload: number }
+    | { type: 'SET_DEBUG_MODE'; payload: boolean }
+    | { type: 'SET_DEBUG_VICTORY'; payload: boolean }
+    | { type: 'SET_DEBUG_POTENTIAL'; payload: boolean }
+    | { type: 'SET_DEBUG_CHAMPIONS'; payload: boolean };
 
 // ─── Initial State ────────────────────────────────────────────────────
 
@@ -49,6 +59,10 @@ const initialState: GameContextState = {
     lastVictoryBlock: 0,
     isLoading: true,
     error: null,
+    debugMode: false,
+    debugShowVictory: false,
+    debugShowPotential: false,
+    debugShowChampions: false,
 };
 
 // ─── Reducer ──────────────────────────────────────────────────────────
@@ -74,6 +88,14 @@ function gameReducer(state: GameContextState, action: GameAction): GameContextSt
             return { ...state, error: action.payload, isLoading: false };
         case 'SET_VICTORY_BLOCK':
             return { ...state, lastVictoryBlock: action.payload };
+        case 'SET_DEBUG_MODE':
+            return { ...state, debugMode: action.payload };
+        case 'SET_DEBUG_VICTORY':
+            return { ...state, debugShowVictory: action.payload };
+        case 'SET_DEBUG_POTENTIAL':
+            return { ...state, debugShowPotential: action.payload };
+        case 'SET_DEBUG_CHAMPIONS':
+            return { ...state, debugShowChampions: action.payload };
         default:
             return state;
     }
@@ -88,6 +110,11 @@ interface GameContextValue {
     setVictoryBlock: (block: number) => void;
     isFrozen: boolean;
     isResolving: boolean;
+    setDebugMode: (enabled: boolean) => void;
+    triggerDebugVictory: () => void;
+    triggerDebugPotential: () => void;
+    clearDebugPotential: () => void;
+    toggleDebugChampions: () => void;
 }
 
 const GameContext = createContext<GameContextValue | null>(null);
@@ -177,6 +204,29 @@ export function GameProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('satlotto_last_victory_block', block.toString());
     }, []);
 
+    const setDebugMode = useCallback((enabled: boolean) => {
+        dispatch({ type: 'SET_DEBUG_MODE', payload: enabled });
+    }, []);
+
+    const triggerDebugVictory = useCallback(() => {
+        dispatch({ type: 'SET_DEBUG_VICTORY', payload: true });
+        setTimeout(() => {
+            dispatch({ type: 'SET_DEBUG_VICTORY', payload: false });
+        }, 4500);
+    }, []);
+
+    const triggerDebugPotential = useCallback(() => {
+        dispatch({ type: 'SET_DEBUG_POTENTIAL', payload: true });
+    }, []);
+
+    const clearDebugPotential = useCallback(() => {
+        dispatch({ type: 'SET_DEBUG_POTENTIAL', payload: false });
+    }, []);
+
+    const toggleDebugChampions = useCallback(() => {
+        dispatch({ type: 'SET_DEBUG_CHAMPIONS', payload: !state.debugShowChampions });
+    }, [state.debugShowChampions]);
+
     const isFrozen = state.targetBlock > 0 && state.currentBlock >= state.targetBlock - 2;
     const isResolving = state.currentBlock === state.targetBlock;
 
@@ -188,6 +238,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
             setVictoryBlock,
             isFrozen,
             isResolving,
+            setDebugMode,
+            triggerDebugVictory,
+            triggerDebugPotential,
+            clearDebugPotential,
+            toggleDebugChampions,
         }}>
             {children}
         </GameContext.Provider>

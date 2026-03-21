@@ -12,11 +12,17 @@ import { ResultPanel } from '../components/ResultPanel';
 import { JackpotPanel } from '../components/JackpotPanel';
 import { LoginModal } from '../components/modals/LoginModal';
 import { PinModal } from '../components/modals/PinModal';
+import { DebugButtons } from '../components/DebugButtons';
 
 function GameContent() {
     const auth = useAuth();
     const { state: gameState } = useGame();
     const [showLoginModal, setShowLoginModal] = useState(false);
+    const [showDebug, setShowDebug] = useState(false);
+
+    useEffect(() => {
+        setShowDebug(process.env.NEXT_PUBLIC_TEST === 'on');
+    }, []);
 
     const handleShowLogin = useCallback(async () => {
         if (!auth.state.pubkey) {
@@ -120,6 +126,8 @@ function GameContent() {
 
             {/* Login Modal */}
             <LoginModal isOpen={showLoginModal} onClose={handleCloseLogin} />
+
+            {showDebug && <DebugButtons />}
         </div>
     );
 }
