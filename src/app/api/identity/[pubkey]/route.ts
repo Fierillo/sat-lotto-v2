@@ -30,7 +30,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ pub
 
     try {
         const body = await request.json();
-        const { event, lud16, winner_block, has_confirmed } = body;
+        const { event, lud16, nip05, winner_block, has_confirmed } = body;
 
         const clientIP = await getClientIP(request);
         const rateCheck = await checkRateLimit('identity:ip', clientIP);
@@ -62,33 +62,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ pub
                     last_updated = GREATEST(lotto_identities.last_updated, EXCLUDED.last_updated)
             `, [pubkey, profileNip05, parsedEvent.created_at, profileLud16, winner_block || 0, has_confirmed || false]);
         } else {
-            const updates: string[] = [];
-            const values: any[] = [];
-            let paramIndex = 1;
-
-            if (lud16 !== undefined) {
-                updates.push(`lud16 = COALESCE(EXCLUDED.lud16, lotto_identities.lud16)`);
-            }
-            if (winner_block !== undefined) {
-                updates.push(`winner_block = $${paramIndex}`);
-                values.push(winner_block);
-                paramIndex++;
-            }
-            if (has_confirmed !== undefined) {
-                updates.push(`has_confirmed = $${paramIndex}`);
-                values.push(has_confirmed);
-                paramIndex++;
-            }
-
-            if (updates.length > 0) {
-                values.push(urlPubkey);
-                await queryNeon(`
-                    INSERT INTO lotto_identities (pubkey, lud16, winner_block, has_confirmed, last_updated)
-                    VALUES ($${paramIndex}, $1, $2, $3, NOW())
-                    ON CONFLICT (pubkey) DO UPDATE SET
-                        ${updates.join(', ')}
-                `, [lud16 || null, winner_block || 0, has_confirmed || false, ...values]);
-            }
+            await queryNeon(`
+                INSERT INTO lotto_identities (pubkey, lud16, nip05, winner_block, has_confirmed, last_updated)
+                VALUES ($1, $2, $3, $4, $5, NOW())
+                ON CONFLICT (pubkey) DO UPDATE SET
+                    lud16 = COALESCE($2, lotto_identities.lud16),
+                    nip05 = COALESCE($3, lotto_identities.nip05),
+                    winner_block = COALESCE(NULLIF($4, 0), lotto_identities.winner_block),
+                    has_confirmed = COALESCE($5, lotto_identities.has_confirmed)
+            `, [urlPubkey, lud16 || null, nip05 || null, winner_block || 0, has_confirmed || false]);
         }
 
         return NextResponse.json({ ok: true });

@@ -263,12 +263,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (alias) localStorage.setItem('satlotto_alias', alias);
             if (lud16) localStorage.setItem('satlotto_lud16', lud16);
 
-            const finalLud16 = lud16 || alias;
-            if (finalLud16) {
+            if (lud16 || alias) {
                 await fetch(`/api/identity/${pubkey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ lud16: finalLud16 })
+                    body: JSON.stringify({ 
+                        lud16: lud16 || null,
+                        nip05: alias || null
+                    })
                 });
             }
 
