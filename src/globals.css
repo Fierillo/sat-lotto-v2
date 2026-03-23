@@ -774,24 +774,6 @@ body:not(.logged-out) .bets-panel {
 }
 
 /* Modal and other missing styles */
-.modal-bg {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.8);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 99999;
-}
-
-.modal {
-    background: #1a1a2e;
-    border-radius: 1rem;
-    padding: 2rem;
-    width: 90%;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    text-align: left;
-}
 
 /* Tamaños de modal */
 .modal-small { max-width: 300px; }
@@ -1334,8 +1316,8 @@ body.processing #clock {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.8);
-    backdrop-filter: blur(5px);
+    background: transparent;
+    backdrop-filter: blur(8px);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -1343,14 +1325,15 @@ body.processing #clock {
 }
 
 .modal {
-    background: var(--bg-top);
-    border: 1px solid var(--glass-border-light);
+    background: rgba(20, 20, 35, 0.85);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 16px;
     padding: 30px;
     width: 90%;
     max-width: 400px;
     text-align: center;
-    box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     max-height: 90vh;
     overflow-y: auto;
     scrollbar-width: none;
