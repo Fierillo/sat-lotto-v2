@@ -9,6 +9,7 @@ interface ChampionParams {
     pubkey?: string;
     blockHeight: number;
     winningNumber?: number;
+    onClose?: () => void;
 }
 
 interface ChampionData {
@@ -17,11 +18,13 @@ interface ChampionData {
     pubkey?: string;
     blockHeight: number;
     winningNumber?: number;
+    onClose?: () => void;
 }
 
 interface UseChampionReturn {
     triggerPotentialWinner: (params: ChampionParams) => void;
     triggerChampion: (params: ChampionParams) => void;
+    isAnimating: boolean;
     PotentialWinnerModal: ReactElement | null;
     ChampionModal: ReactElement | null;
 }
@@ -56,6 +59,14 @@ export function useChampion(): UseChampionReturn {
         document.querySelectorAll('.winner-overlay, .victory-text-animation').forEach(el => el.remove());
     }, []);
 
+    const handleChampionClose = useCallback(() => {
+        setShowChampionModal(false);
+        if (championData?.onClose) {
+            championData.onClose();
+        }
+        setChampionData(null);
+    }, [championData]);
+
     const triggerPotentialWinner = useCallback((params: ChampionParams) => {
         if (isAnimating) return;
 
@@ -87,6 +98,7 @@ export function useChampion(): UseChampionReturn {
             satsWon: params.satsWon || 0,
             pubkey: params.pubkey,
             blockHeight: params.blockHeight,
+            onClose: params.onClose,
         };
         setChampionData(data);
         setShowChampionModal(false);
@@ -136,7 +148,7 @@ export function useChampion(): UseChampionReturn {
     const ChampionModalComponent = championData ? (
         <ChampionModal
             isOpen={showChampionModal}
-            onClose={() => setShowChampionModal(false)}
+            onClose={handleChampionClose}
             satsWon={championData.satsWon}
             lud16={championData.lud16}
             pubkey={championData.pubkey}
@@ -147,6 +159,7 @@ export function useChampion(): UseChampionReturn {
     return {
         triggerPotentialWinner,
         triggerChampion,
+        isAnimating,
         PotentialWinnerModal: PotentialWinnerModalComponent,
         ChampionModal: ChampionModalComponent,
     };
