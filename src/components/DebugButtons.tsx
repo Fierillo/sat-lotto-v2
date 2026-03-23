@@ -2,7 +2,20 @@
 
 import { useState } from 'react';
 import { useGame } from '../contexts/GameContext';
-import { useChampion } from '../hooks/useChampion';
+import { useAuth } from '../contexts/AuthContext';
+
+interface ChampionParams {
+    satsWon?: number;
+    pubkey?: string;
+    blockHeight: number;
+    winningNumber?: number;
+    onClose?: () => void;
+}
+
+interface DebugButtonsProps {
+    triggerChampion: (params: ChampionParams) => void;
+    triggerPotentialWinner: (params: ChampionParams) => void;
+}
 
 const btnStyle: React.CSSProperties = {
     fontSize: '0.7rem',
@@ -22,11 +35,11 @@ const DEBUG_CHAMPIONS = [
     { pubkey: 'd4e5f6789012345678901234567890123456789012345678901234567890', nip05: 'BitcoinMaxi@nostr.com', sats_earned: 2100 }
 ];
 
-export function DebugButtons() {
+export function DebugButtons({ triggerChampion, triggerPotentialWinner }: DebugButtonsProps) {
     const { state: gameState, refreshGame } = useGame();
+    const { state: authState } = useAuth();
     const [isLoadingChampions, setIsLoadingChampions] = useState(false);
     const [championsActive, setChampionsActive] = useState(false);
-    const { triggerChampion, triggerPotentialWinner } = useChampion();
 
     const handleFlash = () => {
         document.body.classList.add('flash-green');
@@ -46,7 +59,7 @@ export function DebugButtons() {
     const handleVictory = () => {
         triggerChampion({
             satsWon: 0,
-            pubkey: gameState.lastResult?.winners?.[0]?.pubkey || '',
+            pubkey: gameState.lastResult?.winners?.[0]?.pubkey || authState.pubkey || undefined,
             blockHeight: gameState.targetBlock
         });
     };
@@ -118,7 +131,7 @@ export function DebugButtons() {
                     🏆 VICTORY
                 </button>
                 <button
-                    onClick={() => triggerPotentialWinner({ blockHeight: gameState.targetBlock })}
+                    onClick={() => triggerPotentialWinner({ pubkey: authState.pubkey || undefined, blockHeight: gameState.targetBlock })}
                     style={{ ...btnStyle, border: '1px solid #00ff9d', color: '#00ff9d' }}
                 >
                     👑 POTENTIAL

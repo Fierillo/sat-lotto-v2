@@ -29,22 +29,26 @@ function GameContent() {
     useEffect(() => {
         if (auth.state.pubkey && auth.state.isInitialized) {
             auth.getVictoryStatus().then(status => {
-                if (status.winner_block > 0 && status.has_confirmed) {
-                    triggerChampion({
-                        satsWon: 0,
-                        pubkey: auth.state.pubkey || undefined,
-                        blockHeight: status.winner_block
-                    });
-                    auth.clearVictoryStatus();
-                } else if (status.winner_block > 0 && !status.has_confirmed) {
-                    triggerPotentialWinner({
-                        pubkey: auth.state.pubkey || undefined,
-                        blockHeight: status.winner_block
-                    });
+                const currentBlock = gameState.currentBlock;
+
+                if (status.winner_block > 0) {
+                    if (status.winner_block + 2 < currentBlock && status.has_confirmed) {
+                        triggerChampion({
+                            satsWon: 0,
+                            pubkey: auth.state.pubkey || undefined,
+                            blockHeight: status.winner_block,
+                            onClose: () => auth.clearVictoryStatus()
+                        });
+                    } else if (status.winner_block <= currentBlock && currentBlock <= status.winner_block + 2) {
+                        triggerPotentialWinner({
+                            pubkey: auth.state.pubkey || undefined,
+                            blockHeight: status.winner_block
+                        });
+                    }
                 }
             });
         }
-    }, [auth.state.pubkey, auth.state.isInitialized]);
+    }, [auth.state.pubkey, auth.state.isInitialized, gameState.currentBlock]);
 
     const handleShowLogin = useCallback(async () => {
         if (!auth.state.pubkey) {
@@ -144,7 +148,12 @@ function GameContent() {
 
             <LoginModal isOpen={showLoginModal} onClose={handleCloseLogin} />
 
-            {showDebug && <DebugButtons />}
+            {showDebug && (
+                <DebugButtons
+                    triggerChampion={triggerChampion}
+                    triggerPotentialWinner={triggerPotentialWinner}
+                />
+            )}
         </div>
     );
 }
