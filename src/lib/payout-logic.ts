@@ -128,7 +128,7 @@ async function runFullPayoutCycle(targetBlock: number) {
 
         const winners = await queryNeon(`
             SELECT DISTINCT ON (b.pubkey) 
-                b.pubkey, b.alias, i.alias as identity_alias, i.lud16
+                b.pubkey, i.nip05, i.lud16
             FROM lotto_bets b
             LEFT JOIN lotto_identities i ON b.pubkey = i.pubkey
             WHERE b.target_block = $1 AND b.selected_number = $2 AND b.is_paid = TRUE AND b.betting_block >= ($1 - 21)
@@ -139,7 +139,7 @@ async function runFullPayoutCycle(targetBlock: number) {
 
         const winnerNames: string[] = [];
         for (const winner of winners) {
-            const winnerName = winner.identity_alias || winner.alias || winner.pubkey.slice(0, 8);
+            const winnerName = winner.nip05 || winner.pubkey.slice(0, 8);
             winnerNames.push(winnerName);
 
             let paid = false;
@@ -167,6 +167,10 @@ async function runFullPayoutCycle(targetBlock: number) {
                 VALUES ($1, $2, $3, $4, $5) 
                 ON CONFLICT (pubkey, block_height, type) DO UPDATE SET status = EXCLUDED.status
             `, [winner.pubkey, targetBlock, prizePerWinner, 'winner', paid ? 'paid' : 'failed']);
+
+            await queryNeon(`
+                UPDATE lotto_identities SET winner_block = $1, has_confirmed = $2 WHERE pubkey = $3
+            `, [targetBlock, paid, winner.pubkey]);
 
             if (paid) {
                 await queryNeon(`

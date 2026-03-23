@@ -7,13 +7,13 @@ export interface Bet {
     payment_hash?: string;
     is_paid: boolean;
     betting_block: number;
-    alias?: string;
+    nip05?: string;
     created_at?: string;
 }
 
 export interface Champion {
     pubkey: string;
-    alias?: string;
+    nip05?: string;
     sats_earned: number;
 }
 
