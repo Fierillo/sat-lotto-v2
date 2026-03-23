@@ -22,7 +22,7 @@ export function PotentialWinnerModal({ isOpen, onClose, blockHeight, winningNumb
 
     const handleSaveLN = async () => {
         if (!LNAddress.trim() || !pubkey) return;
-        
+
         setIsSaving(true);
         try {
             await fetch(`/api/identity/${pubkey}`, {
@@ -43,50 +43,56 @@ export function PotentialWinnerModal({ isOpen, onClose, blockHeight, winningNumb
             onClose={onClose}
             size="medium"
             footer={
-                <button className="auth-btn" onClick={onClose}>
-                    Entendido
-                </button>
+                lud16 && (
+                    <button className="auth-btn" onClick={onClose}>
+                        Entendido
+                    </button>
+                )
             }
         >
-            <h2 className="modal-title">¡Posible ganador!</h2>
-            <p className="modal-text">
-                Tu apuesta coincide con el número ganador del bloque {blockHeight}.
-                {winningNumber !== undefined && (
-                    <> Número ganador: <strong>{winningNumber}</strong>.</>
-                )}
-            </p>
-            <p className="modal-text">
-                Esperá a que el bloque tenga al menos 2 confirmaciones para asegurar que no haya reorgs.
-            </p>
-            <p className="modal-text">
-                Si tu apuesta sigue siendo válida después de las confirmaciones, recibirás el pozo automáticamente.
+            <h2 className="modal-title">✧ Las estrellas han hablado ✧</h2>
+
+            <p className="modal-text" style={{ fontStyle: 'italic', marginBottom: '15px' }}>
+                Tu número <strong>{winningNumber}</strong> brilla en el bloque <strong>{blockHeight}</strong>, 
+                pero las sombras aún podrían eclipsarlo...
             </p>
 
-            {!lud16 && pubkey && (
-                <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(255,107,107,0.1)', borderRadius: '8px' }}>
+            <p className="modal-text" style={{ marginBottom: '20px' }}>
+                Cuando Bitcoin confirme 2 bloques más, sabremos si el rayo de luz te encuentra.
+            </p>
+
+            <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(0, 255, 157, 0.1)', borderRadius: '8px', border: '1px solid rgba(0, 255, 157, 0.3)' }}>
+                <p className="modal-text" style={{ marginBottom: '8px', color: '#00ff9d' }}>
+                    Tu Lightning Address:
+                </p>
+                {lud16 && (
+                    <p className="modal-text" style={{ fontWeight: 'bold', marginBottom: '15px', fontFamily: 'monospace' }}>
+                        {lud16}
+                    </p>
+                )}
+                {!lud16 && (
                     <p className="modal-text" style={{ color: '#ff6b6b', marginBottom: '10px' }}>
-                        No tenés una dirección Lightning configurada.
+                        Aún no tienes una Lightning Address para recibir los sats.
                     </p>
-                    <p className="modal-text" style={{ fontSize: '0.85rem', marginBottom: '10px' }}>
-                        Ingresá tu Lightning Address para recibir los sats cuando se confirme:
-                    </p>
-                    <input
-                        type="text"
-                        placeholder="tu@ejemplo.com"
-                        value={LNAddress}
-                        onChange={(e) => setLNAddress(e.target.value)}
-                        style={{
-                            width: '100%',
-                            padding: '10px',
-                            borderRadius: '6px',
-                            border: '1px solid #333',
-                            background: 'rgba(0,0,0,0.5)',
-                            color: '#fff',
-                            fontSize: '1rem',
-                            marginBottom: '10px',
-                            boxSizing: 'border-box'
-                        }}
-                    />
+                )}
+                <input
+                    type="text"
+                    placeholder="tu@ejemplo.com"
+                    value={LNAddress}
+                    onChange={(e) => setLNAddress(e.target.value)}
+                    style={{
+                        width: '100%',
+                        padding: '10px',
+                        borderRadius: '6px',
+                        border: '1px solid #333',
+                        background: 'rgba(0,0,0,0.5)',
+                        color: '#fff',
+                        fontSize: '1rem',
+                        marginBottom: '10px',
+                        boxSizing: 'border-box'
+                    }}
+                />
+                <div style={{ display: 'flex', gap: '10px' }}>
                     <button 
                         className="auth-btn" 
                         onClick={handleSaveLN}
@@ -95,8 +101,19 @@ export function PotentialWinnerModal({ isOpen, onClose, blockHeight, winningNumb
                     >
                         {isSaving ? 'Guardando...' : 'Guardar'}
                     </button>
+                    {lud16 && (
+                        <button 
+                            className="auth-btn" 
+                            onClick={() => {
+                                setLNAddress(lud16 || '');
+                            }}
+                            style={{ background: 'transparent', border: '1px solid #666' }}
+                        >
+                            Cancelar
+                        </button>
+                    )}
                 </div>
-            )}
+            </div>
         </Modal>
     );
 }
