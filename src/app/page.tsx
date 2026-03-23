@@ -13,16 +13,38 @@ import { JackpotPanel } from '../components/JackpotPanel';
 import { LoginModal } from '../components/modals/LoginModal';
 import { PinModal } from '../components/modals/PinModal';
 import { DebugButtons } from '../components/DebugButtons';
+import { useChampion } from '../hooks/useChampion';
 
 function GameContent() {
     const auth = useAuth();
     const { state: gameState } = useGame();
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [showDebug, setShowDebug] = useState(false);
+    const { triggerChampion, triggerPotentialWinner, ChampionModal, PotentialWinnerModal } = useChampion();
 
     useEffect(() => {
         setShowDebug(process.env.NEXT_PUBLIC_TEST === 'on');
     }, []);
+
+    useEffect(() => {
+        if (auth.state.pubkey && auth.state.isInitialized) {
+            auth.getVictoryStatus().then(status => {
+                if (status.winner_block > 0 && status.has_confirmed) {
+                    triggerChampion({
+                        satsWon: 0,
+                        pubkey: auth.state.pubkey || undefined,
+                        blockHeight: status.winner_block
+                    });
+                    auth.clearVictoryStatus();
+                } else if (status.winner_block > 0 && !status.has_confirmed) {
+                    triggerPotentialWinner({
+                        pubkey: auth.state.pubkey || undefined,
+                        blockHeight: status.winner_block
+                    });
+                }
+            });
+        }
+    }, [auth.state.pubkey, auth.state.isInitialized]);
 
     const handleShowLogin = useCallback(async () => {
         if (!auth.state.pubkey) {
@@ -44,11 +66,8 @@ function GameContent() {
         auth.closePinModal();
     }, [auth]);
 
-    // No auto-check on mount - only show PinModal when user clicks JUGAR
-
     return (
         <div id="app">
-            {/* PinModal - global, appears on mount if NWC stored, or from LoginModal NWC flow */}
             {auth.state.pinModal.showPinModal && (
                 <PinModal
                     mode={auth.state.pinModal.pinModalMode}
@@ -60,20 +79,20 @@ function GameContent() {
                 />
             )}
 
+            {ChampionModal}
+            {PotentialWinnerModal}
+
             <UserPanel />
 
-            {/* Header */}
             <div className="header">
                 <h1><span>SatLotto</span></h1>
                 <p className="subtitle">Proba tu suerte, cada 21 bloques</p>
             </div>
 
-            {/* Jackpot Pool */}
             <div id="jackpotPool">
                 <JackpotPanel poolBalance={gameState.poolBalance} />
             </div>
 
-            {/* Main Game Container */}
             <div className="game-container">
                 <Clock
                     onShowLogin={handleShowLogin}
@@ -97,7 +116,6 @@ function GameContent() {
                 </div>
             </div>
 
-            {/* Footer */}
             <div className="footer">
                 <div className="footer-content">
                     <div className="footer-info">
@@ -124,7 +142,6 @@ function GameContent() {
                 </div>
             </div>
 
-            {/* Login Modal */}
             <LoginModal isOpen={showLoginModal} onClose={handleCloseLogin} />
 
             {showDebug && <DebugButtons />}

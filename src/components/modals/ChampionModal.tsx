@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Modal } from './Modal';
 
 interface ChampionModalProps {
@@ -15,6 +15,10 @@ interface ChampionModalProps {
 export function ChampionModal({ isOpen, onClose, satsWon, lud16, pubkey, blockHeight }: ChampionModalProps) {
     const [LNAddress, setLNAddress] = useState(lud16 || '');
     const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        if (lud16) setLNAddress(lud16);
+    }, [lud16]);
 
     const handleSaveLN = async () => {
         if (!LNAddress.trim() || !pubkey) return;

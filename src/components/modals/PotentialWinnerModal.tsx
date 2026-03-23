@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Modal } from './Modal';
 
 interface PotentialWinnerModalProps {
@@ -15,6 +15,10 @@ interface PotentialWinnerModalProps {
 export function PotentialWinnerModal({ isOpen, onClose, blockHeight, winningNumber, lud16, pubkey }: PotentialWinnerModalProps) {
     const [LNAddress, setLNAddress] = useState(lud16 || '');
     const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        if (lud16) setLNAddress(lud16);
+    }, [lud16]);
 
     const handleSaveLN = async () => {
         if (!LNAddress.trim() || !pubkey) return;
