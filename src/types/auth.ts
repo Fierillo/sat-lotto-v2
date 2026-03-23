@@ -21,6 +21,5 @@ export interface AuthState {
     localPrivkey: string | null;
     nip05: string | null;
     loginEvent: NDKEvent | null;
-    lastCelebratedBlock: number;
     loginMethod: string | null;
 }

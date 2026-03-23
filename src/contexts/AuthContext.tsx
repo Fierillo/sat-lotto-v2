@@ -4,11 +4,9 @@ import { createContext, useContext, useReducer, useEffect, useCallback, ReactNod
 import { NIP07 } from '../lib/nip07';
 import { NWC, restoreSigner } from '../lib/nwc';
 import { hasStoredNwc, isLocked, createPin as cryptoCreatePin, verifyPin, encryptNwc, decryptNwc, clearNwcStorage, getAttemptsLeft } from '../lib/crypto';
-import { resolveAlias } from '../lib/alias-resolver';
-import { createBunkerSession, restoreBunkerSession, deserializeSession, NIP46_RELAYS } from '../lib/nip46';
+import ndk from '../lib/ndk';
+import { createBunkerSession, restoreBunkerSession, NIP46_RELAYS } from '../lib/nip46';
 import { NDKPrivateKeySigner, NDKNip46Signer } from '@nostr-dev-kit/ndk';
-
-// ─── State Type ───────────────────────────────────────────────────────
 
 interface PinModalState {
     showPinModal: boolean;
@@ -26,14 +24,16 @@ interface AuthContextState {
     bunkerSession: string | null;
     nip05: string | null;
     loginEvent: any | null;
-    lastCelebratedBlock: number;
     loginMethod: string | null;
     isInitialized: boolean;
     error: string | null;
     pinModal: PinModalState;
 }
 
-// ─── Action Types ─────────────────────────────────────────────────────
+interface VictoryStatus {
+    winner_block: number;
+    has_confirmed: boolean;
+}
 
 type AuthAction =
     | { type: 'LOGIN'; payload: Partial<AuthContextState> }
@@ -41,14 +41,11 @@ type AuthAction =
     | { type: 'SET_SIGNER'; payload: any }
     | { type: 'SET_NWC_URL'; payload: string }
     | { type: 'SET_LOGIN_EVENT'; payload: any }
-    | { type: 'SET_CELEBRATED_BLOCK'; payload: number }
     | { type: 'INITIALIZED' }
     | { type: 'SET_ERROR'; payload: string | null }
     | { type: 'OPEN_PIN_MODAL'; payload: { mode: 'create' | 'verify'; nwcUrl?: string } }
     | { type: 'CLOSE_PIN_MODAL' }
     | { type: 'SET_PIN_ERROR'; payload: { error: string | null; attemptsLeft: number } };
-
-// ─── Initial State ────────────────────────────────────────────────────
 
 const initialState: AuthContextState = {
     pubkey: null,
@@ -58,7 +55,6 @@ const initialState: AuthContextState = {
     bunkerSession: null,
     nip05: null,
     loginEvent: null,
-    lastCelebratedBlock: 0,
     loginMethod: null,
     isInitialized: false,
     error: null,
@@ -70,8 +66,6 @@ const initialState: AuthContextState = {
         pinAttemptsLeft: 3,
     },
 };
-
-// ─── Reducer ──────────────────────────────────────────────────────────
 
 function authReducer(state: AuthContextState, action: AuthAction): AuthContextState {
     switch (action.type) {
@@ -85,8 +79,6 @@ function authReducer(state: AuthContextState, action: AuthAction): AuthContextSt
             return { ...state, nwcUrl: action.payload };
         case 'SET_LOGIN_EVENT':
             return { ...state, loginEvent: action.payload };
-        case 'SET_CELEBRATED_BLOCK':
-            return { ...state, lastCelebratedBlock: action.payload };
         case 'INITIALIZED':
             return { ...state, isInitialized: true };
         case 'SET_ERROR':
@@ -121,8 +113,6 @@ function authReducer(state: AuthContextState, action: AuthAction): AuthContextSt
     }
 }
 
-// ─── Context ──────────────────────────────────────────────────────────
-
 interface AuthContextValue {
     state: AuthContextState;
     login: (payload: Partial<AuthContextState>) => void;
@@ -130,32 +120,29 @@ interface AuthContextValue {
     setSigner: (signer: any) => void;
     setNwcUrl: (url: string) => void;
     setLoginEvent: (event: any) => void;
-    setCelebratedBlock: (block: number) => void;
     setError: (error: string | null) => void;
-    loginWithExtension: () => Promise<void>;
+    loginWithExtension: () => Promise<VictoryStatus | null>;
     loginWithNwc: (url: string) => Promise<void>;
-    loginWithBunker: (url: string, signer: any, secret: string, relays?: string[], skipHandshake?: boolean) => Promise<void>;
-    verifyPinForNwc: (pin: string) => Promise<boolean>;
-    createPinForNwc: (pin: string) => Promise<boolean>;
+    loginWithBunker: (url: string, signer: any, secret: string, relays?: string[], skipHandshake?: boolean) => Promise<VictoryStatus | null>;
+    verifyPinForNwc: (pin: string) => Promise<VictoryStatus | null>;
+    createPinForNwc: (pin: string) => Promise<VictoryStatus | null>;
     closePinModal: () => void;
     checkStoredNwcAndPrompt: () => Promise<boolean>;
+    getVictoryStatus: () => Promise<VictoryStatus>;
+    clearVictoryStatus: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-// ─── Provider ─────────────────────────────────────────────────────────
-
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [state, dispatch] = useReducer(authReducer, initialState);
 
-    // Initialize from localStorage on mount
     useEffect(() => {
         const pubkey = localStorage.getItem('satlotto_pubkey');
         const bunkerTarget = localStorage.getItem('satlotto_bunker');
         const bunkerSession = localStorage.getItem('satlotto_bunker_session');
         const nip05 = localStorage.getItem('satlotto_alias');
         const loginMethod = localStorage.getItem('satlotto_login_method');
-        const lastCelebratedBlock = parseInt(localStorage.getItem('satlotto_last_victory_block') || '0');
 
         if (pubkey) {
             dispatch({
@@ -166,14 +153,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     bunkerSession,
                     nip05,
                     loginMethod,
-                    lastCelebratedBlock,
                 },
             });
         }
         dispatch({ type: 'INITIALIZED' });
     }, []);
 
-    // Persist to localStorage when state changes
     useEffect(() => {
         if (!state.isInitialized) return;
 
@@ -230,11 +215,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'SET_LOGIN_EVENT', payload: event });
     }, []);
 
-    const setCelebratedBlock = useCallback((block: number) => {
-        dispatch({ type: 'SET_CELEBRATED_BLOCK', payload: block });
-        localStorage.setItem('satlotto_last_victory_block', block.toString());
-    }, []);
-
     const setError = useCallback((error: string | null) => {
         dispatch({ type: 'SET_ERROR', payload: error });
     }, []);
@@ -243,7 +223,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'CLOSE_PIN_MODAL' });
     }, []);
 
-    // Check if there's stored NWC and prompt for PIN
+    const getVictoryStatus = useCallback(async (): Promise<VictoryStatus> => {
+        if (!state.pubkey) {
+            return { winner_block: 0, has_confirmed: false };
+        }
+        try {
+            const res = await fetch(`/api/identity/${state.pubkey}`);
+            const data = await res.json();
+            return {
+                winner_block: data.winner_block || 0,
+                has_confirmed: data.has_confirmed || false,
+            };
+        } catch {
+            return { winner_block: 0, has_confirmed: false };
+        }
+    }, [state.pubkey]);
+
+    const clearVictoryStatus = useCallback(async () => {
+        if (!state.pubkey) return;
+        try {
+            await fetch(`/api/identity/${state.pubkey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ has_confirmed: false })
+            });
+        } catch (e) {
+            console.error('[clearVictoryStatus] Error:', e);
+        }
+    }, [state.pubkey]);
+
+    const fetchAndSaveProfile = async (pubkey: string): Promise<string | null> => {
+        try {
+            const user = ndk.getUser({ pubkey });
+            const profile = await user.fetchProfile();
+
+            const alias = profile?.nip05 || profile?.name || profile?.displayName || null;
+            const lud16 = profile?.lud16 || profile?.lud06 || null;
+
+            if (alias) localStorage.setItem('satlotto_alias', alias);
+            if (lud16) localStorage.setItem('satlotto_lud16', lud16);
+
+            const finalLud16 = lud16 || alias;
+            if (finalLud16) {
+                await fetch(`/api/identity/${pubkey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ lud16: finalLud16 })
+                });
+            }
+
+            return alias;
+        } catch (e) {
+            console.error('[fetchAndSaveProfile] Error:', e);
+            return localStorage.getItem('satlotto_alias');
+        }
+    };
+
     const checkStoredNwcAndPrompt = useCallback(async (): Promise<boolean> => {
         const hasStored = await hasStoredNwc();
         if (hasStored && !isLocked()) {
@@ -256,28 +291,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
     }, []);
 
-    // Login with NIP-07 extension (Alby, nos2x)
-    const loginWithExtension = useCallback(async (): Promise<void> => {
+    const loginWithExtension = useCallback(async (): Promise<VictoryStatus | null> => {
         dispatch({ type: 'SET_ERROR', payload: null });
         try {
             if (!NIP07.isAvailable()) {
                 throw new Error('No se detectó ninguna extensión de Nostr. Instalá Alby o usá una URL de NWC/Bunker para continuar.');
             }
             const pubkey = await NIP07.getPublicKey();
-            const nip05 = await resolveAlias(pubkey);
+            const nip05 = await fetchAndSaveProfile(pubkey);
             login({
                 pubkey,
                 nip05,
                 loginMethod: 'extension',
                 signer: window.nostr,
             });
+            return await getVictoryStatus();
         } catch (e: any) {
             dispatch({ type: 'SET_ERROR', payload: e.message });
             throw e;
         }
-    }, [login]);
+    }, [login, getVictoryStatus]);
 
-    // Login with NWC URL
     const loginWithNwc = useCallback(async (url: string): Promise<void> => {
         dispatch({ type: 'SET_ERROR', payload: null });
         
@@ -311,8 +345,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    // Verify PIN for stored NWC
-    const verifyPinForNwc = useCallback(async (pin: string): Promise<boolean> => {
+    const verifyPinForNwc = useCallback(async (pin: string): Promise<VictoryStatus | null> => {
         const result = await verifyPin(pin);
 
         if (result.locked) {
@@ -321,7 +354,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 type: 'SET_PIN_ERROR',
                 payload: { error: 'Demasiados intentos. Clave borrada por seguridad.', attemptsLeft: 0 }
             });
-            return false;
+            return null;
         }
 
         if (!result.success) {
@@ -332,23 +365,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     attemptsLeft: result.attemptsLeft
                 }
             });
-            return false;
+            return null;
         }
 
         const nwcUrl = await decryptNwc(pin);
         if (!nwcUrl) {
             dispatch({ type: 'SET_PIN_ERROR', payload: { error: 'Error al desencriptar.', attemptsLeft: result.attemptsLeft } });
-            return false;
+            return null;
         }
 
         try {
             const signer = restoreSigner(nwcUrl);
             if (!signer) {
                 dispatch({ type: 'SET_PIN_ERROR', payload: { error: 'No se pudo crear el signer.', attemptsLeft: result.attemptsLeft } });
-                return false;
+                return null;
             }
             const user = await signer.user();
-            const nip05 = await resolveAlias(user.pubkey);
+            const nip05 = await fetchAndSaveProfile(user.pubkey);
             login({
                 nwcUrl,
                 pubkey: user.pubkey,
@@ -357,19 +390,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 loginMethod: 'nwc',
             });
             dispatch({ type: 'CLOSE_PIN_MODAL' });
-            return true;
+            return await getVictoryStatus();
         } catch (e: any) {
             dispatch({ type: 'SET_PIN_ERROR', payload: { error: 'Error al conectar: ' + e.message, attemptsLeft: result.attemptsLeft } });
-            return false;
+            return null;
         }
-    }, [login]);
+    }, [login, getVictoryStatus]);
 
-    // Create PIN for new NWC
-    const createPinForNwc = useCallback(async (pin: string): Promise<boolean> => {
+    const createPinForNwc = useCallback(async (pin: string): Promise<VictoryStatus | null> => {
         const nwcUrl = state.pinModal.pinModalUrl;
         if (!nwcUrl) {
             dispatch({ type: 'SET_PIN_ERROR', payload: { error: 'URL de wallet no disponible.', attemptsLeft: 3 } });
-            return false;
+            return null;
         }
 
         try {
@@ -379,10 +411,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const signer = restoreSigner(nwcUrl);
             if (!signer) {
                 dispatch({ type: 'SET_PIN_ERROR', payload: { error: 'No se pudo crear el signer.', attemptsLeft: 3 } });
-                return false;
+                return null;
             }
             const user = await signer.user();
-            const nip05 = await resolveAlias(user.pubkey);
+            const nip05 = await fetchAndSaveProfile(user.pubkey);
             login({
                 nwcUrl,
                 pubkey: user.pubkey,
@@ -391,21 +423,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 loginMethod: 'nwc',
             });
             dispatch({ type: 'CLOSE_PIN_MODAL' });
-            return true;
+            return await getVictoryStatus();
         } catch (e: any) {
             dispatch({ type: 'SET_PIN_ERROR', payload: { error: 'Error: ' + e.message, attemptsLeft: 3 } });
-            return false;
+            return null;
         }
-    }, [login, state.pinModal.pinModalUrl]);
+    }, [login, getVictoryStatus, state.pinModal.pinModalUrl]);
 
-    // Login with bunker
     const loginWithBunker = useCallback(async (
         url: string,
         signer: NDKNip46Signer | NDKPrivateKeySigner,
         secret: string,
         relays?: string[],
         skipHandshake?: boolean
-    ): Promise<void> => {
+    ): Promise<VictoryStatus | null> => {
         dispatch({ type: 'SET_ERROR', payload: null });
 
         if (!url.startsWith('bunker://') && !url.includes('@')) {
@@ -426,7 +457,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
 
             const pubkey = (bunkerSigner as any).remotePubkey;
-            const nip05 = await resolveAlias(pubkey);
+            const nip05 = await fetchAndSaveProfile(pubkey);
 
             login({
                 pubkey,
@@ -436,11 +467,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 signer: bunkerSigner,
                 loginMethod: 'bunker',
             });
+            return await getVictoryStatus();
         } catch (e: any) {
             dispatch({ type: 'SET_ERROR', payload: e.message || 'Error al conectar con bunker' });
             throw e;
         }
-    }, [login, state.bunkerSession]);
+    }, [login, getVictoryStatus, state.bunkerSession]);
 
     return (
         <AuthContext.Provider
@@ -451,7 +483,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setSigner,
                 setNwcUrl,
                 setLoginEvent,
-                setCelebratedBlock,
                 setError,
                 loginWithExtension,
                 loginWithNwc,
@@ -460,14 +491,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 createPinForNwc,
                 closePinModal,
                 checkStoredNwcAndPrompt,
+                getVictoryStatus,
+                clearVictoryStatus,
             }}
         >
             {children}
         </AuthContext.Provider>
     );
 }
-
-// ─── Hook ─────────────────────────────────────────────────────────────
 
 export function useAuth() {
     const context = useContext(AuthContext);

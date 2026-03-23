@@ -3,50 +3,23 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
 import type { Bet, Champion, SorteoResult } from '../types';
 
-// ─── State Type ───────────────────────────────────────────────────────
-
 export interface GameContextState {
-    // Block info
     currentBlock: number;
     targetBlock: number;
     poolBalance: number;
-
-    // User selection
     selectedNumber: number | null;
-
-    // Game data
     bets: Bet[];
     champions: Champion[];
     lastResult: SorteoResult | null;
-
-    // Victory tracking
-    lastVictoryBlock: number;
-
-    // Loading state
     isLoading: boolean;
     error: string | null;
-
-    // Debug mode
-    debugMode: boolean;
-    debugShowVictory: boolean;
-    debugShowPotential: boolean;
-    debugShowChampions: boolean;
 }
-
-// ─── Action Types ─────────────────────────────────────────────────────
 
 type GameAction =
     | { type: 'SET_GAME_DATA'; payload: { block: { height: number; target: number; poolBalance: number }; bets: Bet[]; champions: Champion[]; lastResult: SorteoResult | null } }
     | { type: 'SELECT_NUMBER'; payload: number | null }
     | { type: 'SET_LOADING'; payload: boolean }
-    | { type: 'SET_ERROR'; payload: string | null }
-    | { type: 'SET_VICTORY_BLOCK'; payload: number }
-    | { type: 'SET_DEBUG_MODE'; payload: boolean }
-    | { type: 'SET_DEBUG_VICTORY'; payload: boolean }
-    | { type: 'SET_DEBUG_POTENTIAL'; payload: boolean }
-    | { type: 'SET_DEBUG_CHAMPIONS'; payload: boolean };
-
-// ─── Initial State ────────────────────────────────────────────────────
+    | { type: 'SET_ERROR'; payload: string | null };
 
 const initialState: GameContextState = {
     currentBlock: 0,
@@ -56,16 +29,9 @@ const initialState: GameContextState = {
     bets: [],
     champions: [],
     lastResult: null,
-    lastVictoryBlock: 0,
     isLoading: true,
     error: null,
-    debugMode: false,
-    debugShowVictory: false,
-    debugShowPotential: false,
-    debugShowChampions: false,
 };
-
-// ─── Reducer ──────────────────────────────────────────────────────────
 
 function gameReducer(state: GameContextState, action: GameAction): GameContextState {
     switch (action.type) {
@@ -86,40 +52,20 @@ function gameReducer(state: GameContextState, action: GameAction): GameContextSt
             return { ...state, isLoading: action.payload };
         case 'SET_ERROR':
             return { ...state, error: action.payload, isLoading: false };
-        case 'SET_VICTORY_BLOCK':
-            return { ...state, lastVictoryBlock: action.payload };
-        case 'SET_DEBUG_MODE':
-            return { ...state, debugMode: action.payload };
-        case 'SET_DEBUG_VICTORY':
-            return { ...state, debugShowVictory: action.payload };
-        case 'SET_DEBUG_POTENTIAL':
-            return { ...state, debugShowPotential: action.payload };
-        case 'SET_DEBUG_CHAMPIONS':
-            return { ...state, debugShowChampions: action.payload };
         default:
             return state;
     }
 }
 
-// ─── Context ──────────────────────────────────────────────────────────
-
 interface GameContextValue {
     state: GameContextState;
     selectNumber: (num: number | null) => void;
     refreshGame: () => Promise<void>;
-    setVictoryBlock: (block: number) => void;
     isFrozen: boolean;
     isResolving: boolean;
-    setDebugMode: (enabled: boolean) => void;
-    triggerDebugVictory: () => void;
-    triggerDebugPotential: () => void;
-    clearDebugPotential: () => void;
-    toggleDebugChampions: () => void;
 }
 
 const GameContext = createContext<GameContextValue | null>(null);
-
-// ─── Provider ─────────────────────────────────────────────────────────
 
 export function GameProvider({ children }: { children: ReactNode }) {
     const [state, dispatch] = useReducer(gameReducer, initialState);
@@ -148,13 +94,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    // Initialize from localStorage on mount
     useEffect(() => {
         const savedBlock = JSON.parse(localStorage.getItem('satlotto_blocks') || '{}');
         const savedBets = JSON.parse(localStorage.getItem('satlotto_last_bets') || '[]');
         const savedResult = JSON.parse(localStorage.getItem('satlotto_last_result') || 'null');
         const savedPool = parseInt(localStorage.getItem('satlotto_pool') || '0');
-        const lastVictoryBlock = parseInt(localStorage.getItem('satlotto_last_victory_block') || '0');
 
         if (savedBlock.height) {
             dispatch({
@@ -168,15 +112,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
             });
         }
 
-        if (lastVictoryBlock) {
-            dispatch({ type: 'SET_VICTORY_BLOCK', payload: lastVictoryBlock });
-        }
-
-        // Fetch fresh data
         fetchGameState();
     }, [fetchGameState]);
 
-    // Persist to localStorage
     useEffect(() => {
         localStorage.setItem('satlotto_blocks', JSON.stringify({
             height: state.currentBlock,
@@ -189,7 +127,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }
     }, [state.currentBlock, state.targetBlock, state.poolBalance, state.bets, state.lastResult]);
 
-    // Polling interval (21 seconds)
     useEffect(() => {
         const interval = setInterval(fetchGameState, 21000);
         return () => clearInterval(interval);
@@ -199,34 +136,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'SELECT_NUMBER', payload: num });
     }, []);
 
-    const setVictoryBlock = useCallback((block: number) => {
-        dispatch({ type: 'SET_VICTORY_BLOCK', payload: block });
-        localStorage.setItem('satlotto_last_victory_block', block.toString());
-    }, []);
-
-    const setDebugMode = useCallback((enabled: boolean) => {
-        dispatch({ type: 'SET_DEBUG_MODE', payload: enabled });
-    }, []);
-
-    const triggerDebugVictory = useCallback(() => {
-        dispatch({ type: 'SET_DEBUG_VICTORY', payload: true });
-        setTimeout(() => {
-            dispatch({ type: 'SET_DEBUG_VICTORY', payload: false });
-        }, 4500);
-    }, []);
-
-    const triggerDebugPotential = useCallback(() => {
-        dispatch({ type: 'SET_DEBUG_POTENTIAL', payload: true });
-    }, []);
-
-    const clearDebugPotential = useCallback(() => {
-        dispatch({ type: 'SET_DEBUG_POTENTIAL', payload: false });
-    }, []);
-
-    const toggleDebugChampions = useCallback(() => {
-        dispatch({ type: 'SET_DEBUG_CHAMPIONS', payload: !state.debugShowChampions });
-    }, [state.debugShowChampions]);
-
     const isFrozen = state.targetBlock > 0 && state.currentBlock >= state.targetBlock - 2;
     const isResolving = state.currentBlock === state.targetBlock;
 
@@ -235,26 +144,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
             state,
             selectNumber,
             refreshGame: fetchGameState,
-            setVictoryBlock,
             isFrozen,
             isResolving,
-            setDebugMode,
-            triggerDebugVictory,
-            triggerDebugPotential,
-            clearDebugPotential,
-            toggleDebugChampions,
         }}>
             {children}
         </GameContext.Provider>
     );
 }
 
-// ─── Hook ─────────────────────────────────────────────────────────────
-
 export function useGame() {
     const context = useContext(GameContext);
     if (!context) {
-        throw new Error('useGame must be used within a GameProvider');
+        throw new Error('useGame must be used within an GameProvider');
     }
     return context;
 }

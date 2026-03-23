@@ -6,8 +6,8 @@ interface PinModalProps {
     mode: 'create' | 'verify';
     error: string | null;
     attemptsLeft: number;
-    onVerify: (pin: string) => Promise<boolean>;
-    onCreate: (pin: string) => Promise<boolean>;
+    onVerify: (pin: string) => Promise<any>;
+    onCreate: (pin: string) => Promise<any>;
     onCancel: () => void;
 }
 
