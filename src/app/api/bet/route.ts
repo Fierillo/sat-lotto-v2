@@ -92,7 +92,7 @@ export async function POST(request: Request) {
         const finalPubkey = event.pubkey;
         const finalBloque = parseInt(betContent.bloque);
         const finalNumero = parseInt(betContent.numero);
-        const finalAlias = betContent.alias;
+        const finalNip05 = betContent.nip05;
         const eventId = event.id;
         const createdAt = event.created_at;
 
@@ -147,12 +147,12 @@ export async function POST(request: Request) {
         if (!pr) return NextResponse.json({ error: 'NWC returned an empty invoice' }, { status: 500 });
 
         await queryNeon(`
-            INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, payment_hash, is_paid, betting_block, alias, nostr_event_id)
+            INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, payment_hash, is_paid, betting_block, nip05, nostr_event_id)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        `, [finalPubkey, finalBloque, finalNumero, pr, hash, false, cachedBlock.height, finalAlias, eventId]);
+        `, [finalPubkey, finalBloque, finalNumero, pr, hash, false, cachedBlock.height, finalNip05, eventId]);
 
-        if (finalAlias) {
-            await queryNeon('INSERT INTO lotto_identities (pubkey, alias) VALUES ($1, $2) ON CONFLICT (pubkey) DO UPDATE SET alias = EXCLUDED.alias', [finalPubkey, finalAlias]);
+        if (finalNip05) {
+            await queryNeon('INSERT INTO lotto_identities (pubkey, nip05) VALUES ($1, $2) ON CONFLICT (pubkey) DO UPDATE SET nip05 = EXCLUDED.nip05', [finalPubkey, finalNip05]);
         }
 
         return NextResponse.json({ paymentRequest: pr, paymentHash: hash });
@@ -217,7 +217,7 @@ export async function GET(request: Request) {
         if (!pr) return NextResponse.json({ error: 'NWC returned an empty invoice' }, { status: 500 });
 
         await queryNeon(`
-            INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, payment_hash, is_paid, betting_block, alias, nostr_event_id)
+            INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, payment_hash, is_paid, betting_block, nip05, nostr_event_id)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `, [pubkey, block, number, pr, hash, false, cachedBlock.height, null, 'pending_amber_' + hash]);
 

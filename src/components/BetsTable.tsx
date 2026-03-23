@@ -38,7 +38,7 @@ export function BetsTable({ bets }: BetsTableProps) {
                 <tbody>
                     {sortedBets.map((bet, index) => (
                         <tr key={`${bet.pubkey}-${bet.selected_number}-${index}`} className="table-row-hover">
-                            <td>{bet.alias || `${bet.pubkey.slice(0, 8)}...`}</td>
+                            <td>{bet.nip05 || `${bet.pubkey.slice(0, 8)}...`}</td>
                             <td>{bet.selected_number}</td>
                         </tr>
                     ))}

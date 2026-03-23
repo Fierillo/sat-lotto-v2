@@ -29,7 +29,7 @@ export function ChampionsTable({ champions }: ChampionsTableProps) {
                 <tbody>
                     {champions.map((champion) => (
                         <tr key={champion.pubkey} className="table-row-hover">
-                            <td>{champion.alias || `${champion.pubkey.slice(0, 8)}...`}</td>
+                            <td>{champion.nip05 || `${champion.pubkey.slice(0, 8)}...`}</td>
                             <td className="table-sats">
                                 {champion.sats_earned.toLocaleString()} sats
                             </td>

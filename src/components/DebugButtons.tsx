@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { useGame } from '../contexts/GameContext';
-import { PotentialWinnerModal } from './modals/PotentialWinnerModal';
-import { useVictoryCelebration } from '../hooks/useVictoryCelebration';
+import { useChampion } from '../hooks/useChampion';
 
 const btnStyle: React.CSSProperties = {
     fontSize: '0.7rem',
@@ -17,17 +16,17 @@ const btnStyle: React.CSSProperties = {
 };
 
 const DEBUG_CHAMPIONS = [
-    { pubkey: 'a1b2c3d4e5f6789012345678901234567890123456789012345678901234', alias: 'Satoshi', sats_earned: 8500 },
-    { pubkey: 'b2c3d4e5f6789012345678901234567890123456789012345678901234567', alias: 'Lightning', sats_earned: 12300 },
-    { pubkey: 'c3d4e5f67890123456789012345678901234567890123456789012345678', alias: 'NostrFan', sats_earned: 4200 },
-    { pubkey: 'd4e5f6789012345678901234567890123456789012345678901234567890', alias: 'BitcoinMaxi', sats_earned: 2100 }
+    { pubkey: 'a1b2c3d4e5f6789012345678901234567890123456789012345678901234', nip05: 'Satoshi@nostr.com', sats_earned: 8500 },
+    { pubkey: 'b2c3d4e5f6789012345678901234567890123456789012345678901234567', nip05: 'Lightning@nostr.com', sats_earned: 12300 },
+    { pubkey: 'c3d4e5f67890123456789012345678901234567890123456789012345678', nip05: 'NostrFan@nostr.com', sats_earned: 4200 },
+    { pubkey: 'd4e5f6789012345678901234567890123456789012345678901234567890', nip05: 'BitcoinMaxi@nostr.com', sats_earned: 2100 }
 ];
 
 export function DebugButtons() {
-    const { state: gameState, triggerDebugVictory, triggerDebugPotential, clearDebugPotential, refreshGame } = useGame();
+    const { state: gameState, refreshGame } = useGame();
     const [isLoadingChampions, setIsLoadingChampions] = useState(false);
     const [championsActive, setChampionsActive] = useState(false);
-    const { triggerCelebration, ChampionModal } = useVictoryCelebration();
+    const { triggerChampion, triggerPotentialWinner } = useChampion();
 
     const handleFlash = () => {
         document.body.classList.add('flash-green');
@@ -45,10 +44,9 @@ export function DebugButtons() {
     };
 
     const handleVictory = () => {
-        triggerCelebration({
+        triggerChampion({
             satsWon: 0,
-            lud16: null,
-            pubkey: '',
+            pubkey: gameState.lastResult?.winners?.[0]?.pubkey || '',
             blockHeight: gameState.targetBlock
         });
     };
@@ -81,73 +79,63 @@ export function DebugButtons() {
     };
 
     return (
-        <>
-            <div
-                style={{
-                    position: 'fixed',
-                    bottom: '20px',
-                    right: '20px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '10px',
-                    zIndex: 9999,
-                }}
-            >
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    <button
-                        onClick={handleFlash}
-                        style={{ ...btnStyle, border: '1px solid #00ff9d', color: '#00ff9d' }}
-                    >
-                        ⚡ FLASH
-                    </button>
-                    <button
-                        onClick={handleFrozen}
-                        style={{ ...btnStyle, border: '1px solid #00f2ff', color: '#00f2ff' }}
-                    >
-                        ❄️ FROZEN
-                    </button>
-                    <button
-                        onClick={handleResolving}
-                        style={{ ...btnStyle, border: '1px solid #f7931a', color: '#f7931a' }}
-                    >
-                        🔥 RESOLVING
-                    </button>
-                </div>
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    <button
-                        onClick={handleVictory}
-                        style={{ ...btnStyle, border: '1px solid #f7931a', color: '#f7931a' }}
-                    >
-                        🏆 VICTORY
-                    </button>
-                    <button
-                        onClick={triggerDebugPotential}
-                        style={{ ...btnStyle, border: '1px solid #00ff9d', color: '#00ff9d' }}
-                    >
-                        👑 POTENTIAL
-                    </button>
-                    <button
-                        onClick={handleChampions}
-                        disabled={isLoadingChampions}
-                        style={{
-                            ...btnStyle,
-                            border: `1px solid ${championsActive ? '#00ff9d' : '#ff00ff'}`,
-                            color: championsActive ? '#00ff9d' : '#ff00ff',
-                            opacity: isLoadingChampions ? 0.5 : 1,
-                        }}
-                    >
-                        {isLoadingChampions ? '⏳...' : championsActive ? '🏅 CHAMPIONS ON' : '🏅 CHAMPIONS OFF'}
-                    </button>
-                </div>
+        <div
+            style={{
+                position: 'fixed',
+                bottom: '20px',
+                right: '20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+                zIndex: 9999,
+            }}
+        >
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <button
+                    onClick={handleFlash}
+                    style={{ ...btnStyle, border: '1px solid #00ff9d', color: '#00ff9d' }}
+                >
+                    ⚡ FLASH
+                </button>
+                <button
+                    onClick={handleFrozen}
+                    style={{ ...btnStyle, border: '1px solid #00f2ff', color: '#00f2ff' }}
+                >
+                    ❄️ FROZEN
+                </button>
+                <button
+                    onClick={handleResolving}
+                    style={{ ...btnStyle, border: '1px solid #f7931a', color: '#f7931a' }}
+                >
+                    🔥 RESOLVING
+                </button>
             </div>
-
-            <PotentialWinnerModal
-                isOpen={gameState.debugShowPotential}
-                onClose={clearDebugPotential}
-                blockHeight={gameState.targetBlock}
-            />
-
-            {ChampionModal}
-        </>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <button
+                    onClick={handleVictory}
+                    style={{ ...btnStyle, border: '1px solid #f7931a', color: '#f7931a' }}
+                >
+                    🏆 VICTORY
+                </button>
+                <button
+                    onClick={() => triggerPotentialWinner({ blockHeight: gameState.targetBlock })}
+                    style={{ ...btnStyle, border: '1px solid #00ff9d', color: '#00ff9d' }}
+                >
+                    👑 POTENTIAL
+                </button>
+                <button
+                    onClick={handleChampions}
+                    disabled={isLoadingChampions}
+                    style={{
+                        ...btnStyle,
+                        border: `1px solid ${championsActive ? '#00ff9d' : '#ff00ff'}`,
+                        color: championsActive ? '#00ff9d' : '#ff00ff',
+                        opacity: isLoadingChampions ? 0.5 : 1,
+                    }}
+                >
+                    {isLoadingChampions ? '⏳...' : championsActive ? '🏅 CHAMPIONS ON' : '🏅 CHAMPIONS OFF'}
+                </button>
+            </div>
+        </div>
     );
 }

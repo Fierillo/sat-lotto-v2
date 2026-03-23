@@ -3,7 +3,7 @@ import { queryNeon } from '../../../../lib/db';
 
 interface Champion {
     pubkey: string;
-    alias: string;
+    nip05: string;
     sats_earned: number;
 }
 
@@ -40,12 +40,12 @@ export async function POST(request: Request) {
 
             for (const c of champions) {
                 await queryNeon(`
-                    INSERT INTO lotto_identities (pubkey, alias, sats_earned)
+                    INSERT INTO lotto_identities (pubkey, nip05, sats_earned)
                     VALUES ($1, $2, $3)
                     ON CONFLICT (pubkey) DO UPDATE SET
-                        alias = EXCLUDED.alias,
+                        nip05 = EXCLUDED.nip05,
                         sats_earned = EXCLUDED.sats_earned
-                `, [c.pubkey, c.alias, c.sats_earned]);
+                `, [c.pubkey, c.nip05, c.sats_earned]);
             }
 
             return NextResponse.json({ success: true, action: 'set' });
