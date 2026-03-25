@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { apiClient } from '../utils/api-client';
-import ndk from '../utils/nostr-service';
+import ndk from '../lib/ndk';
 import { NDKEvent } from '@nostr-dev-kit/ndk';
 import { finalizeEvent } from 'nostr-tools';
 import { NIP07 } from '../lib/nip07';
