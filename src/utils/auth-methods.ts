@@ -13,6 +13,7 @@ import {
 import ndk from '../lib/ndk';
 import { createBunkerSession } from '../lib/nip46';
 import { NDKPrivateKeySigner, NDKNip46Signer } from '@nostr-dev-kit/ndk';
+import type { Signer } from '../types/signer';
 
 export interface VictoryStatus {
     winner_block: number;
@@ -27,7 +28,7 @@ export interface AuthActions {
         nwcUrl: string | null;
         bunkerTarget: string | null;
         bunkerSession: string | null;
-        signer?: any;
+        signer?: Signer;
     }>) => void;
     clearAuth: () => void;
     openPinModal: (payload: { mode: 'create' | 'verify'; nwcUrl?: string }) => void;
@@ -207,7 +208,7 @@ export const createPinForNwc = async (
 
 export const loginWithBunker = async (
     url: string,
-    signer: NDKPrivateKeySigner,
+    signer: NDKPrivateKeySigner | NDKNip46Signer,
     secret: string,
     relays?: string[],
     skipHandshake?: boolean,
@@ -223,11 +224,19 @@ export const loginWithBunker = async (
     }
 
     try {
-        const result = await createBunkerSession(url, signer, secret, relays, skipHandshake);
-        const bunkerSigner = result.signer;
-        const sessionData = JSON.stringify(result.session);
+        let bunkerSigner: NDKNip46Signer;
+        let sessionData: string | null = null;
 
-        const pubkey = (bunkerSigner as any).remotePubkey;
+        if (signer instanceof NDKNip46Signer) {
+            bunkerSigner = signer;
+            sessionData = actions.bunkerSession;
+        } else {
+            const result = await createBunkerSession(url, signer, secret, relays, skipHandshake);
+            bunkerSigner = result.signer;
+            sessionData = JSON.stringify(result.session);
+        }
+
+        const pubkey = (bunkerSigner as unknown as { remotePubkey: string }).remotePubkey;
         const nip05 = await fetchAndSaveProfile(pubkey);
 
         actions.setAuth({
@@ -239,8 +248,9 @@ export const loginWithBunker = async (
             loginMethod: 'bunker',
         });
         return await getVictoryStatus(pubkey);
-    } catch (e: any) {
-        actions.setError(e.message || 'Error al conectar con bunker');
+    } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : 'Error al conectar con bunker';
+        actions.setError(message);
         throw e;
     }
 };
