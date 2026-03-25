@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { queryNeon, dbGet, dbGetAll, dbInsert } from '@/src/lib/db';
-import { createNwcInvoice } from '@/src/utils/payment-server';
-import { lookupNwcInvoice, payNwcInvoice } from '@/src/utils/payment-server';
+import { createNwcInvoice, lookupNwcInvoice, payNwcInvoice } from '@/src/lib/nwc';
 import { verifyEvent } from 'nostr-tools';
 import { cachedBlock, syncData } from '@/src/lib/cache';
 import { checkRateLimit, getClientIP } from '@/src/lib/rate-limiter';

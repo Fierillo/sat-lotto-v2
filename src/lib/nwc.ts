@@ -1,5 +1,3 @@
-'use client';
-
 import { nwc } from '@getalby/sdk';
 import { NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 
@@ -13,23 +11,39 @@ function getClient(nwcUrl: string): nwc.NWCClient {
     return client;
 }
 
+function withSuppressedWarnings<T>(fn: () => Promise<T>): Promise<T> {
+    const originalWarn = console.warn;
+    console.warn = () => {};
+    return fn().finally(() => { console.warn = originalWarn; });
+}
+
+function withSuppressedClientWarnings<T>(nwcUrl: string, fn: (c: nwc.NWCClient) => Promise<T>): Promise<T> {
+    return withSuppressedWarnings(async () => {
+        const c = getClient(nwcUrl);
+        return fn(c);
+    });
+}
+
 export const NWC = {
     name: 'nwc' as const,
     canPay: true,
 
     async payInvoice(invoice: string, nwcUrl: string): Promise<string> {
-        const c = getClient(nwcUrl);
-        const result = await c.payInvoice({ invoice });
-        return result?.preimage || '';
+        return withSuppressedClientWarnings(nwcUrl, async (c) => {
+            const result = await c.payInvoice({ invoice });
+            return result?.preimage || '';
+        });
     },
 
     async lookupInvoice(hash: string, nwcUrl: string): Promise<{ settled: boolean; preimage?: string }> {
-        try {
-            const tx = await getClient(nwcUrl).lookupInvoice({ payment_hash: hash });
-            return { settled: tx.state === 'settled', preimage: tx.preimage || undefined };
-        } catch {
-            return { settled: false };
-        }
+        return withSuppressedClientWarnings(nwcUrl, async (c) => {
+            try {
+                const tx = await c.lookupInvoice({ payment_hash: hash });
+                return { settled: tx.state === 'settled', preimage: tx.preimage || undefined };
+            } catch {
+                return { settled: false };
+            }
+        });
     },
 
     disconnect(): void {
@@ -42,4 +56,72 @@ export function restoreSigner(nwcUrl: string): NDKPrivateKeySigner | null {
     const url = new URL(nwcUrl.replace('nostr+walletconnect:', 'http:'));
     const secret = url.searchParams.get('secret');
     return secret ? new NDKPrivateKeySigner(secret) : null;
+}
+
+export async function getPoolBalance(): Promise<number> {
+    const nwcUrl = process.env.NWC_URL;
+    if (!nwcUrl) return 0;
+
+    return withSuppressedWarnings(async () => {
+        const client = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
+        try {
+            const balanceData = await client.getBalance();
+            return Math.floor(balanceData.balance / 1000);
+        } catch (e: any) {
+            console.error('[NWC] Balance timeout');
+            throw new Error('NWC timeout');
+        } finally {
+            try { client.close(); } catch {}
+        }
+    });
+}
+
+export async function createNwcInvoice(nwcUrl: string, amountSats: number, description: string) {
+    const client = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
+    try {
+        return await withSuppressedWarnings(() =>
+            client.makeInvoice({
+                amount: amountSats * 1000,
+                description: description || 'SatLotto Bet'
+            })
+        );
+    } catch (err: any) {
+        console.error('[createNwcInvoice] Alby SDK error:', err);
+        throw new Error(err.message || 'Alby SDK makeInvoice failed');
+    } finally {
+        try { client.close(); } catch {}
+    }
+}
+
+export async function payNwcInvoice(nwcUrl: string, invoice: string) {
+    const client = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
+    try {
+        return await withSuppressedWarnings(() => client.payInvoice({ invoice }));
+    } finally {
+        client.close();
+    }
+}
+
+export async function lookupNwcInvoice(nwcUrl: string, paymentHash: string) {
+    const client = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
+    try {
+        return await withSuppressedWarnings(() => client.lookupInvoice({ payment_hash: paymentHash }));
+    } finally {
+        client.close();
+    }
+}
+
+export async function getNwcInfo(nwcUrl: string) {
+    const client = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
+    try {
+        const timeout = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('La wallet no responde (Timeout 5s)')), 5000));
+        const [info, balance] = await Promise.race([
+            withSuppressedWarnings(() => Promise.all([client.getInfo(), client.getBalance()])),
+            timeout
+        ]) as [any, any];
+        return { info, balance };
+    } finally {
+        client.close();
+    }
 }

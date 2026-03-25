@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { createNwcInvoice } from '../src/utils/payment-server.ts';
+import { createNwcInvoice } from '../../src/lib/nwc';
 
 async function testNwcConnection() {
     console.log('[Test] Probando conexión NWC del servidor...');
