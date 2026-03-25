@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { apiClient } from '../utils/api-client';
 import ndk from '../lib/ndk';
-import { NDKEvent } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKSigner } from '@nostr-dev-kit/ndk';
 import { finalizeEvent } from 'nostr-tools';
 import { NIP07 } from '../lib/nip07';
 import { NWC } from '../lib/nwc';
@@ -58,7 +58,7 @@ export function usePayment(): UsePaymentReturn {
         } else if (authState.signer) {
             try {
                 const ev = new NDKEvent(ndk, unsigned);
-                const signPromise = ev.sign(authState.signer);
+                const signPromise = ev.sign(authState.signer as NDKSigner);
                 const timeout = new Promise<never>((_, reject) =>
                     setTimeout(() => reject(new Error('Timeout esperando firma')), 15000)
                 );
@@ -66,8 +66,9 @@ export function usePayment(): UsePaymentReturn {
                 ev.sig = signature;
                 signed = ev.rawEvent();
                 if (!signed.sig) throw new Error('Firma vacía');
-            } catch (e: any) {
-                console.error('[submitBet] Signer falló:', e.message || e);
+            } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : 'Signer error';
+                console.error('[submitBet] Signer falló:', msg);
             }
         }
 
