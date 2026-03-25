@@ -1,4 +1,5 @@
-import { getPoolBalance, processPayouts } from './payout-logic';
+import { getPoolBalance } from './nwc';
+import { processPayouts } from './champion-call';
 
 export const cachedBlock = { height: 890000, target: 890021, poolBalance: 0 };
 export const blockHashCache: Record<number, string> = {};

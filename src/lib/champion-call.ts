@@ -1,86 +1,9 @@
 import { nwc } from '@getalby/sdk';
-import NDK, { NDKPrivateKeySigner, NDKEvent } from '@nostr-dev-kit/ndk';
 import { queryNeon } from './db';
-import { nip04 } from 'nostr-tools';
 import { blockHashCache } from './cache';
-
-// Silence NIP-04 deprecation warning
-const originalWarn = console.warn;
-console.warn = (...args: any[]) => {
-    if (args[0]?.includes?.('NIP-04')) return;
-    originalWarn.apply(console, args);
-};
-
-// Bot Identity
-const botNdk = new NDK({
-    explicitRelayUrls: ['wss://relay.primal.net', 'wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.snort.social']
-});
-const botPrivkey = process.env.NOSTR_PRIVKEY;
-const nostrEnabled = process.env.NOSTR_ENABLED === 'true';
-if (botPrivkey) {
-    botNdk.signer = new NDKPrivateKeySigner(botPrivkey);
-}
-
-// Connect dynamically only when needed if serverless, to avoid hangs
-let ndkConnected = false;
-async function ensureNdkConnected() {
-    if (!ndkConnected && nostrEnabled) {
-        try {
-            await botNdk.connect(5000);
-            ndkConnected = true;
-        } catch {
-            console.error('[BotNDK] Connection failed');
-        }
-    }
-}
-
-export const getPoolBalance = async (): Promise<number> => {
-    const nwcUrl = process.env.NWC_URL;
-    if (!nwcUrl) return 0;
-
-    const client = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
-    try {
-        const balanceData = await client.getBalance();
-        return Math.floor(balanceData.balance / 1000);
-    } catch (e: any) {
-        console.error('[getPoolBalance] NWC timeout');
-        throw new Error('NWC timeout');
-    } finally {
-        try { client.close(); } catch {}
-    }
-};
-
-async function getInvoiceFromLNAddress(address: string, amountSats: number): Promise<string | null> {
-    try {
-        const [user, domain] = address.split('@');
-        const lnurlRes = await fetch(`https://${domain}/.well-known/lnurlp/${user}`);
-        const lnurlData = await lnurlRes.json();
-        const callback = lnurlData.callback;
-        const amountMsats = amountSats * 1000;
-        const invRes = await fetch(`${callback}?amount=${amountMsats}`);
-        const invData = await invRes.json();
-        return invData.pr || invData.payment_request;
-    } catch (e: any) {
-        console.error(`[LNURL] Failed: ${address}`, e.message?.slice(0, 50));
-        return null;
-    }
-}
-
-async function sendDM(pubkey: string, message: string) {
-    if (!nostrEnabled || !botPrivkey) {
-        return;
-    }
-    try {
-        await ensureNdkConnected();
-        const dm = new NDKEvent(botNdk);
-        dm.kind = 4;
-        dm.tags = [['p', pubkey]];
-        dm.content = await nip04.encrypt(botPrivkey, pubkey, message);
-        await dm.publish();
-    } catch (e: any) {
-        console.error(`[DM] Failed: ${pubkey.slice(0, 8)}...`, e.message?.slice(0, 30));
-    }
-}
+import { getPoolBalance } from './nwc';
+import { getInvoiceFromLNAddress } from './ln';
+import { sendDM, publishRoundResult, ensureNdkConnected, botNdk } from './nostr';
 
 export const calculateResult = async (block: number) => {
     let hash = blockHashCache[block];
@@ -114,7 +37,7 @@ export const processPayouts = async (currentHeight: number) => {
 };
 
 async function runFullPayoutCycle(targetBlock: number) {
-    console.log(`[PayoutWorker] Resolving confirmed block ${targetBlock}...`);
+    console.log(`[ChampionCall] Resolving confirmed block ${targetBlock}...`);
     const result = await calculateResult(targetBlock);
     if (!result) return;
 
@@ -123,8 +46,7 @@ async function runFullPayoutCycle(targetBlock: number) {
     const nwcClient = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
     
     try {
-        const balanceData = await nwcClient.getBalance();
-        const totalSats = Math.floor(balanceData.balance / 1000);
+        const totalSats = await getPoolBalance();
 
         const winners = await queryNeon(`
             SELECT DISTINCT ON (b.pubkey) 
@@ -158,7 +80,7 @@ async function runFullPayoutCycle(targetBlock: number) {
                     try {
                         await nwcClient.payInvoice({ invoice: winnerInvoice });
                         paid = true;
-                    } catch (e: any) { console.error('[PayoutWorker] Winner payment failed:', e.message?.slice(0, 40)); }
+                    } catch (e: any) { console.error('[ChampionCall] Winner payment failed:', e.message?.slice(0, 40)); }
                 }
             }
 
@@ -186,26 +108,17 @@ async function runFullPayoutCycle(targetBlock: number) {
             }
         }
 
-        // Mark cycle as resolved to prevent re-execution
         await queryNeon(`
             INSERT INTO lotto_payouts (pubkey, block_height, amount, type, status)
             VALUES ('SYSTEM', $1, 0, 'cycle_resolved', 'paid')
             ON CONFLICT DO NOTHING
         `, [targetBlock]);
 
-        if (botNdk.signer) {
-            const announcement = winners.length > 0 
-                ? `¡Ronda ${targetBlock} confirmada! 🏆\n\nCampeones: ${winnerNames.join(', ')}\nPremio repartido: ${prizePerWinner} sats c/u.\n\nFelicidades a los ganadores. ¡La suerte está echada!\n\nJugá vos también en: ${process.env.APP_URL || 'https://satlotto.ar'}`
-                : `¡Ronda ${targetBlock} confirmada!\n\nEsta vez el azar fue esquivo y no hubo ganadores. 🎲\n\nEl pozo de ${totalSats} sats se acumula para el próximo sorteo. ¡Aprovechá la oportunidad!\n\nParticipá en: ${process.env.APP_URL || 'sin pagina por ahora'}`;
-            
-            await ensureNdkConnected();
-            const ev = new NDKEvent(botNdk);
-            ev.kind = 1;
-            ev.content = announcement;
-            if (nostrEnabled) {
-                await ev.publish().catch(e => console.error('[PayoutWorker] Announcement failed:', e.message?.slice(0, 30)));
-            }
-        }
+        const announcement = winners.length > 0 
+            ? `¡Ronda ${targetBlock} confirmada! 🏆\n\nCampeones: ${winnerNames.join(', ')}\nPremio repartido: ${prizePerWinner} sats c/u.\n\nFelicidades a los ganadores. ¡La suerte está echada!\n\nJugá vos también en: ${process.env.APP_URL || 'https://satlotto.ar'}`
+            : `¡Ronda ${targetBlock} confirmada!\n\nEsta vez el azar fue esquivo y no hubo ganadores. 🎲\n\nEl pozo de ${totalSats} sats se acumula para el próximo sorteo. ¡Aprovechá la oportunidad!\n\nParticipá en: ${process.env.APP_URL || 'https://satlotto.ar'}`;
+        
+        await publishRoundResult(announcement);
     } finally {
         try { nwcClient.close(); } catch {}
     }
@@ -227,7 +140,7 @@ async function retryFailedPayouts() {
 
     try {
         for (const p of failedOnes) {
-            console.log(`[PayoutWorker] Retrying payout for ${p.pubkey} (Block ${p.block_height})...`);
+            console.log(`[ChampionCall] Retrying payout for ${p.pubkey} (Block ${p.block_height})...`);
             const invoice = await getInvoiceFromLNAddress(p.lud16, p.amount);
             if (invoice) {
                 try {
@@ -241,7 +154,7 @@ async function retryFailedPayouts() {
 
                     await sendDM(p.pubkey, `¡Listo! 🇦🇷 Ya te envié tus ${p.amount} sats del bloque ${p.block_height} a ${p.lud16}. ¡Gracias por jugar! ⚡\n\nDone! I've sent your ${p.amount} sats from block ${p.block_height} to ${p.lud16}. Thanks for playing! ⚡`);
                 } catch (e: any) {
-                    console.error('[PayoutWorker] Retry failed:', e.message?.slice(0, 40));
+                    console.error('[ChampionCall] Retry failed:', e.message?.slice(0, 40));
                 }
             }
         }

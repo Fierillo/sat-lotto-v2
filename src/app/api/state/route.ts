@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { queryNeon } from '@/src/lib/db';
 import { cachedBlock, syncData } from '@/src/lib/cache';
-import { calculateResult } from '@/src/lib/payout-logic';
+import { calculateResult } from '@/src/lib/champion-call';
 import { checkRateLimit, getClientIP } from '@/src/lib/rate-limiter';
 
 export async function GET(request: Request) {
