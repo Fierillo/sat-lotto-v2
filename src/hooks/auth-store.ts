@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import type { Signer } from '../types/signer';
 
 interface AuthState {
     pubkey: string | null;
@@ -13,8 +14,8 @@ interface AuthState {
 }
 
 interface AuthStore extends AuthState {
-    signer: any | null;
-    setAuth: (payload: Partial<AuthState & { signer?: any }>) => void;
+    signer: Signer;
+    setAuth: (payload: Partial<AuthState & { signer?: Signer }>) => void;
     clearAuth: () => void;
 }
 
@@ -37,7 +38,7 @@ export function useAuthStore(): AuthStore {
         bunkerSession: null,
         isInitialized: false,
     });
-    const [signer, setSigner] = useState<any | null>(null);
+    const [signer, setSigner] = useState<Signer>(null);
 
     useEffect(() => {
         const stored: Partial<AuthState> = {
