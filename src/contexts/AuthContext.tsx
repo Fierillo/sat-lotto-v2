@@ -14,6 +14,8 @@ import {
     VictoryStatus,
 } from '../utils/auth-methods';
 import { getAttemptsLeft } from '../lib/crypto';
+import type { Signer } from '../types/signer';
+import { NDKPrivateKeySigner, NDKNip46Signer } from '@nostr-dev-kit/ndk';
 
 interface PinModalState {
     showPinModal: boolean;
@@ -31,17 +33,17 @@ interface AuthContextValue {
         nwcUrl: string | null;
         bunkerTarget: string | null;
         bunkerSession: string | null;
-        signer: any | null;
+        signer: Signer;
         isInitialized: boolean;
         error: string | null;
         pinModal: PinModalState;
     };
-    login: (payload: any) => void;
+    login: (payload: Partial<{ signer: Signer } & Record<string, unknown>>) => void;
     logout: () => void;
     setError: (error: string | null) => void;
     loginWithExtension: () => Promise<VictoryStatus | null>;
     loginWithNwc: (url: string) => Promise<void>;
-    loginWithBunker: (url: string, signer: any, secret: string, relays?: string[], skipHandshake?: boolean) => Promise<VictoryStatus | null>;
+    loginWithBunker: (url: string, signer: NDKPrivateKeySigner | NDKNip46Signer, secret: string, relays?: string[], skipHandshake?: boolean) => Promise<VictoryStatus | null>;
     verifyPinForNwc: (pin: string) => Promise<VictoryStatus | null>;
     createPinForNwc: (pin: string) => Promise<VictoryStatus | null>;
     closePinModal: () => void;
