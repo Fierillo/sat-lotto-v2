@@ -6,7 +6,14 @@ import ndk from '../lib/ndk';
 const ALIAS_KEY = 'satlotto_alias';
 const LUD16_KEY = 'satlotto_lud16';
 
-export function useNostrProfile(pubkey: string | null) {
+export interface UseNostrProfileReturn {
+    alias: string | null;
+    lud16: string | null;
+    isLoading: boolean;
+    refetch: () => Promise<void>;
+}
+
+export function useNostrProfile(pubkey: string | null): UseNostrProfileReturn {
     const [alias, setAlias] = useState<string | null>(() => {
         if (typeof window === 'undefined') return null;
         return localStorage.getItem(ALIAS_KEY);
