@@ -8,9 +8,10 @@ interface InvoiceModalProps {
   onClose: () => void;
   paymentRequest: string;
   paymentHash: string;
+  onPaid?: () => void;
 }
 
-export function InvoiceModal({ isOpen, onClose, paymentRequest, paymentHash }: InvoiceModalProps) {
+export function InvoiceModal({ isOpen, onClose, paymentRequest, paymentHash, onPaid }: InvoiceModalProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -26,9 +27,16 @@ export function InvoiceModal({ isOpen, onClose, paymentRequest, paymentHash }: I
       className="invoice-modal"
       size="medium"
       footer={
-        <button className="auth-btn" onClick={onClose}>
-          Cerrar
-        </button>
+        <>
+          {onPaid && (
+            <button className="auth-btn" onClick={onPaid}>
+              Ya pagué
+            </button>
+          )}
+          <button className="auth-btn" onClick={onClose}>
+            Cerrar
+          </button>
+        </>
       }
     >
       <h2 className="modal-title">Invoice para pago manual</h2>
