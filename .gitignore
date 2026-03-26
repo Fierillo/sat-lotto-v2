@@ -7,3 +7,5 @@ next-env.d.ts
 server.log
 tests/*.log
 tsconfig.tsbuildinfo
+playwright-report/
+test-results/
