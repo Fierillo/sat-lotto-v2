@@ -2,13 +2,13 @@
 
 **La lotería de Bitcoin en Lightning Network**
 
-Cada 21 bloques de Bitcoin, el azar decide quién se lleva el pozo acumulado. 
-Vos apostás 21 sats, elegís un número del 1 al 21, y si tu número sale... 
+Cada 21 bloques de Bitcoin, el azar decide quién se lleva el pozo acumulado.
+Vos apostás 21 sats, elegís un número del 1 al 21, y si tu número sale...
 te llevás TODOS LOS SATS.
 
 ## ¿Cómo funciona?
 
-1. **Conectá** tu wallet Nostr (Alby, nos2x, Bunker, NWC, etc...)
+1. **Conectá** tu wallet Nostr (Alby, nos2x, Amber, Bunker, NWC, etc...)
 2. **Apostá** 21 sats en el número que elijas (1-21)
 3. **Esperá** 21 bloques hasta que se resuelva la ronda
 4. **Ganá** si tu número es el elegido por el azar, y recibí tu premio automáticamente en tu Lightning Address
@@ -25,11 +25,24 @@ npm install
 npm run dev
 ```
 
-Abrí http://localhost:5173
+Abrí http://localhost:3000
+
+## Testing
+
+```bash
+npm test              # Todos los tests (unit + integration + security)
+npm run test:unit     # Solo unit tests
+npm run test:integration  # Solo integration tests
+npm run test:security    # Solo security tests
+npm run test:e2e         # E2E tests con Playwright
+npm run test:e2e:ui      # E2E tests con UI
+```
+
+Ver [docs/TESTS.md](docs/TESTS.md) para más detalles.
 
 ## Configuración
 
-Creá `.env`:
+Creá `.env.local`:
 
 ```env
 NEON_URL=postgres://...
@@ -42,18 +55,21 @@ NOSTR_ENABLED=true
 
 ## Stack
 
-- **Nostr** - Identidad (NIP-26, NIP-46 Bunker)
+- **Next.js** - Frontend framework
+- **Nostr** - Identidad (NIP-07, NIP-46 Bunker, NIP-55 Amber)
 - **NWC** - Pagos Lightning (NIP-47)
-- **Neon** - Base de datos PostgreSQL
-- **Vite** - Frontend
-- **Typescript** - Base
+- **Neon** - Base de datos PostgreSQL serverless
+- **NDK** - Nostr Development Kit
+- **Vitest** - Testing (unit/integration/security)
+- **Playwright** - E2E testing
+- **TypeScript** - Tipado estático
 
 ## Reglas del juego
 
 - **Apuesta**: 21 sats por número
 - **Premio**: El pozo completo dividido entre los ganadores
 - **Ronda**: 21 bloques de Bitcoin (lo que el destino diga)
-- **Ventana**: Podés apostar hasta el bloque 18
+- **Ventana**: Podés apostar hasta el bloque target-2
 - **Pago**: Automático a tu Lightning Address (configurala en tu perfil de Nostr)
 
 ---

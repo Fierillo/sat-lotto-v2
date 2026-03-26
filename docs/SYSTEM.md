@@ -6,9 +6,10 @@
 - **Frontend**: Next.js 16 (React, TypeScript, Turbopack)
 - **Base de Datos**: Neon PostgreSQL (serverless)
 - **Wallet**: Nostr Wallet Connect (NWC) via Alby
-- **Auth**: NIP-46 (Bunker), NIP-07 (Extensions), NWC Direct
+- **Auth**: NIP-46 (Bunker), NIP-07 (Extensions), NIP-55 (Amber), NWC Direct
 - **Nostr**: NDK, nostr-tools
 - **Styling**: CSS Modules + Plain CSS
+- **Testing**: Vitest (unit/integration/security), Playwright (E2E)
 
 ### Componentes Principales
 ```
@@ -17,82 +18,100 @@ src/
 │   ├── api/
 │   │   ├── bet/route.ts       # Crear/obtener apuestas
 │   │   ├── state/route.ts     # Estado global del juego
-│   │   ├── identity/[pubkey]/  # Perfiles de usuarios
-│   │   └── debug/champions/   # Debug para testing
+│   │   └── identity/[pubkey]/ # Perfiles de usuarios
 │   └── page.tsx               # Página principal
 ├── components/
 │   ├── modals/
 │   │   ├── ChampionModal.tsx       # Modal de victoria
 │   │   ├── PotentialWinnerModal.tsx # Modal potencial ganador
-│   │   └── LoginModal.tsx           # Login NIP-46/NWC
+│   │   ├── LoginModal.tsx           # Login NIP-46/NWC
+│   │   └── InvoiceModal.tsx         # Invoice para pago manual
 │   ├── Clock.tsx              # Reloj del sorteo
+│   ├── CenterButton.tsx       # Botón central (apostar/pagar)
 │   ├── BetsTable.tsx           # Tabla de apuestas
-│   ├── ChampionsTable.tsx      # Hall of fame
+│   ├── ChampionsTable.tsx     # Hall of fame
 │   └── DebugButtons.tsx       # Botonera de debug
 ├── contexts/
-│   ├── AuthContext.tsx         # Autenticación
+│   ├── AuthContext.tsx        # Autenticación
 │   └── GameContext.tsx        # Estado del juego
 ├── hooks/
 │   ├── usePayment.ts          # Lógica de pago
+│   ├── useAuthStore.ts        # Auth state store
 │   └── useVictoryCelebration.tsx # Animación de victoria
 └── lib/
     ├── db.ts                  # Conexión Neon + CRUD
     ├── cache.ts               # Sync de bloques
     ├── nip46.ts               # Bunker NIP-46
-    ├── nip07.ts               # Extension NIP-07
-    ├── nwc.ts                # NWC client
-    └── payout-logic.ts       # Lógica de premios
+    ├── nip55.ts               # Amber signer NIP-55
+    ├── nip07.ts               # Extension NIP-07 (Alby, nos2x)
+    ├── nwc.ts                 # NWC client
+    ├── ln.ts                  # Lightning address utilities
+    ├── nostr.ts               # NDK setup, DM, publish
+    ├── ndk.ts                 # NDK instance
+    ├── champion-call.ts        # Payout processing
+    ├── crypto.ts              # PIN encryption for NWC
+    └── rate-limiter.ts        # Rate limiting
 ```
 
 ---
 
 ## 2. Flujo de Autenticación
 
-### 2.1 NIP-46 Bunker (QR Code)
+### 2.1 NIP-07 Extension (Alby, nos2x)
 
-```
-Usuario escanea QR → nostrconnect://...
-    ↓
-Genera signer local (secret)
-    ↓
-Suscribe a kind 24133 en relays
-    ↓
-Decrypt mensaje con NIP-44
-    ↓
-Valida secret → obtiene remotePubkey
-    ↓
-Signer configurado en AuthContext
+```mermaid
+flowchart TD
+    A[Usuario abre app] --> B{window.nostr existe?}
+    B -->|No| E[Error: 安装 extensión]
+    B -->|Sí| C[getPublicKey]
+    C --> D[Guardar pubkey en AuthContext]
+    D --> F{loginMethod = 'extension'}
+    F --> G[Fetch perfil via NDK]
+    G --> H{webln disponible?}
+    H -->|Sí| I[Puede auto-pagar]
+    H -->|No| J[Pago manual via InvoiceModal]
+    I --> K[Listo para apostar]
+    J --> K
 ```
 
-**Archivos**: `src/lib/nip46.ts`, `src/components/modals/LoginModal.tsx`
+**Nota**: Alby tiene `window.webln` → puede pagar directamente. nos2x NO tiene `window.webln` → el pago se hace vía InvoiceModal (manual).
+
+**Archivos**: `src/lib/nip07.ts`, `src/utils/auth-methods.ts`
 
 ### 2.2 NWC URL Directo
 
-```
-Usuario ingresa nostr+walletconnect://...
-    ↓
-Extrae secret de URL
-    ↓
-Crea NDKPrivateKeySigner con secret
-    ↓
-Signer configurado en AuthContext
+```mermaid
+flowchart LR
+    A[Usuario ingresa<br/>nostr+walletconnect://...] --> B[Extraer secret]
+    B --> C[Crear NDKPrivateKeySigner]
+    C --> D[Guardar encrypted<br/>en localStorage con PIN]
+    D --> E[loginMethod = 'nwc'<br/>signer = NDKPrivateKeySigner]
 ```
 
-**Archivos**: `src/lib/nwc.ts`, `AuthContext.tsx`
+**Archivos**: `src/lib/nwc.ts`, `src/utils/auth-methods.ts`, `src/lib/crypto.ts`
 
-### 2.3 NIP-07 Extension (Alby, nos2x)
+### 2.3 NIP-46 Bunker (QR Code)
 
+```mermaid
+flowchart TD
+    A[Usuario escanea QR] --> B[nostrconnect://...]
+    B --> C[Generar NDKPrivateKeySigner local]
+    C --> D[Conectar a relays<br/>suscribir kind 24133]
+    D --> E[Decrypt mensaje NIP-44]
+    E --> F[Obtener remotePubkey]
+    F --> G[loginMethod = 'bunker'<br/>signer = NDKNip46Signer]
 ```
-Usuario tiene extensión instalada (window.nostr existe)
-    ↓
-Llamar window.nostr.getPublicKey()
-    ↓
-Signer = window.nostr
-    ↓
-Firma eventos con window.nostr.signEvent()
-```
 
-**Archivos**: `src/lib/nip07.ts`, `AuthContext.tsx`
+**Archivos**: `src/lib/nip46.ts`, `src/components/QR.tsx`
+
+### 2.4 NIP-55 Amber (Mobile)
+
+```mermaid
+flowchart TD
+    A[Usuario usa Amber<br/>Android signer] --> B[Envía NIP-46<br/>connect URL]
+    B --> C[Same flujo que<br/>NIP-46 Bunker]
+    C --> D[loginMethod = 'bunker']
+```
 
 ---
 
@@ -100,168 +119,126 @@ Firma eventos con window.nostr.signEvent()
 
 ### 3.1 Colocación de Apuesta
 
-```
-1. Usuario selecciona número (1-21)
-    ↓
-2. Frontend: Crear evento nostr kind 1
-   {
-     kind: 1,
-     content: { bloque: targetBlock, numero: selectedNumber },
-     tags: [['t', 'satlotto']]
-   }
-    ↓
-3. Firme evento con signer disponible
-   - NIP-07: window.nostr.signEvent()
-   - Bunker: NDK con NDKNip46Signer
-   - NWC: NDK con NDKPrivateKeySigner
-    ↓
-4. POST /api/bet con signedEvent
-    ↓
-5. Backend: Verificar firma, replay attack
-    ↓
-6. Backend: Crear invoice NWC (21 sats)
-    ↓
-7. Return { paymentRequest, paymentHash }
-    ↓
-8. Frontend: Mostrar invoice (QR)
-    ↓
-9. Usuario paga invoice
-    ↓
-10. Extension: window.webln.sendPayment()
-    o NWC: Backend confirma pago automáticamente
-    ↓
-11. Backend: Marcar is_paid = TRUE
+```mermaid
+sequenceDiagram
+    participant U as Usuario
+    participant F as Frontend
+    participant A as API /api/bet
+    participant B as Backend NWC
+
+    U->>F: Selecciona número 1-21
+    F->>U: Crear evento kind 1
+    U->>F: Firma con signer
+    F->>A: POST signedEvent
+    A->>A: Verificar firma
+    A->>A: Check replay attack
+    A->>A: Check frozen window
+    A->>B: Crear invoice 21 sats
+    B-->>A: {paymentRequest, paymentHash}
+    A-->>F: {paymentRequest, paymentHash}
+    F->>U: Mostrar invoice/QR
+    U->>F: Pagar invoice
+    F->>A: confirmBet(paymentHash)
+    A->>B: Verificar pago settled
+    A->>A: is_paid = TRUE
 ```
 
-**Archivos**: `src/hooks/usePayment.ts`, `src/app/api/bet/route.ts`
+### 3.2 Pago según Login Method
 
-### 3.2 Cambio de Número (Misma Ronda)
+```mermaid
+flowchart TD
+    A[loginMethod] --> B{NWC?}
+    A --> C{Extension +<br/>webln?}
+    A --> D{Extension +<br/>no webln?}
 
+    B -->|Sí| E[NWC.payInvoice]
+    E --> F[Auto-pago]
+
+    C -->|Sí| G[window.webln<br/>.sendPayment]
+    G --> H[Aprobación usuario]
+
+    D -->|nos2x| I[InvoiceModal]
+    I --> J[Usuario paga<br/>externamente]
+    J --> K[confirmBet API]
+
+    F --> L[Backend:<br/>is_paid = TRUE]
+    H --> L
+    K --> L
 ```
-1. Usuario ya tiene apuesta PAGADA en esta ronda
-2. Usuario cambia de número (ej: 5 → 10)
-3. Se crea NUEVA apuesta con nuevo número
-4. INSERT lotto_payouts { amount: 21, fee: 2, type: 'bet' }
-5. Usuario paga la nueva apuesta
-6. Ahora tiene 2 apuestas pagadas en la misma ronda
-7. Para el sorteo: se usa la de ID más alto (la más reciente)
+
+### 3.3 Cambio de Número (Misma Ronda)
+
+```mermaid
+flowchart TD
+    A[Usuario tiene<br/>apuesta PAGADA] --> B[Cambia número]
+    B --> C[Nueva apuesta<br/>mismo bloque]
+    C --> D[INSERT lotto_payouts<br/>amount: 21, fee: 2]
+    D --> E[Usuario paga<br/>nueva apuesta]
+    E --> F[2 apuestas pagadas<br/>misma ronda]
+    F --> G[Para sorteo: usar<br/>ID más alto]
 ```
 
 **Nota**: No hay reintegro. Si apostás 2 veces, pagás 2 veces (42 sats).
 
 ---
 
-## 4. Flujo de Pago
+## 4. Determinación de Ganador
 
-### 4.1 NWC (Silencioso)
+### 4.1 Cálculo del Número Ganador
 
-```
-Backend crea invoice con NWC
-    ↓
-Invoice se muestra en QR
-    ↓
-Usuario paga con wallet externo (Alby app)
-    ↓
-Backend: lookupNwcInvoice(paymentHash)
-    ↓
-Si settled → is_paid = TRUE
+```mermaid
+flowchart TD
+    A[current_block] --> B[target = ceil(block / 21) * 21]
+    B --> C[Obtener block_hash<br/>desde mempool.space]
+    C --> D[winning_number<br/>= (block_hash[0] % 21) + 1]
 ```
 
-**Aprobaciones**: 0 (el usuario paga desde su app)
+### 4.2 Protección contra Reorgs
 
-### 4.2 Extensión NIP-07 (WebLN)
-
-```
-Usuario tiene extensión (Alby, nos2x)
-    ↓
-1. Intentar window.webln.sendPayment() directo
-   (sin enable() - optimizado)
-    ↓
-2. Si falla por "not enabled" → enable() + sendPayment()
-    ↓
-Extension pide aprobación
-    ↓
-Pago se hace
-    ↓
-Preimage returned → confirmar con backend
+```mermaid
+flowchart TD
+    A[block puede ser<br/>reorg'd] --> B[current_block >=
+    target_block + 2?]
+    B -->|No| C[Esperar<br/>confirmaciones]
+    B -->|Sí| D[processPayouts<br/>puede correr]
 ```
 
-**Aprobaciones**: 1-2 según estado de extensión
+**Archivos**: `src/lib/cache.ts`, `src/lib/champion-call.ts`
 
 ---
 
-## 5. Determinación de Ganador
+## 5. Flujo de Celebración
 
-### 5.1 Cálculo del Número Ganador
+### 5.1 Potential Winner (0-1 bloque después)
 
-```
-target_block = ceil(current_block / 21) * 21
-    ↓
-Obtener block_hash del target_block desde mempool.space
-    ↓
-winning_number = (block_hash[0] % 21) + 1
-    (número entre 1 y 21)
-```
-
-### 5.2 Protección contra Reorgs
-
-```
-Un block puede ser reorg'd (reorganizado) por la chain
-    ↓
-Para evitar pagos a bloques inválidos:
-    ↓
-processPayouts() SOLO se ejecuta si:
-    current_block >= target_block + 2
-    ↓
-Espera 2 bloques de confirmación
+```mermaid
+flowchart TD
+    A[winning_number<br/>coincide] --> B{current_block >=
+    target_block + 2?}
+    B -->|No| C[PotentialWinnerModal]
+    C --> D[Esperar<br/>confirmaciones]
+    D --> E[Backend no procesa<br/>payout todavía]
+    B -->|Sí| F[Champion flow]
 ```
 
-**Archivos**: `src/lib/cache.ts`, `src/lib/payout-logic.ts`
+### 5.2 Champion (2+ bloques después)
+
+```mermaid
+flowchart TD
+    A[current_block >=
+    target_block + 2] --> B[Animación<br/>¡CAMPEÓN!]
+    B --> C[5.5 segundos]
+    C --> D[ChampionModal]
+    D --> E[Mostrar premio<br/>+ LN address]
+    E --> F[Backend:<br/>last_celebrated_block]
+    F --> G[processPayouts<br/>enviar sats a lud16]
+```
+
+**Archivos**: `src/hooks/useVictoryCelebration.tsx`, `src/components/ChampionModal.tsx`
 
 ---
 
-## 6. Flujo de Celebración
-
-### 6.1 Potential Winner (0-1 bloque después)
-
-```
-Usuario ganó (número coincide) PERO
-    ↓
-current_block < target_block + 2
-    ↓
-Mostrar PotentialWinnerModal:
-    - "¡Posible ganador!"
-    - Esperar confirmaciones de bloque
-    - Si no tiene lud16 → solicitar LN address
-    ↓
-Backend: No procesar payout todavía
-```
-
-### 6.2 Champion (2+ bloques después)
-
-```
-current_block >= target_block + 2
-    ↓
-1. Animación "¡CAMPEÓN!" (4.5 segundos)
-   - Overlay naranja
-   - Texto animado
-    ↓
-2. A los 5.5 segundos: ChampionModal
-   - Trofeo 🏆
-   - "Ganaste X sats"
-   - Mostrar LN address
-   - Si no tiene → solicitar input
-    ↓
-3. Backend:
-   - UPDATE last_celebrated_block = target_block
-   - Procesar payout (enviar sats a lud16)
-```
-
-**Archivos**: `src/hooks/useVictoryCelebration.tsx`, `src/components/ResultPanel.tsx`
-
----
-
-## 7. Schema de Base de Datos
+## 6. Schema de Base de Datos
 
 ### lotto_identities
 
@@ -317,7 +294,7 @@ CREATE TABLE lotto_payouts (
 
 ---
 
-## 8. Endpoints API
+## 7. Endpoints API
 
 ### GET /api/state
 
@@ -346,6 +323,10 @@ Request: { "signedEvent": {...} }
 Response: { "paymentRequest": "lnbc...", "paymentHash": "abc..." }
 ```
 
+### GET /api/bet?block=X&number=Y&pubkey=Z
+
+Genera invoice para método alternativo (ej: Amber NIP-55).
+
 ### GET /api/identity/[pubkey]
 
 Retorna perfil:
@@ -359,7 +340,7 @@ Actualiza perfil con evento kind 0 firmado.
 
 ---
 
-## 9. Debug Mode
+## 8. Debug Mode
 
 ### Activación
 
@@ -371,55 +352,50 @@ NEXT_PUBLIC_TEST=on npm run dev
 
 | Botón | Función |
 |-------|---------|
-| ⚡ FLASH | Simula pago exitoso (flash verde) |
-| ❄️ FROZEN | Toggle estado veda |
-| 🔥 RESOLVING | Toggle fin de ronda |
-| 🏆 VICTORY | Fuerza animación campeón + ChampionModal |
-| 👑 POTENTIAL | Muestra PotentialWinnerModal |
-| 🏅 CHAMPIONS | Inserta/reset test champions en DB |
-
-### Endpoint Debug
-
-```bash
-POST /api/debug/champions
-{
-  "champions": [...],
-  "action": "set" | "reset"
-}
-```
-
-**Solo funciona si TEST=on**, sino retorna: `"No sos hacker, sos un mamerto. Volvé a Google."`
+| FLASH | Simula pago exitoso (flash verde) |
+| FROZEN | Toggle estado veda |
+| RESOLVING | Toggle fin de ronda |
+| VICTORY | Fuerza animación campeón + ChampionModal |
+| POTENTIAL | Muestra PotentialWinnerModal |
+| CHAMPIONS | Inserta/reset test champions en DB |
 
 ---
 
-## 10. Ciclo de Juego
+## 9. Ciclo de Juego
 
-```
-1. Apuesta abierta (bloques target-21 a target-2)
-   - Usuario puede apostar
-   - isFrozen = false
-   
-2. Betting cerrada (target-2 a target)
-   - isFrozen = true
-   - No se aceptan más apuestas
-   
-3. Sorteo (bloque = target)
-   - Se determina winning_number
-   - Se identifican winners
-   
-4. Espera reorg (target a target+2)
-   - processPayouts() no corre
-   - Winners ven PotentialWinnerModal
-   
-5. Confirmado (target+2+)
-   - processPayouts() corre
-   - Winners ven ChampionModal
-   - Pool se reinicia
+```mermaid
+flowchart LR
+    subgraph A1[" "]
+        direction TB
+        O1[Apuesta abierta<br/>target-21 a target-2]
+    end
+
+    subgraph A2[" "]
+        direction TB
+        O2[Betting cerrada<br/>target-2 a target]
+    end
+
+    subgraph A3[" "]
+        direction TB
+        O3[Sorteo<br/>bloque = target]
+    end
+
+    subgraph A4[" "]
+        direction TB
+        O4[Espera reorg<br/>target a target+2]
+    end
+
+    subgraph A5[" "]
+        direction TB
+        O5[Confirmado<br/>target+2+]
+    end
+
+    O1 --> O2 --> O3 --> O4 --> O5
 ```
 
 ---
 
-## 11. Rate Limiting
+## 10. Rate Limiting
 
 El sistema protege contra abuse:
 
@@ -433,7 +409,7 @@ El sistema protege contra abuse:
 
 ---
 
-## 12. Seguridad
+## 11. Seguridad
 
 ###Replay Attack Protection
 - `nostr_event_id` único por apuesta
