@@ -138,14 +138,18 @@ export function usePayment(): UsePaymentReturn {
                     selectNumber(null);
                     setTimeout(resetPaymentStatus, 4000);
                     return;
-                } catch (err: any) {
-                    setPaymentError(err.message || 'Error en el pago con NWC');
+                } catch (err: unknown) {
+                    const msg = err instanceof Error ? err.message : 'Error en el pago con NWC';
+                    setPaymentError(msg);
                     setPaymentStatus('error');
                     return;
                 }
             }
 
             if (authState.loginMethod === 'extension') {
+                if (!NIP07.canPay) {
+                    return { paymentRequest, paymentHash };
+                }
                 try {
                     await NIP07.payInvoice(paymentRequest);
                     await confirmBetHandler(paymentHash);
@@ -154,17 +158,19 @@ export function usePayment(): UsePaymentReturn {
                     selectNumber(null);
                     setTimeout(resetPaymentStatus, 4000);
                     return;
-                } catch (err: any) {
-                    setPaymentError(err.message || 'Error en el pago con extensión');
+                } catch (err: unknown) {
+                    const msg = err instanceof Error ? err.message : 'Error en el pago con extensión';
+                    setPaymentError(msg);
                     setPaymentStatus('error');
                     return;
                 }
             }
 
             return { paymentRequest, paymentHash };
-        } catch (e: any) {
-            console.error('[makePayment] Error:', e);
-            setPaymentError(e.message);
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : 'Error interno';
+            console.error('[makePayment] Error:', msg);
+            setPaymentError(msg);
             setPaymentStatus('error');
         }
     }, [authState, gameState, refreshGame, selectNumber, submitBet, confirmBetHandler]);
