@@ -19,8 +19,8 @@ interface ClockProps {
 
 export function Clock({ onShowLogin, onShowFrozenHelp }: ClockProps) {
     const { state: authState } = useAuth();
-    const { state: gameState, selectNumber, isFrozen, isResolving } = useGame();
-    const { makePayment, paymentStatus, paymentError, resetPaymentStatus } = usePayment();
+    const { state: gameState, selectNumber, refreshGame, isFrozen, isResolving } = useGame();
+    const { makePayment, confirmBet, paymentStatus, paymentError, resetPaymentStatus } = usePayment();
     const [showFreezeHelpModal, setShowFreezeHelpModal] = useState(false);
     const [showChangeModal, setShowChangeModal] = useState(false);
     const [existingBetNumber, setExistingBetNumber] = useState<number | null>(null);
@@ -151,6 +151,10 @@ export function Clock({ onShowLogin, onShowFrozenHelp }: ClockProps) {
                 onShowLogin={onShowLogin}
                 onPaymentStart={handleCenterClick}
                 onReset={resetPaymentStatus}
+                onManualPaymentConfirm={async (paymentHash) => {
+                    await confirmBet(paymentHash);
+                    await refreshGame();
+                }}
             />
             <FreezeHelpModal
                 isOpen={showFreezeHelpModal}

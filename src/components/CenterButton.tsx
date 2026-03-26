@@ -17,6 +17,7 @@ interface CenterButtonProps {
   onShowLogin?: () => void;
   onPaymentStart: () => Promise<any>;
   onReset?: () => void;
+  onManualPaymentConfirm?: (paymentHash: string) => Promise<void>;
 }
 
 export function CenterButton({
@@ -30,6 +31,7 @@ export function CenterButton({
   onShowLogin,
   onPaymentStart,
   onReset,
+  onManualPaymentConfirm,
 }: CenterButtonProps) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [keepGlow, setKeepGlow] = useState<'success' | 'error' | null>(null);
@@ -191,6 +193,7 @@ export function CenterButton({
           }}
           paymentRequest={invoiceData.paymentRequest}
           paymentHash={invoiceData.paymentHash}
+          onPaid={onManualPaymentConfirm ? () => onManualPaymentConfirm(invoiceData.paymentHash) : undefined}
         />
       )}
     </>
