@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { useAuthStore } from '../hooks/auth-store';
+import { useAuthStore } from '../hooks/useAuthStore';
 import {
     loginWithExtension,
     loginWithNwc,
