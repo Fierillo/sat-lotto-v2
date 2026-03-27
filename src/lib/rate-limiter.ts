@@ -6,7 +6,7 @@ const limits = {
     'bet:create:pubkey': 3,
     'bet:create:ip': 3,
     'bet:confirm:pubkey': 3,
-    'state:ip': 6,
+    'state:ip': 12,
     'identity:ip': 10
 };
 
