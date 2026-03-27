@@ -49,6 +49,21 @@ export function CenterButton({
     };
   }, [paymentStatus]);
 
+  useEffect(() => {
+    const pending = localStorage.getItem('satlotto_pending_payment');
+    if (pending) {
+      try {
+        const data = JSON.parse(pending);
+        if (data.paymentHash && data.paymentRequest) {
+          setInvoiceData(data);
+          setShowInvoiceModal(true);
+        }
+      } catch {
+        localStorage.removeItem('satlotto_pending_payment');
+      }
+    }
+  }, []);
+
   // Manage glow classes for success/error states
   useEffect(() => {
     const button = buttonRef.current;
@@ -140,22 +155,13 @@ export function CenterButton({
 
   const handleClick = async () => {
     if (disabled) return;
-
-    if (!pubkey) {
-      onShowLogin?.();
-      return;
-    }
-
+    if (!pubkey) { onShowLogin?.(); return; }
     if (isFrozen || isResolving) return;
+    if (paymentStatus === 'error') { setShowErrorModal(true); return; }
 
-    if (paymentStatus === 'error') {
-      setShowErrorModal(true);
-      return;
-    }
-
-    if (paymentStatus === 'idle' && selectedNumber !== null) {
+    if (selectedNumber !== null) {
       const result = await onPaymentStart();
-      if (result && typeof result === 'object' && 'paymentRequest' in result && 'paymentHash' in result) {
+      if (result?.paymentRequest && result?.paymentHash) {
         setInvoiceData(result);
         setShowInvoiceModal(true);
       }
@@ -190,6 +196,7 @@ export function CenterButton({
           onClose={() => {
             setShowInvoiceModal(false);
             setInvoiceData(null);
+            onReset?.();
           }}
           paymentRequest={invoiceData.paymentRequest}
           paymentHash={invoiceData.paymentHash}

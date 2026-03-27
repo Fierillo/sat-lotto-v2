@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Modal } from './Modal';
+import { CopyText } from '../CopyText';
+import qrcode from 'qrcode-generator';
 
 interface InvoiceModalProps {
   isOpen: boolean;
@@ -11,29 +13,95 @@ interface InvoiceModalProps {
   onPaid?: () => void;
 }
 
-export function InvoiceModal({ isOpen, onClose, paymentRequest, paymentHash, onPaid }: InvoiceModalProps) {
-  const [copied, setCopied] = useState(false);
+const POLL_INTERVAL_MS = 3000;
+const MAX_POLL_TIME_MS = 600000;
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(paymentRequest);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+const STORAGE_KEY = 'satlotto_pending_payment';
+
+export function InvoiceModal({ isOpen, onClose, paymentRequest, paymentHash, onPaid }: InvoiceModalProps) {
+  const [paid, setPaid] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const startTimeRef = useRef<number>(0);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const qrDataUrl = useMemo(() => {
+    const qr = qrcode(0, 'M');
+    qr.addData(paymentRequest);
+    qr.make();
+    return qr.createDataURL(3, 0);
+  }, [paymentRequest]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setPaid(false);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ paymentRequest, paymentHash }));
+    }
+  }, [isOpen, paymentRequest, paymentHash]);
+
+  const clearPending = () => {
+    localStorage.removeItem(STORAGE_KEY);
   };
+
+  const handleClose = () => {
+    clearPending();
+    onClose();
+  };
+
+  const checkPayment = async () => {
+    if (checking || paid) return;
+    setChecking(true);
+    try {
+      const res = await fetch(`/api/bet?paymentHash=${paymentHash}`);
+      const data = await res.json();
+      if (data.confirmed || data.settled) {
+        setPaid(true);
+        clearPending();
+        onPaid?.();
+        onClose();
+      }
+    } catch (e) {
+      console.error('[InvoiceModal] Error checking payment:', e);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen || paid) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      return;
+    }
+
+    startTimeRef.current = Date.now();
+    checkPayment();
+    intervalRef.current = setInterval(() => {
+      if (Date.now() - startTimeRef.current > MAX_POLL_TIME_MS) {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        return;
+      }
+      checkPayment();
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [isOpen, paid]);
 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       className="invoice-modal"
       size="medium"
       footer={
         <>
-          {onPaid && (
-            <button className="auth-btn" onClick={onPaid}>
-              Ya pagué
-            </button>
-          )}
-          <button className="auth-btn" onClick={onClose}>
+          <button className="auth-btn" onClick={checkPayment} disabled={checking}>
+            {checking ? 'Verificando...' : 'Verificar pago'}
+          </button>
+          <button className="auth-btn" onClick={handleClose}>
             Cerrar
           </button>
         </>
@@ -44,24 +112,23 @@ export function InvoiceModal({ isOpen, onClose, paymentRequest, paymentHash, onP
         Escaneá el código QR o copiá la invoice para pagar con tu wallet Lightning:
       </p>
       
-      <div className="qr-container">
-        {/* TODO: Generar QR a partir de paymentRequest */}
-        <div className="qr-placeholder">
-          <div style={{ fontSize: '0.6rem', wordBreak: 'break-all', textAlign: 'center', color: '#000' }}>
-            QR: {paymentRequest.substring(0, 30)}...
-          </div>
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <div className="qr-container" style={{ background: '#fff', padding: '8px', borderRadius: '4px' }}>
+          <img src={qrDataUrl} alt="Invoice QR" />
         </div>
       </div>
 
-      <div style={{ marginBottom: '0' }}>
-        <label style={{ fontSize: '0.72rem', color: 'var(--neon-orange)', textTransform: 'uppercase', display: 'block' }}>Invoice (LNURL o bolt11):</label>
-        <code className={`verify-command ${copied ? 'copied' : ''}`} style={{ wordBreak: 'break-all' }} onClick={handleCopy}>
-          {paymentRequest}
-        </code>
-        <div className={`copy-status ${copied ? 'show' : ''}`} style={{ opacity: copied ? 1 : 0 }}>¡Copiado! ⚡</div>
+      <div style={{ marginTop: '12px' }}>
+        <CopyText text={paymentRequest} truncate={80} />
       </div>
 
-      <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '4px', marginBottom: '15px', lineHeight: '1.2', textAlign: 'center' }}>
+      {paid && (
+        <p style={{ fontSize: '0.85rem', color: 'var(--neon-green)', marginTop: '12px', textAlign: 'center', fontWeight: 'bold' }}>
+          ¡Pago detectado! Procesando...
+        </p>
+      )}
+
+      <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '12px', lineHeight: '1.2', textAlign: 'center' }}>
         Esta invoice expira en 10 minutos. Una vez pagada, la apuesta se confirmará automáticamente.
       </p>
     </Modal>

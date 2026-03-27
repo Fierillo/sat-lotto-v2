@@ -112,61 +112,46 @@ export function usePayment(): UsePaymentReturn {
         try {
             await refreshGame();
 
+            let paymentRequest: string;
+            let paymentHash: string;
+
             if (authState.loginMethod === 'amber') {
                 const result = await fetch(
                     `/api/bet?block=${gameState.targetBlock}&number=${gameState.selectedNumber}&pubkey=${authState.pubkey}`
                 );
                 if (!result.ok) throw new Error('No se pudo generar la invoice');
-                const { paymentRequest, paymentHash } = await result.json();
+                const data = await result.json();
+                paymentRequest = data.paymentRequest;
+                paymentHash = data.paymentHash;
+            } else {
+                setPaymentStatus('signing');
+                const result = await submitBet(gameState.targetBlock, gameState.selectedNumber);
+                if (!result) throw new Error('No response from server');
+                paymentRequest = result.paymentRequest;
+                paymentHash = result.paymentHash;
+            }
+
+            const needsManualPayment = 
+                authState.loginMethod === 'bunker' ||
+                (authState.loginMethod === 'extension' && !NIP07.canPay);
+
+            if (needsManualPayment) {
                 setPaymentStatus('paying');
                 return { paymentRequest, paymentHash };
             }
 
-            setPaymentStatus('signing');
-            const result = await submitBet(gameState.targetBlock, gameState.selectedNumber);
-            if (!result) throw new Error('No response from server');
-
-            const { paymentRequest, paymentHash } = result;
-            setPaymentStatus('paying');
-
             if (authState.loginMethod === 'nwc') {
-                try {
-                    await NWC.payInvoice(paymentRequest, authState.nwcUrl!);
-                    await confirmBetHandler(paymentHash);
-                    await refreshGame();
-                    setPaymentStatus('success');
-                    selectNumber(null);
-                    setTimeout(resetPaymentStatus, 4000);
-                    return;
-                } catch (err: unknown) {
-                    const msg = err instanceof Error ? err.message : 'Error en el pago con NWC';
-                    setPaymentError(msg);
-                    setPaymentStatus('error');
-                    return;
-                }
+                await NWC.payInvoice(paymentRequest, authState.nwcUrl!);
+            } else if (authState.loginMethod === 'extension') {
+                await NIP07.payInvoice(paymentRequest);
             }
 
-            if (authState.loginMethod === 'extension') {
-                if (!NIP07.canPay) {
-                    return { paymentRequest, paymentHash };
-                }
-                try {
-                    await NIP07.payInvoice(paymentRequest);
-                    await confirmBetHandler(paymentHash);
-                    await refreshGame();
-                    setPaymentStatus('success');
-                    selectNumber(null);
-                    setTimeout(resetPaymentStatus, 4000);
-                    return;
-                } catch (err: unknown) {
-                    const msg = err instanceof Error ? err.message : 'Error en el pago con extensión';
-                    setPaymentError(msg);
-                    setPaymentStatus('error');
-                    return;
-                }
-            }
-
-            return { paymentRequest, paymentHash };
+            setPaymentStatus('paying');
+            await confirmBetHandler(paymentHash);
+            await refreshGame();
+            setPaymentStatus('success');
+            selectNumber(null);
+            setTimeout(resetPaymentStatus, 4000);
         } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : 'Error interno';
             console.error('[makePayment] Error:', msg);
