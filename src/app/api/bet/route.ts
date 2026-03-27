@@ -164,6 +164,19 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
+        const paymentHash = searchParams.get('paymentHash') || '';
+
+        if (paymentHash) {
+            const nwcUrl = process.env.NWC_URL;
+            if (!nwcUrl) return NextResponse.json({ error: 'Server NWC not configured' }, { status: 500 });
+
+            const tx = await lookupNwcInvoice(nwcUrl, paymentHash) as any;
+            if (tx && (tx.settled || tx.preimage)) {
+                return NextResponse.json({ confirmed: true, settled: true });
+            }
+            return NextResponse.json({ confirmed: false, settled: false });
+        }
+
         const block = parseInt(searchParams.get('block') || '');
         const number = parseInt(searchParams.get('number') || '');
         const pubkey = searchParams.get('pubkey') || '';
