@@ -50,6 +50,10 @@ export function useAuthStore(): AuthStore {
             bunkerSession: localStorage.getItem(STORAGE_KEYS.bunkerSession),
         };
         setState(prev => ({ ...prev, ...stored, isInitialized: true }));
+
+        if (stored.loginMethod === 'extension' && typeof window !== 'undefined' && window.nostr) {
+            setSigner(window.nostr as unknown as import('../types/signer').NIP07Signer);
+        }
     }, []);
 
     useEffect(() => {

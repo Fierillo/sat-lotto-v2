@@ -13,7 +13,7 @@ import {
 import ndk from '../lib/ndk';
 import { createBunkerSession } from '../lib/nip46';
 import { NDKPrivateKeySigner, NDKNip46Signer } from '@nostr-dev-kit/ndk';
-import type { Signer } from '../types/signer';
+import type { Signer, NIP07Signer } from '../types/signer';
 
 export interface VictoryStatus {
     winner_block: number;
@@ -80,6 +80,7 @@ export const loginWithExtension = async (actions: AuthActions): Promise<VictoryS
             pubkey,
             nip05,
             loginMethod: 'extension',
+            signer: window.nostr as unknown as NIP07Signer,
         });
         return await getVictoryStatus(pubkey);
     } catch (e: any) {
