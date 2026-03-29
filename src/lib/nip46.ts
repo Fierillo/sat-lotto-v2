@@ -1,50 +1,123 @@
-/**
- * NIP-46: Bunker (Remote Signer)
- * Uses NDK for signing. May have wallet (NWC) connected internally.
- */
+import NDK, { NDKNip46Signer, NDKPrivateKeySigner, NDKEvent } from '@nostr-dev-kit/ndk';
+import { nip44 } from 'nostr-tools';
 
-import NDK, { NDKNip46Signer, NDKEvent } from '@nostr-dev-kit/ndk';
-import { getOrCreateLocalSigner } from '../utils/auth';
-import type { UnsignedEvent, SignedEvent } from '../types';
+export const NIP46_RELAYS = [
+    'wss://relay.damus.io',
+    'wss://relay.primal.net',
+    'wss://nos.lol',
+    'wss://relay.nsec.app',
+];
 
-let signer: NDKNip46Signer | null = null;
-let ndkInstance: NDK | null = null;
+export interface BunkerSession {
+    bunkerTarget: string;
+    localSignerPrivkey: string;
+    remotePubkey: string;
+}
 
-export const NIP46 = {
-    name: 'nip46' as const,
-    canPay: false,
+export function generateConnectUri(): {
+    uri: string;
+    secret: string;
+    signer: NDKPrivateKeySigner;
+    pubkey: string;
+} {
+    const signer = NDKPrivateKeySigner.generate();
+    const pubkey = signer.pubkey;
+    const secret = Math.random().toString(36).substring(2, 15);
 
-    async connect(bunkerUri: string, ndk: NDK): Promise<string> {
-        const url = new URL(bunkerUri.replace('bunker://', 'http:'));
-        const relays = url.searchParams.getAll('relay');
+    let uri = `nostrconnect://${pubkey}?`;
+    NIP46_RELAYS.forEach(r => {
+        uri += `relay=${encodeURIComponent(r)}&`;
+    });
+    uri += `secret=${encodeURIComponent(secret)}&name=${encodeURIComponent('SatLotto')}&url=${encodeURIComponent('https://satlotto.com')}`;
 
-        ndkInstance = ndk;
-        if (relays.length > 0) {
-            relays.forEach(r => ndk.addExplicitRelay(r));
-        }
-        await ndk.connect(5000);
+    return { uri, secret, signer, pubkey };
+}
 
-        signer = new NDKNip46Signer(ndk, bunkerUri, getOrCreateLocalSigner());
-        (signer as any).ndk = ndk;
-        await signer.blockUntilReady();
+export async function createBunkerSession(
+    bunkerUrl: string,
+    signer: NDKPrivateKeySigner,
+    secret: string,
+    relays: string[] = NIP46_RELAYS,
+    skipHandshake: boolean = false
+): Promise<{ session: BunkerSession; signer: NDKNip46Signer }> {
+    const ndkInstance = new NDK({ explicitRelayUrls: relays });
+    await ndkInstance.connect(5000);
 
-        const user = await signer.user();
-        return user.pubkey;
-    },
+    const localPubkey = signer.pubkey;
+    const localPrivkey = (signer as any)._privateKey;
 
-    getSigner(): NDKNip46Signer | null {
-        return signer;
-    },
+    const bunkerPubkeyMatch = bunkerUrl.match(/^bunker:\/\/([a-f0-9]{64})/i);
+    const bunkerPubkey = bunkerPubkeyMatch ? bunkerPubkeyMatch[1] : null;
 
-    async signEvent(event: UnsignedEvent): Promise<SignedEvent> {
-        if (!signer || !ndkInstance) throw new Error('NIP-46 not connected. Call connect() first.');
-        const ndkEvent = new NDKEvent(ndkInstance);
-        ndkEvent.kind = event.kind;
-        ndkEvent.created_at = event.created_at || Math.floor(Date.now() / 1000);
-        ndkEvent.tags = event.tags || [];
-        ndkEvent.content = event.content || '';
-        ndkEvent.pubkey = event.pubkey || '';
-        await signer.sign(ndkEvent as any);
-        return ndkEvent.rawEvent() as SignedEvent;
+    if (skipHandshake && bunkerPubkey) {
+        const bunkerSigner = new NDKNip46Signer(ndkInstance, bunkerPubkey, signer);
+        (bunkerSigner as any).remotePubkey = bunkerPubkey;
+
+        const session: BunkerSession = {
+            bunkerTarget: bunkerUrl,
+            localSignerPrivkey: localPrivkey,
+            remotePubkey: bunkerPubkey,
+        };
+
+        return { session, signer: bunkerSigner };
     }
-};
+
+    return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            reject(new Error('Timeout esperando respuesta del bunker (60s)'));
+        }, 60000);
+
+        const sub = ndkInstance.subscribe(
+            { kinds: [24133], '#p': [localPubkey] },
+            { closeOnEose: false }
+        );
+
+        sub.on('event', async (event: NDKEvent) => {
+            try {
+                const privKeyBytes = typeof localPrivkey === 'string'
+                    ? new Uint8Array(localPrivkey.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)))
+                    : localPrivkey;
+
+                const conversationKey = nip44.v2.utils.getConversationKey(privKeyBytes, event.pubkey);
+                const decrypted = nip44.v2.decrypt(event.content, conversationKey);
+                const data = JSON.parse(decrypted);
+
+                if (data.result === secret) {
+                    clearTimeout(timeout);
+
+                    const bunkerSigner = new NDKNip46Signer(ndkInstance, event.pubkey, signer);
+                    (bunkerSigner as any).remotePubkey = event.pubkey;
+
+                    const session: BunkerSession = {
+                        bunkerTarget: bunkerUrl,
+                        localSignerPrivkey: localPrivkey,
+                        remotePubkey: event.pubkey,
+                    };
+
+                    resolve({ session, signer: bunkerSigner });
+                }
+            } catch {
+                // Decryption failed, ignore event
+            }
+        });
+
+        setTimeout(() => {
+            clearTimeout(timeout);
+            reject(new Error('No se recibió respuesta del bunker'));
+        }, 65000);
+    });
+}
+
+export function restoreBunkerSession(session: BunkerSession): NDKNip46Signer {
+    const ndkInstance = new NDK({ explicitRelayUrls: NIP46_RELAYS });
+    const signer = new NDKPrivateKeySigner(session.localSignerPrivkey);
+    return new NDKNip46Signer(ndkInstance, session.remotePubkey, signer);
+}
+
+export function serializeSession(session: BunkerSession): string {
+    return JSON.stringify(session);
+}
+
+export function deserializeSession(data: string): BunkerSession {
+    return JSON.parse(data);
+}

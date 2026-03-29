@@ -8,8 +8,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:nwc": "npx tsx tests/test-nwc.ts",
-    "test:all": "ls tests/*.ts | grep -v 'debug-ui' | xargs -n 1 npx tsx"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:security": "vitest run tests/security",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:nwc": "npx tsx tests/integration/test-nwc.ts"
   },
   "keywords": [
     "lightning",
@@ -30,17 +36,22 @@
     "@nostr-dev-kit/ndk": "^2.0.0",
     "next": "^16.1.6",
     "nostr-tools": "^2.23.3",
+    "qrcode-generator": "^2.0.4",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "webln": "^0.3.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/node": "^20.0.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "autoprefixer": "^10.4.27",
     "dotenv": "^17.3.1",
     "eslint": "^10.0.3",
     "eslint-config-next": "^16.1.6",
-    "typescript": "^5.0.0"
+    "postcss": "^8.5.8",
+    "typescript": "^5.0.0",
+    "vitest": "^4.1.0"
   }
 }

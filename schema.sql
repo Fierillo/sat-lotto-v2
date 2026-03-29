@@ -4,12 +4,12 @@
 CREATE TABLE IF NOT EXISTS lotto_identities (
     id SERIAL PRIMARY KEY,
     pubkey TEXT NOT NULL UNIQUE,
-    alias TEXT,
     nip05 TEXT,
     lud16 TEXT,
     sats_earned INTEGER DEFAULT 0,
+    winner_block INTEGER DEFAULT 0,
+    has_confirmed BOOLEAN DEFAULT FALSE,
     last_updated TIMESTAMP WITH TIME ZONE,
-    last_celebrated_block INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS lotto_identities (
 CREATE TABLE IF NOT EXISTS lotto_bets (
     id SERIAL PRIMARY KEY,
     pubkey TEXT NOT NULL,
-    alias TEXT,
+    nip05 TEXT,
     selected_number INTEGER NOT NULL,
     target_block INTEGER NOT NULL,
     betting_block INTEGER NOT NULL,
@@ -34,9 +34,11 @@ CREATE TABLE IF NOT EXISTS lotto_payouts (
     pubkey TEXT NOT NULL,
     block_height INTEGER NOT NULL,
     amount INTEGER NOT NULL,
-    type TEXT NOT NULL, -- 'winner', 'fee', 'cycle_resolved'
+    fee INTEGER DEFAULT 0,
+    type TEXT NOT NULL, -- 'winner', 'fee', 'cycle_resolved', 'bet'
     status TEXT DEFAULT 'pending', -- 'pending', 'paid', 'failed'
     tx_hash TEXT,
+    bet_id INTEGER REFERENCES lotto_bets(id),
     error_log TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(pubkey, block_height, type)

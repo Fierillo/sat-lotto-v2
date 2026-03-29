@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { queryNeon } from '@/src/lib/db';
-import { createNwcInvoice } from '@/src/utils/payment-server';
-import { lookupNwcInvoice, payNwcInvoice } from '@/src/utils/payment-server';
+import { queryNeon, dbGet, dbGetAll, dbInsert } from '@/src/lib/db';
+import { createNwcInvoice, lookupNwcInvoice, payNwcInvoice } from '@/src/lib/nwc';
 import { verifyEvent } from 'nostr-tools';
 import { cachedBlock, syncData } from '@/src/lib/cache';
 import { checkRateLimit, getClientIP } from '@/src/lib/rate-limiter';
@@ -47,8 +46,32 @@ export async function POST(request: Request) {
             }
             
             const tx = await lookupNwcInvoice(nwcUrl, paymentHash) as any;
+            console.log('[DEBUG BET] lookupNwcInvoice result:', tx);
             if (tx && (tx.settled || tx.preimage)) {
+                console.log('[DEBUG BET] Pago confirmado, actualizando is_paid=true');
                 await queryNeon('UPDATE lotto_bets SET is_paid = TRUE WHERE payment_hash = $1', [paymentHash]);
+
+                const bet = await dbGet<{id: number, pubkey: string, target_block: number}>('lotto_bets', { payment_hash: paymentHash });
+                console.log('[DEBUG BET] Bet encontrado:', bet);
+                if (bet) {
+                    const existingPaidBets = await dbGetAll<{id: number}>('lotto_bets', { pubkey: bet.pubkey, target_block: bet.target_block, is_paid: true });
+                    console.log('[DEBUG BET] Apuestas pagadas existentes:', existingPaidBets.length);
+                    if (existingPaidBets.length > 1) {
+                        console.log('[DEBUG BET] Insertando payout para apuesta #', bet.id);
+                        await dbInsert('lotto_payouts', {
+                            pubkey: bet.pubkey,
+                            block_height: bet.target_block,
+                            amount: 21,
+                            fee: 2,
+                            type: 'bet',
+                            status: 'paid',
+                            tx_hash: paymentHash,
+                            bet_id: bet.id
+                        });
+                        console.log('[DEBUG BET] Payout insertado exitosamente');
+                    }
+                }
+
                 try {
                     const feeInvoice = await getInvoiceFromLNAddress('fierillo@lawalletilla.vercel.app', 2);
                     if (feeInvoice) await payNwcInvoice(nwcUrl, feeInvoice);
@@ -68,7 +91,7 @@ export async function POST(request: Request) {
         const finalPubkey = event.pubkey;
         const finalBloque = parseInt(betContent.bloque);
         const finalNumero = parseInt(betContent.numero);
-        const finalAlias = betContent.alias;
+        const finalNip05 = betContent.nip05;
         const eventId = event.id;
         const createdAt = event.created_at;
 
@@ -123,12 +146,12 @@ export async function POST(request: Request) {
         if (!pr) return NextResponse.json({ error: 'NWC returned an empty invoice' }, { status: 500 });
 
         await queryNeon(`
-            INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, payment_hash, is_paid, betting_block, alias, nostr_event_id)
+            INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, payment_hash, is_paid, betting_block, nip05, nostr_event_id)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        `, [finalPubkey, finalBloque, finalNumero, pr, hash, false, cachedBlock.height, finalAlias, eventId]);
+        `, [finalPubkey, finalBloque, finalNumero, pr, hash, false, cachedBlock.height, finalNip05, eventId]);
 
-        if (finalAlias) {
-            await queryNeon('INSERT INTO lotto_identities (pubkey, alias) VALUES ($1, $2) ON CONFLICT (pubkey) DO UPDATE SET alias = EXCLUDED.alias', [finalPubkey, finalAlias]);
+        if (finalNip05) {
+            await queryNeon('INSERT INTO lotto_identities (pubkey, nip05) VALUES ($1, $2) ON CONFLICT (pubkey) DO UPDATE SET nip05 = EXCLUDED.nip05', [finalPubkey, finalNip05]);
         }
 
         return NextResponse.json({ paymentRequest: pr, paymentHash: hash });
@@ -141,6 +164,19 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
+        const paymentHash = searchParams.get('paymentHash') || '';
+
+        if (paymentHash) {
+            const nwcUrl = process.env.NWC_URL;
+            if (!nwcUrl) return NextResponse.json({ error: 'Server NWC not configured' }, { status: 500 });
+
+            const tx = await lookupNwcInvoice(nwcUrl, paymentHash) as any;
+            if (tx && (tx.settled || tx.preimage)) {
+                return NextResponse.json({ confirmed: true, settled: true });
+            }
+            return NextResponse.json({ confirmed: false, settled: false });
+        }
+
         const block = parseInt(searchParams.get('block') || '');
         const number = parseInt(searchParams.get('number') || '');
         const pubkey = searchParams.get('pubkey') || '';
@@ -193,7 +229,7 @@ export async function GET(request: Request) {
         if (!pr) return NextResponse.json({ error: 'NWC returned an empty invoice' }, { status: 500 });
 
         await queryNeon(`
-            INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, payment_hash, is_paid, betting_block, alias, nostr_event_id)
+            INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, payment_hash, is_paid, betting_block, nip05, nostr_event_id)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `, [pubkey, block, number, pr, hash, false, cachedBlock.height, null, 'pending_amber_' + hash]);
 

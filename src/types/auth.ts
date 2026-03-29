@@ -1,4 +1,5 @@
 import type { NDKEvent } from '@nostr-dev-kit/ndk';
+import type { Signer } from './signer';
 
 export interface LoginHandlers {
     onExtLogin: () => void;
@@ -15,12 +16,11 @@ export interface LogRemoteData {
 
 export interface AuthState {
     pubkey: string | null;
-    signer: any | null;
+    signer: Signer;
     nwcUrl: string | null;
     bunkerTarget: string | null;
     localPrivkey: string | null;
     nip05: string | null;
     loginEvent: NDKEvent | null;
-    lastCelebratedBlock: number;
     loginMethod: string | null;
 }

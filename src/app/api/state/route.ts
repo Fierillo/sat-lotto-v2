@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { queryNeon } from '@/src/lib/db';
 import { cachedBlock, syncData } from '@/src/lib/cache';
-import { calculateResult } from '@/src/lib/payout-logic';
+import { calculateResult } from '@/src/lib/champion-call';
 import { checkRateLimit, getClientIP } from '@/src/lib/rate-limiter';
 
 export async function GET(request: Request) {
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
         // 1. Fetch Active Bets (One per user, priority: Paid > Recent)
         const activeBets = await queryNeon(`
             SELECT DISTINCT ON (b.pubkey) 
-                b.pubkey, b.selected_number, COALESCE(i.alias, b.alias) as alias, b.created_at, b.is_paid
+                b.pubkey, b.selected_number, COALESCE(i.nip05, b.nip05) as nip05, b.created_at, b.is_paid
             FROM lotto_bets b
             LEFT JOIN lotto_identities i ON b.pubkey = i.pubkey
             WHERE b.target_block = $1 AND b.betting_block >= ($1 - 21)
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 
         // 2. Fetch Hall of Fame (Champions)
         const champions = await queryNeon(`
-            SELECT pubkey, alias, sats_earned 
+            SELECT pubkey, nip05, sats_earned 
             FROM lotto_identities 
             WHERE sats_earned > 0
             ORDER BY sats_earned DESC
@@ -51,18 +51,23 @@ export async function GET(request: Request) {
             const result = await calculateResult(lastResolvedBlock);
             if (result) {
                 const winners = await queryNeon(`
-                    SELECT b.pubkey, b.selected_number, COALESCE(i.alias, b.alias) as alias
+                    SELECT b.pubkey, b.selected_number, COALESCE(i.nip05, b.nip05) as nip05
                     FROM lotto_bets b
                     LEFT JOIN lotto_identities i ON b.pubkey = i.pubkey
                     WHERE b.target_block = $1 AND b.selected_number = $2 AND b.is_paid = TRUE AND b.betting_block >= ($1 - 21)
                 `, [lastResolvedBlock, result.winningNumber]);
                 
+                const blocksUntilCelebration = Math.max(0, (lastResolvedBlock + 2) - currentHeight);
+                const hasConfirmed = blocksUntilCelebration === 0;
+
                 lastResult = {
                     resolved: true,
                     blockHash: result.hash,
                     winningNumber: result.winningNumber,
                     winners,
-                    targetBlock: lastResolvedBlock
+                    targetBlock: lastResolvedBlock,
+                    blocksUntilCelebration,
+                    hasConfirmed
                 };
             }
         }
