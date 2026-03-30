@@ -1,4 +1,5 @@
 -- SatLotto V2 - Database Schema
+-- This schema reflects the actual Neon development database
 
 -- 1. Identidades de Usuario
 CREATE TABLE IF NOT EXISTS lotto_identities (
@@ -6,26 +7,26 @@ CREATE TABLE IF NOT EXISTS lotto_identities (
     pubkey TEXT NOT NULL UNIQUE,
     nip05 TEXT,
     lud16 TEXT,
+    last_updated TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     sats_earned INTEGER DEFAULT 0,
     winner_block INTEGER DEFAULT 0,
-    has_confirmed BOOLEAN DEFAULT FALSE,
-    last_updated TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    has_confirmed BOOLEAN DEFAULT FALSE
 );
 
 -- 2. Apuestas
 CREATE TABLE IF NOT EXISTS lotto_bets (
     id SERIAL PRIMARY KEY,
     pubkey TEXT NOT NULL,
-    nip05 TEXT,
     selected_number INTEGER NOT NULL,
     target_block INTEGER NOT NULL,
     betting_block INTEGER NOT NULL,
     is_paid BOOLEAN DEFAULT FALSE,
+    nostr_event_id TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     payment_request TEXT,
     payment_hash TEXT UNIQUE,
-    nostr_event_id TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    nip05 TEXT
 );
 
 -- 3. Historial de Pagos y Control de Ciclos
@@ -34,13 +35,13 @@ CREATE TABLE IF NOT EXISTS lotto_payouts (
     pubkey TEXT NOT NULL,
     block_height INTEGER NOT NULL,
     amount INTEGER NOT NULL,
-    fee INTEGER DEFAULT 0,
     type TEXT NOT NULL, -- 'winner', 'fee', 'cycle_resolved', 'bet'
     status TEXT DEFAULT 'pending', -- 'pending', 'paid', 'failed'
     tx_hash TEXT,
-    bet_id INTEGER REFERENCES lotto_bets(id),
     error_log TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    fee INTEGER,
+    bet_id INTEGER REFERENCES lotto_bets(id),
     UNIQUE(pubkey, block_height, type)
 );
 
