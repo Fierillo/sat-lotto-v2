@@ -69,14 +69,6 @@ APP_URL=https://your-app.vercel.app
 - **Playwright** - E2E testing
 - **TypeScript** - Tipado estático
 
-## Reglas del juego
-
-- **Apuesta**: 21 sats por número
-- **Premio**: El pozo completo dividido entre los ganadores
-- **Ronda**: 21 bloques de Bitcoin (lo que el destino diga)
-- **Ventana**: Podés apostar hasta el bloque target-2
-- **Pago**: Automático a tu Lightning Address (configurala en tu perfil de Nostr)
-
 ---
 
 🏆 Construido para La Crypta Lightning Hackathon 2026
