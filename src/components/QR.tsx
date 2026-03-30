@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import qrcode from 'qrcode-generator';
-import { generateConnectUri, createBunkerSession } from '../lib/nip46';
+import { generateConnectUri, createBunkerSession, BunkerSession } from '../lib/nip46';
 import { NDKPrivateKeySigner, NDKNip46Signer } from '@nostr-dev-kit/ndk';
 import { CopyText } from './CopyText';
 
 interface QRProps {
     shouldConnect: boolean;
-    onConnect: (bunkerUrl: string, signer: NDKNip46Signer, secret: string) => void;
+    onConnect: (bunkerUrl: string, signer: NDKNip46Signer, secret: string, session?: BunkerSession) => void;
     onError: (error: string) => void;
 }
 
@@ -54,8 +54,8 @@ export function QR({ shouldConnect, onConnect, onError }: QRProps) {
         connectedRef.current = true;
 
         createBunkerSession('bunker://', localSigner, connectSecret)
-            .then(({ signer: bunkerSigner }) => {
-                onConnect('bunker://', bunkerSigner, connectSecret);
+            .then(({ signer: bunkerSigner, session }) => {
+                onConnect('bunker://', bunkerSigner, connectSecret, session);
             })
             .catch((e: any) => {
                 onError(e.message);

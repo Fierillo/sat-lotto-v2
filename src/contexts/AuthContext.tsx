@@ -43,7 +43,7 @@ interface AuthContextValue {
     setError: (error: string | null) => void;
     loginWithExtension: () => Promise<VictoryStatus | null>;
     loginWithNwc: (url: string) => Promise<void>;
-    loginWithBunker: (url: string, signer: NDKPrivateKeySigner | NDKNip46Signer, secret: string, relays?: string[], skipHandshake?: boolean) => Promise<VictoryStatus | null>;
+    loginWithBunker: (url: string, signer: NDKPrivateKeySigner | NDKNip46Signer, secret: string, relays?: string[], skipHandshake?: boolean, existingSession?: any) => Promise<VictoryStatus | null>;
     verifyPinForNwc: (pin: string) => Promise<VictoryStatus | null>;
     createPinForNwc: (pin: string) => Promise<VictoryStatus | null>;
     closePinModal: () => void;
@@ -115,9 +115,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signer: any,
         secret: string,
         relays?: string[],
-        skipHandshake?: boolean
+        skipHandshake?: boolean,
+        existingSession?: any
     ): Promise<VictoryStatus | null> => {
-        return loginWithBunker(url, signer, secret, relays, skipHandshake, actions);
+        return loginWithBunker(url, signer, secret, relays, skipHandshake, actions, existingSession);
     }, [actions]);
 
     const handleVerifyPin = useCallback(async (pin: string): Promise<VictoryStatus | null> => {

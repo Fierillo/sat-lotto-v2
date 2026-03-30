@@ -11,7 +11,7 @@ import {
     getAttemptsLeft 
 } from '../lib/crypto';
 import ndk from '../lib/ndk';
-import { createBunkerSession } from '../lib/nip46';
+import { createBunkerSession, BunkerSession } from '../lib/nip46';
 import { NDKPrivateKeySigner, NDKNip46Signer } from '@nostr-dev-kit/ndk';
 import type { Signer, NIP07Signer } from '../types/signer';
 
@@ -213,7 +213,8 @@ export const loginWithBunker = async (
     secret: string,
     relays?: string[],
     skipHandshake?: boolean,
-    actions?: AuthActions
+    actions?: AuthActions,
+    existingSession?: BunkerSession
 ): Promise<VictoryStatus | null> => {
     if (!actions) {
         throw new Error('AuthActions required');
@@ -230,7 +231,11 @@ export const loginWithBunker = async (
 
         if (signer instanceof NDKNip46Signer) {
             bunkerSigner = signer;
-            sessionData = actions.bunkerSession;
+            if (existingSession) {
+                sessionData = JSON.stringify(existingSession);
+            } else {
+                sessionData = actions.bunkerSession;
+            }
         } else {
             const result = await createBunkerSession(url, signer, secret, relays, skipHandshake);
             bunkerSigner = result.signer;
