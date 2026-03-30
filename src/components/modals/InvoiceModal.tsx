@@ -56,12 +56,8 @@ export function InvoiceModal({ isOpen, onClose, paymentRequest, paymentHash, onP
       if (data.confirmed || data.settled) {
         setPaid(true);
         clearPending();
-        try {
-          await onPaid?.();
-        } catch (e) {
-          console.error('[InvoiceModal] onPaid error:', e);
-        }
         onClose();
+        onPaid?.();
       }
     } catch (e) {
       console.error('[InvoiceModal] Error checking payment:', e);
