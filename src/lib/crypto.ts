@@ -2,10 +2,12 @@
  * Crypto: PIN management + AES-GCM + Argon2/PBKDF2 encryption
  *
  * Used for encrypting/decrypting NWC URLs with a 4-digit PIN.
- * Uses Argon2id (via WASM) for key derivation with PBKDF2 fallback.
+ * Uses Argon2id for key derivation with PBKDF2 fallback.
  * Argon2 is lazy-loaded to avoid SSR issues.
  * Separated from NWC protocol logic (src/lib/nwc.ts).
  */
+
+import { argon2id } from 'hash-wasm';
 
 const PIN_KEY = 'satlotto_pin_hash';
 const ATTEMPTS_KEY = 'satlotto_pin_attempts';
@@ -17,27 +19,21 @@ const isBrowser = typeof window !== 'undefined' && typeof window.crypto !== 'und
 
 let argon2Available: boolean | null = null;
 
-async function loadArgon2() {
-    if (!isBrowser) return null;
-    try {
-        const argon2 = await import('argon2-browser');
-        return argon2.default || argon2;
-    } catch {
-        return null;
-    }
-}
-
 async function checkArgon2Available(): Promise<boolean> {
     if (!isBrowser) return false;
     if (argon2Available !== null) return argon2Available;
     try {
-        const argon2 = await loadArgon2();
-        if (!argon2) {
-            argon2Available = false;
-            return false;
-        }
-        const ArgonType = (argon2 as any).ArgonType || { Argon2id: 2 };
-        await (argon2 as any).hash({ pass: 'test', salt: 'test', type: ArgonType.Argon2id });
+        const testSalt = new Uint8Array(16);
+        window.crypto.getRandomValues(testSalt);
+        await argon2id({
+            password: 'test',
+            salt: testSalt,
+            parallelism: 1,
+            iterations: 1,
+            memorySize: 512,
+            hashLength: 32,
+            outputType: 'binary',
+        });
         argon2Available = true;
     } catch {
         argon2Available = false;
@@ -48,20 +44,17 @@ async function checkArgon2Available(): Promise<boolean> {
 async function deriveKeyArgon2(pin: string, salt: Uint8Array): Promise<CryptoKey | null> {
     if (!isBrowser) return null;
     try {
-        const argon2 = await loadArgon2();
-        if (!argon2) return null;
-        const ArgonType = (argon2 as any).ArgonType || { Argon2id: 2 };
-        const hash = await (argon2 as any).hash({
-            pass: pin,
-            salt: Array.from(salt),
-            type: ArgonType.Argon2id,
-            mem: 65536,
-            time: 1,
+        const saltFixed = new Uint8Array(new Uint8Array(salt).buffer);
+        const hash = await argon2id({
+            password: pin,
+            salt: saltFixed,
             parallelism: 1,
-            hashLen: 32,
-        });
-        const hashBuffer = hash.hash.buffer.slice(hash.hash.byteOffset, hash.hash.byteOffset + hash.hash.byteLength) as ArrayBuffer;
-        return crypto.subtle.importKey('raw', hashBuffer, 'AES-GCM', false, ['encrypt', 'decrypt']);
+            iterations: 3,
+            memorySize: 65536,
+            hashLength: 32,
+            outputType: 'binary',
+        } as any);
+        return crypto.subtle.importKey('raw', hash as any, 'AES-GCM', false, ['encrypt', 'decrypt']);
     } catch {
         return null;
     }
@@ -72,7 +65,7 @@ async function deriveKeyPBKDF2(pin: string, salt: Uint8Array): Promise<CryptoKey
     const keyMaterial = await crypto.subtle.importKey(
         'raw', encoder.encode(pin), { name: 'PBKDF2' }, false, ['deriveBits', 'deriveKey']
     );
-    const saltBuffer = new Uint8Array(salt).buffer;
+    const saltBuffer = new Uint8Array(salt).buffer as ArrayBuffer;
     return crypto.subtle.deriveKey(
         { name: 'PBKDF2', salt: saltBuffer, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
         keyMaterial, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']
