@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Signer } from '../types/signer';
+import { restoreBunkerSession, deserializeSession } from '@/src/lib/nip46';
 
 interface AuthState {
     pubkey: string | null;
@@ -53,6 +54,14 @@ export function useAuthStore(): AuthStore {
 
         if (stored.loginMethod === 'extension' && typeof window !== 'undefined' && window.nostr) {
             setSigner(window.nostr as unknown as import('../types/signer').NIP07Signer);
+        } else if (stored.loginMethod === 'bunker' && stored.bunkerSession) {
+            try {
+                const session = deserializeSession(stored.bunkerSession);
+                const bunkerSigner = restoreBunkerSession(session);
+                setSigner(bunkerSigner);
+            } catch (e) {
+                console.error('[AuthStore] Failed to restore bunker session:', e);
+            }
         }
     }, []);
 
