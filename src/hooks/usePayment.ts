@@ -107,11 +107,16 @@ export function usePayment(): UsePaymentReturn {
     }, []);
 
     const confirmBetHandler = useCallback(async (paymentHash: string) => {
-        await apiClient.post('/api/bet', { paymentHash, action: 'confirm' });
-        await refreshGame();
-        setPaymentStatus('success');
-        selectNumber(null);
-        setTimeout(resetPaymentStatus, 4000);
+        try {
+            await apiClient.post('/api/bet', { paymentHash, action: 'confirm' });
+            await refreshGame();
+            setPaymentStatus('success');
+            selectNumber(null);
+            setTimeout(resetPaymentStatus, 4000);
+        } catch (e: any) {
+            console.error('[confirmBet] Error:', e?.message || e);
+            setPaymentStatus('error');
+        }
     }, [refreshGame, resetPaymentStatus]);
 
     const makePayment = useCallback(async () => {
@@ -130,7 +135,7 @@ export function usePayment(): UsePaymentReturn {
             let paymentRequest: string;
             let paymentHash: string;
 
-            if (authState.loginMethod === 'amber') {
+            if (authState.loginMethod === 'amber' || authState.loginMethod === 'bunker') {
                 const result = await fetch(
                     `/api/bet?block=${gameState.targetBlock}&number=${gameState.selectedNumber}&pubkey=${authState.pubkey}`
                 );
