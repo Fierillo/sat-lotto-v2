@@ -1,4 +1,4 @@
-import { queryNeon } from './db';
+import { queryNeon, dbGet, dbInsert, dbUpdate } from './db';
 
 const WINDOW_SECONDS = 60;
 
@@ -23,27 +23,18 @@ export async function checkRateLimit(
         const now = new Date();
         const windowStart = new Date(now.getTime() - WINDOW_SECONDS * 1000);
 
-        const existing = await queryNeon(
-            'SELECT count, window_start FROM rate_limits WHERE key = $1',
-            [key]
-        );
+        const existing = await dbGet<{ count: number; window_start: Date }>('rate_limits', { key });
 
-        if (existing.length === 0) {
-            await queryNeon(
-                'INSERT INTO rate_limits (key, count, window_start) VALUES ($1, 1, $2)',
-                [key, now]
-            );
+        if (!existing) {
+            await dbInsert('rate_limits', { key, count: 1, window_start: now });
             return { allowed: true, remaining: maxRequests - 1 };
         }
 
-        const { count, window_start } = existing[0];
+        const { count, window_start } = existing;
         const windowStartTime = new Date(window_start);
 
         if (windowStartTime < windowStart) {
-            await queryNeon(
-                'UPDATE rate_limits SET count = 1, window_start = $1 WHERE key = $2',
-                [now, key]
-            );
+            await dbUpdate('rate_limits', { key }, { count: 1, window_start: now });
             return { allowed: true, remaining: maxRequests - 1 };
         }
 

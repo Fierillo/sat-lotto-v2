@@ -1,5 +1,5 @@
 import { nwc } from '@getalby/sdk';
-import { queryNeon } from './db';
+import { queryNeon, dbGetAll, dbUpdate } from './db';
 import { blockHashCache } from './cache';
 import { getPoolBalance } from './nwc';
 import { getInvoiceFromLNAddress } from './ln';
@@ -23,12 +23,9 @@ export const processPayouts = async (currentHeight: number) => {
     const lastResolvedTarget = Math.floor(currentHeight / 21) * 21;
     
     if (currentHeight >= lastResolvedTarget + 2) {
-        const alreadyProcessed = await queryNeon(`
-            SELECT count(*) FROM lotto_payouts 
-            WHERE block_height = $1 AND type = 'cycle_resolved'
-        `, [lastResolvedTarget]);
+        const alreadyProcessed = await dbGetAll<{ id: number }>('lotto_payouts', { block_height: lastResolvedTarget, type: 'cycle_resolved' });
         
-        if (parseInt(alreadyProcessed[0].count) === 0) {
+        if (alreadyProcessed.length === 0) {
             await runFullPayoutCycle(lastResolvedTarget);
         }
     }
@@ -90,9 +87,7 @@ async function runFullPayoutCycle(targetBlock: number) {
                 ON CONFLICT (pubkey, block_height, type) DO UPDATE SET status = EXCLUDED.status
             `, [winner.pubkey, targetBlock, prizePerWinner, 'winner', paid ? 'paid' : 'failed']);
 
-            await queryNeon(`
-                UPDATE lotto_identities SET winner_block = $1, has_confirmed = $2 WHERE pubkey = $3
-            `, [targetBlock, paid, winner.pubkey]);
+            await dbUpdate('lotto_identities', { pubkey: winner.pubkey }, { winner_block: targetBlock, has_confirmed: paid });
 
             if (paid) {
                 await queryNeon(`
@@ -145,8 +140,7 @@ async function retryFailedPayouts() {
             if (invoice) {
                 try {
                     await nwcClient.payInvoice({ invoice });
-                    await queryNeon('UPDATE lotto_payouts SET status = $1 WHERE pubkey = $2 AND block_height = $3 AND type = $4', 
-                        ['paid', p.pubkey, p.block_height, 'winner']);
+                    await dbUpdate('lotto_payouts', { pubkey: p.pubkey, block_height: p.block_height, type: 'winner' }, { status: 'paid' });
                     
                     await queryNeon(`
                         UPDATE lotto_identities SET sats_earned = sats_earned + $1 WHERE pubkey = $2
