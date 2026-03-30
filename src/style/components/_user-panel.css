@@ -1,0 +1,61 @@
+.user-panel {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(247, 147, 26, 0.2);
+    border: 1px solid var(--neon-orange);
+    color: var(--neon-orange);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: bold;
+    transition: opacity 0.3s ease;
+    z-index: 100;
+    cursor: pointer;
+}
+
+.user-alias {
+    display: block;
+    font-size: 0.9rem;
+}
+
+.method-badge {
+    display: block;
+    font-size: 0.55rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.5;
+    margin-top: 2px;
+}
+
+.logout-menu {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, margin-top 0.3s ease;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.logout-menu.active {
+    max-height: 50px;
+    margin-top: 10px;
+}
+
+.logout-menu button {
+    background: #000000;
+    color: var(--neon-orange);
+    border: 2px solid var(--neon-orange);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 0.8rem;
+    box-shadow: 0 0 10px rgba(255, 51, 51, 0.3);
+}
+
+.logout-menu button:hover {
+    background: var(--neon-orange);
+    color: #000;
+    border: 2px solid var(--neon-orange);
+}

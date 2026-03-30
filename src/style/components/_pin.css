@@ -1,0 +1,41 @@
+.pin-desc {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-bottom: 20px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.pin-input-container {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.pin-digit {
+    width: 50px;
+    height: 60px;
+    background: var(--glass-bg);
+    border: 2px solid var(--glass-border-light);
+    border-radius: 10px;
+    color: var(--neon-orange);
+    font-size: 2rem;
+    text-align: center;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.pin-digit:focus {
+    border-color: var(--neon-orange);
+    box-shadow: 0 0 15px rgba(247, 147, 26, 0.4);
+    background: rgba(247, 147, 26, 0.1);
+}
+
+.pin-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.pin-buttons .auth-btn {
+    flex: 1;
+}

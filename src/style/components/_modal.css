@@ -1,0 +1,80 @@
+.modal-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: transparent;
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: rgba(20, 20, 35, 0.85);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 30px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    max-height: 90vh;
+    overflow-y: auto;
+    scrollbar-width: none;
+}
+
+.modal::-webkit-scrollbar {
+    display: none;
+}
+
+.modal h2 {
+    margin-bottom: 25px;
+    font-size: 1.5rem;
+    color: var(--neon-orange);
+}
+
+.modal-title {
+    text-align: center;
+    color: #fff;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    font-weight: bold;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.modal-text {
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.4;
+}
+
+.modal-hash {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(255, 255, 212, 0.05);
+}
+
+.victory-text-animation {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    font-size: 5rem;
+    font-weight: 900;
+    text-shadow: 0 0 40px #f7931a, 0 0 80px #f7931a;
+    z-index: 10001;
+    letter-spacing: 20px;
+    text-transform: uppercase;
+    animation: winnerTextPop 4.2s forwards;
+    white-space: nowrap;
+    pointer-events: none;
+    font-family: 'JetBrains Mono', monospace;
+}

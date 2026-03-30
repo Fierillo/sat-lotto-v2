@@ -1,0 +1,88 @@
+:root {
+    --neon-orange: #f7931a;
+    --neon-green: #00ff9d;
+    --neon-red: #ff3333;
+    --neon-blue: #00f2ff;
+    --neon-purple: #b026ff;
+    --bg-top: #151828;
+    --bg-bottom: #080b12;
+    --bg-dim-top: #080a12;
+    --bg-dim-bottom: #010103;
+    --bg-flash-top: #001a0f;
+    --bg-flash-bottom: #000;
+    --text-dim: rgba(255, 255, 255, 0.5);
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.05);
+    --glass-border-light: rgba(255, 255, 255, 0.1);
+    --glass-hover: rgba(255, 255, 255, 0.1);
+    --bg-panel: rgba(255, 255, 255, 0.02);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background: radial-gradient(circle at top, var(--bg-top) 0%, var(--bg-bottom) 100%);
+    min-height: 100vh;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 50px 20px;
+    transition: background 2.2s ease, box-shadow 2.2s ease;
+    overflow-x: hidden;
+}
+
+#app {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 50px;
+}
+
+.header h1 {
+    font-size: 3rem;
+    letter-spacing: -1px;
+}
+
+.header h1 span {
+    color: var(--neon-orange);
+}
+
+.subtitle {
+    color: var(--text-dim);
+    font-weight: 300;
+    margin-top: 8px;
+    font-size: 1.1rem;
+}
+
+.text-green {
+    color: var(--neon-green) !important;
+}
+
+.text-orange {
+    color: var(--neon-orange) !important;
+}
+
+@media (max-width: 800px) {
+    body {
+        padding: 60px 10px 20px 10px;
+    }
+
+    .header h1 {
+        font-size: 2.2rem;
+    }
+
+    .header {
+        margin-bottom: 15px;
+    }
+}

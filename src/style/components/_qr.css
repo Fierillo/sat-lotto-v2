@@ -1,0 +1,125 @@
+.qr-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 280px;
+    margin-bottom: 10px;
+}
+
+.qr-box.expired {
+    width: 280px;
+    height: 280px;
+    background: rgba(247, 147, 26, 0.1);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.qr-expired-text {
+    color: var(--neon-orange);
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+}
+
+.qr-error {
+    width: 280px;
+    height: 280px;
+    background: rgba(239, 68, 68, 0.1);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.qr-error-text {
+    color: #ef4444;
+    font-size: 0.85rem;
+    text-align: center;
+    padding: 0 15px;
+}
+
+.qr-loading {
+    color: var(--neon-orange);
+    font-size: 0.9rem;
+}
+
+.qr-placeholder {
+    width: 280px;
+    height: 280px;
+    background: rgba(247, 147, 26, 0.1);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.qr-wrapper {
+    position: relative;
+    cursor: pointer;
+    width: 280px;
+    height: 280px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(247, 147, 26, 0.1);
+    border: 2px dashed var(--neon-orange);
+}
+
+.qr-wrapper img {
+    max-width: 100%;
+    max-height: 100%;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+}
+
+.qr-wrapper:hover .qr-hint {
+    opacity: 1;
+}
+
+.qr-hint {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--neon-orange);
+    font-size: 0.85rem;
+    font-weight: bold;
+    opacity: 0;
+    transition: opacity 0.2s;
+    border-radius: 12px;
+}
+
+.qr-expired {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 280px;
+    height: 280px;
+    background: rgba(247, 147, 26, 0.1);
+    border: 2px dashed var(--neon-orange);
+    border-radius: 12px;
+}
+
+.qr-container {
+    background: #fff;
+    padding: 15px;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto 20px;
+    width: 200px;
+    height: 200px;
+}
+
+.invoice-modal .qr-container div {
+    animation: pulse-orange 2s infinite ease-in-out;
+}
