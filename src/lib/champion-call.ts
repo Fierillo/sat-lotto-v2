@@ -3,7 +3,7 @@ import { queryNeon, dbGetAll, dbUpdate } from './db';
 import { blockHashCache } from './cache';
 import { getPoolBalance } from './nwc';
 import { getInvoiceFromLNAddress } from './ln';
-import { sendDM, publishRoundResult, ensureNdkConnected, botNdk } from './nostr';
+import { sendDM, ensureNdkConnected, botNdk } from './nostr';
 
 export const calculateResult = async (block: number) => {
     let hash = blockHashCache[block];
@@ -18,6 +18,26 @@ export const calculateResult = async (block: number) => {
     const winningNumber = Number((BigInt('0x' + hash) % BigInt(21)) + BigInt(1));
     return { hash, winningNumber };
 };
+
+export async function getWinners(targetBlock: number, winningNumber: number) {
+    return queryNeon(`
+        SELECT DISTINCT ON (b.pubkey) 
+            b.pubkey, i.nip05, i.lud16
+        FROM lotto_bets b
+        LEFT JOIN lotto_identities i ON b.pubkey = i.pubkey
+        WHERE b.target_block = $1 AND b.selected_number = $2 AND b.is_paid = TRUE AND b.betting_block >= ($1 - 21)
+        ORDER BY b.pubkey, b.created_at DESC
+    `, [targetBlock, winningNumber]);
+}
+
+export function buildAnnouncement(targetBlock: number, winners: any[], totalSats: number): string {
+    const winnerNames = winners.map((w) => w.nip05 || w.pubkey.slice(0, 8));
+    const prizePerWinner = winners.length > 0 ? Math.floor(totalSats / winners.length) : 0;
+
+    return winners.length > 0 
+        ? `¡Ronda ${targetBlock} confirmada! 🏆\n\nCampeones: ${winnerNames.join(', ')}\nPremio repartido: ${prizePerWinner} sats c/u.\n\nFelicidades a los ganadores. ¡La suerte está echada!\n\nJugá vos también en: ${process.env.APP_URL || 'https://satlotto.ar'}`
+        : `¡Ronda ${targetBlock} confirmada!\n\nEsta vez el azar fue esquivo y no hubo ganadores. 🎲\n\nEl pozo de ${totalSats} sats se acumula para el próximo sorteo. ¡Aprovechá la oportunidad!\n\nParticipá en: ${process.env.APP_URL || 'https://satlotto.ar'}`;
+}
 
 export const processPayouts = async (currentHeight: number) => {
     const lastResolvedTarget = Math.floor(currentHeight / 21) * 21;
@@ -44,23 +64,10 @@ async function runFullPayoutCycle(targetBlock: number) {
     
     try {
         const totalSats = await getPoolBalance();
+        const winners = await getWinners(targetBlock, result.winningNumber);
 
-        const winners = await queryNeon(`
-            SELECT DISTINCT ON (b.pubkey) 
-                b.pubkey, i.nip05, i.lud16
-            FROM lotto_bets b
-            LEFT JOIN lotto_identities i ON b.pubkey = i.pubkey
-            WHERE b.target_block = $1 AND b.selected_number = $2 AND b.is_paid = TRUE AND b.betting_block >= ($1 - 21)
-            ORDER BY b.pubkey, b.created_at DESC
-        `, [targetBlock, result.winningNumber]);
-
-        const prizePerWinner = winners.length > 0 ? Math.floor(totalSats / winners.length) : 0;
-
-        const winnerNames: string[] = [];
         for (const winner of winners) {
-            const winnerName = winner.nip05 || winner.pubkey.slice(0, 8);
-            winnerNames.push(winnerName);
-
+            const prizePerWinner = winners.length > 0 ? Math.floor(totalSats / winners.length) : 0;
             let paid = false;
             let lud16 = winner.lud16;
             
@@ -108,12 +115,6 @@ async function runFullPayoutCycle(targetBlock: number) {
             VALUES ('SYSTEM', $1, 0, 'cycle_resolved', 'paid')
             ON CONFLICT DO NOTHING
         `, [targetBlock]);
-
-        const announcement = winners.length > 0 
-            ? `¡Ronda ${targetBlock} confirmada! 🏆\n\nCampeones: ${winnerNames.join(', ')}\nPremio repartido: ${prizePerWinner} sats c/u.\n\nFelicidades a los ganadores. ¡La suerte está echada!\n\nJugá vos también en: ${process.env.APP_URL || 'https://satlotto.ar'}`
-            : `¡Ronda ${targetBlock} confirmada!\n\nEsta vez el azar fue esquivo y no hubo ganadores. 🎲\n\nEl pozo de ${totalSats} sats se acumula para el próximo sorteo. ¡Aprovechá la oportunidad!\n\nParticipá en: ${process.env.APP_URL || 'https://satlotto.ar'}`;
-        
-        await publishRoundResult(announcement);
     } finally {
         try { nwcClient.close(); } catch {}
     }
