@@ -114,7 +114,9 @@ export function usePayment(): UsePaymentReturn {
             selectNumber(null);
             setTimeout(resetPaymentStatus, 4000);
         } catch (e: any) {
-            console.error('[confirmBet] Error:', e?.message || e);
+            const msg = e?.message || 'Error en confirmación';
+            console.error('[confirmBet] Error:', msg);
+            setPaymentError(msg);
             setPaymentStatus('error');
         }
     }, [refreshGame, resetPaymentStatus]);
