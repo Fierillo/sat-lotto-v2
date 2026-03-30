@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { queryNeon, dbGet, dbGetAll, dbInsert } from '@/src/lib/db';
+import { queryNeon, dbGet, dbGetAll, dbInsert, dbUpdate } from '@/src/lib/db';
 import { createNwcInvoice, lookupNwcInvoice, payNwcInvoice } from '@/src/lib/nwc';
 import { verifyEvent } from 'nostr-tools';
 import { cachedBlock, syncData } from '@/src/lib/cache';
@@ -33,13 +33,10 @@ export async function POST(request: Request) {
             const nwcUrl = process.env.NWC_URL;
             if (!nwcUrl || !paymentHash) return NextResponse.json({ error: 'Missing data' }, { status: 400 });
 
-            const confirmPubkey = await queryNeon(
-                'SELECT pubkey FROM lotto_bets WHERE payment_hash = $1',
-                [paymentHash]
-            );
+            const confirmPubkey = await dbGet<{ pubkey: string }>('lotto_bets', { payment_hash: paymentHash });
             
-            if (confirmPubkey.length > 0) {
-                const rateCheck = await checkRateLimit('bet:confirm:pubkey', confirmPubkey[0].pubkey);
+            if (confirmPubkey) {
+                const rateCheck = await checkRateLimit('bet:confirm:pubkey', confirmPubkey.pubkey);
                 if (!rateCheck.allowed) {
                     return NextResponse.json({ error: 'Rate limit' }, { status: 429 });
                 }
@@ -48,10 +45,15 @@ export async function POST(request: Request) {
             const tx = await lookupNwcInvoice(nwcUrl, paymentHash) as any;
             console.log('[DEBUG BET] lookupNwcInvoice result:', tx);
             if (tx && (tx.settled || tx.preimage)) {
+                const bet = await dbGet<{id: number, pubkey: string, target_block: number, selected_number: number, is_paid: boolean}>('lotto_bets', { payment_hash: paymentHash });
+                
+                if (bet?.is_paid) {
+                    return NextResponse.json({ error: 'Estas pagando 2 veces por el mismo numero!' }, { status: 409 });
+                }
+                
                 console.log('[DEBUG BET] Pago confirmado, actualizando is_paid=true');
-                await queryNeon('UPDATE lotto_bets SET is_paid = TRUE WHERE payment_hash = $1', [paymentHash]);
+                await dbUpdate('lotto_bets', { payment_hash: paymentHash }, { is_paid: true });
 
-                const bet = await dbGet<{id: number, pubkey: string, target_block: number}>('lotto_bets', { payment_hash: paymentHash });
                 console.log('[DEBUG BET] Bet encontrado:', bet);
                 if (bet) {
                     const existingPaidBets = await dbGetAll<{id: number}>('lotto_bets', { pubkey: bet.pubkey, target_block: bet.target_block, is_paid: true });
@@ -99,8 +101,8 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid number. Must be between 1 and 21.' }, { status: 400 });
         }
 
-        const existingEvent = await queryNeon('SELECT count(*) FROM lotto_bets WHERE nostr_event_id = $1', [eventId]);
-        if (parseInt(existingEvent[0].count) > 0) {
+        const existingEvent = await dbGetAll<{ id: number }>('lotto_bets', { nostr_event_id: eventId });
+        if (existingEvent.length > 0) {
             return NextResponse.json({ error: 'Esta apuesta ya fue procesada (Replay Attack protection)' }, { status: 409 });
         }
 
@@ -124,9 +126,14 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Rate limit' }, { status: 429 });
         }
 
-        const alreadyPaid = await queryNeon('SELECT count(*) FROM lotto_bets WHERE pubkey = $1 AND target_block = $2 AND selected_number = $3 AND is_paid = TRUE', [finalPubkey, finalBloque, finalNumero]);
-        if (parseInt(alreadyPaid[0].count) > 0) {
-            return NextResponse.json({ message: 'You already have a paid bet for this number. Good luck!' });
+        const lastBet = await queryNeon(`
+            SELECT selected_number FROM lotto_bets 
+            WHERE pubkey = $1 AND target_block = $2 AND is_paid = TRUE
+            ORDER BY id DESC LIMIT 1
+        `, [finalPubkey, finalBloque]);
+
+        if (lastBet.length > 0 && lastBet[0].selected_number === finalNumero) {
+            return NextResponse.json({ error: 'Estas pagando 2 veces por el mismo numero!' }, { status: 409 });
         }
 
         const unpaidCount = await queryNeon(`SELECT count(*) FROM lotto_bets WHERE pubkey = $1 AND is_paid = FALSE AND created_at > NOW() - INTERVAL '10 minutes'`, [finalPubkey]);
@@ -145,10 +152,17 @@ export async function POST(request: Request) {
         const hash = invoice.payment_hash || invoice.paymentHash;
         if (!pr) return NextResponse.json({ error: 'NWC returned an empty invoice' }, { status: 500 });
 
-        await queryNeon(`
-            INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, payment_hash, is_paid, betting_block, nip05, nostr_event_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        `, [finalPubkey, finalBloque, finalNumero, pr, hash, false, cachedBlock.height, finalNip05, eventId]);
+        await dbInsert('lotto_bets', {
+            pubkey: finalPubkey,
+            target_block: finalBloque,
+            selected_number: finalNumero,
+            payment_request: pr,
+            payment_hash: hash,
+            is_paid: false,
+            betting_block: cachedBlock.height,
+            nip05: finalNip05,
+            nostr_event_id: eventId
+        });
 
         if (finalNip05) {
             await queryNeon('INSERT INTO lotto_identities (pubkey, nip05) VALUES ($1, $2) ON CONFLICT (pubkey) DO UPDATE SET nip05 = EXCLUDED.nip05', [finalPubkey, finalNip05]);
@@ -199,19 +213,21 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Invalid number. Must be between 1 and 21.' }, { status: 400 });
         }
 
-        const alreadyPaid = await queryNeon('SELECT count(*) FROM lotto_bets WHERE pubkey = $1 AND target_block = $2 AND selected_number = $3 AND is_paid = TRUE', [pubkey, block, number]);
-        if (parseInt(alreadyPaid[0].count) > 0) {
-            return NextResponse.json({ error: 'You already have a paid bet for this number.' }, { status: 409 });
+        const lastBet = await queryNeon(`
+            SELECT selected_number FROM lotto_bets 
+            WHERE pubkey = $1 AND target_block = $2 AND is_paid = TRUE
+            ORDER BY id DESC LIMIT 1
+        `, [pubkey, block]);
+
+        if (lastBet.length > 0 && lastBet[0].selected_number === number) {
+            return NextResponse.json({ error: 'Estas pagando 2 veces por el mismo numero!' }, { status: 409 });
         }
 
-        const existingBet = await queryNeon(
-            'SELECT payment_request, payment_hash FROM lotto_bets WHERE pubkey = $1 AND target_block = $2 AND selected_number = $3 AND is_paid = FALSE LIMIT 1',
-            [pubkey, block, number]
-        );
-        if (existingBet.length > 0) {
+        const existingBet = await dbGet<{ payment_request: string; payment_hash: string }>('lotto_bets', { pubkey, target_block: block, selected_number: number, is_paid: false });
+        if (existingBet) {
             return NextResponse.json({ 
-                paymentRequest: existingBet[0].payment_request, 
-                paymentHash: existingBet[0].payment_hash 
+                paymentRequest: existingBet.payment_request, 
+                paymentHash: existingBet.payment_hash 
             });
         }
 
@@ -228,10 +244,17 @@ export async function GET(request: Request) {
         const hash = invoice.payment_hash || invoice.paymentHash;
         if (!pr) return NextResponse.json({ error: 'NWC returned an empty invoice' }, { status: 500 });
 
-        await queryNeon(`
-            INSERT INTO lotto_bets (pubkey, target_block, selected_number, payment_request, payment_hash, is_paid, betting_block, nip05, nostr_event_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        `, [pubkey, block, number, pr, hash, false, cachedBlock.height, null, 'pending_amber_' + hash]);
+        await dbInsert('lotto_bets', {
+            pubkey,
+            target_block: block,
+            selected_number: number,
+            payment_request: pr,
+            payment_hash: hash,
+            is_paid: false,
+            betting_block: cachedBlock.height,
+            nip05: null,
+            nostr_event_id: 'pending_amber_' + hash
+        });
 
         return NextResponse.json({ paymentRequest: pr, paymentHash: hash });
     } catch (err: any) {
