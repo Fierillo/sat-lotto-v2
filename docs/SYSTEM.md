@@ -453,6 +453,17 @@ El sistema protege contra abuse:
 - Si current_block >= target_block - 2
 - No se aceptan más apuestas
 
+### Validación de Monto Invoice
+- Al confirmar pago, el servidor verifica que `tx.amount === 21000` (21 sats = 21000 msats)
+- Si el monto es menor → rechazo con error 400
+- **Esto previene que un atacante pague 1 sat y se acredite una apuesta completa**
+
+### Encriptación NWC (Argon2)
+- El NWC URL se encripta con AES-GCM usando una clave derivada de un PIN de 4 dígitos
+- Key derivation: **Argon2id** (preferido, via WASM) con fallback a **PBKDF2** (1M iteraciones)
+- Resistencia a brute force: ~1-2 horas para 4 dígitos
+- Si Argon2 WASM no está disponible, cae a PBKDF2 automáticamente
+
 ---
 
 ## 12. GitHub Actions Cron

@@ -35,6 +35,7 @@ Unit tests run in Node environment and test pure functions:
 | Test | Descripción |
 |------|-------------|
 | `bunker-url-parsing.test.ts` | NIP-46 bunker URL parsing |
+| `crypto.test.ts` | NWC encryption/decryption with Argon2 |
 | `db-connection.test.ts` | Neon database connection |
 | `db-schema.test.ts` | Database schema validation |
 | `ln.test.ts` | Lightning address parsing |
