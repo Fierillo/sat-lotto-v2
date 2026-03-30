@@ -2,6 +2,7 @@
   "name": "sat-lotto-v2",
   "version": "1.0.0",
   "description": "Lottery game that works with NWC and LN",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "next dev",
