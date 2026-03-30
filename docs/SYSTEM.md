@@ -10,16 +10,18 @@
 - **Nostr**: NDK, nostr-tools
 - **Styling**: CSS Modules + Plain CSS
 - **Testing**: Vitest (unit/integration/security), Playwright (E2E)
+- **Cron**: GitHub Actions (sin límite de ejecuciones)
 
 ### Componentes Principales
 ```
 src/
 ├── app/
 │   ├── api/
-│   │   ├── bet/route.ts       # Crear/obtener apuestas
-│   │   ├── state/route.ts     # Estado global del juego
-│   │   └── identity/[pubkey]/ # Perfiles de usuarios
-│   └── page.tsx               # Página principal
+│   │   ├── bet/route.ts           # Crear/obtener apuestas
+│   │   ├── state/route.ts         # Estado global del juego
+│   │   ├── cron/process-round/    # Endpoint para announcements Nostr
+│   │   └── identity/[pubkey]/     # Perfiles de usuarios
+│   └── page.tsx                   # Página principal
 ├── components/
 │   ├── modals/
 │   │   ├── ChampionModal.tsx       # Modal de victoria
@@ -51,6 +53,10 @@ src/
     ├── champion-call.ts        # Payout processing
     ├── crypto.ts              # PIN encryption for NWC
     └── rate-limiter.ts        # Rate limiting
+
+.github/
+└── workflows/
+    └── cron.yml               # GitHub Actions cron (cada 5 min)
 ```
 
 ---
@@ -203,6 +209,14 @@ flowchart TD
     B -->|Sí| D[processPayouts<br/>puede correr]
 ```
 
+### 4.3 Funciones Auxiliares (champion-call.ts)
+
+| Función | Descripción |
+|---------|-------------|
+| `calculateResult(block)` | Obtiene hash del bloque y calcula número ganador |
+| `getWinners(targetBlock, winningNumber)` | Busca apostadores que acertaron el número |
+| `buildAnnouncement(targetBlock, winners, totalSats)` | Construye mensaje de announcement para Nostr |
+
 **Archivos**: `src/lib/cache.ts`, `src/lib/champion-call.ts`
 
 ---
@@ -234,7 +248,21 @@ flowchart TD
     F --> G[processPayouts<br/>enviar sats a lud16]
 ```
 
-**Archivos**: `src/hooks/useVictoryCelebration.tsx`, `src/components/ChampionModal.tsx`
+### 5.3 Publicación en Nostr
+
+**IMPORTANTE**: Solo el cron de GitHub Actions publica en Nostr. La función `processPayouts()` NO publica.
+
+| Componente | Publica en Nostr |
+|------------|------------------|
+| `processPayouts()` / `runFullPayoutCycle()` | ❌ NO (solo hace pagos) |
+| GitHub Actions cron | ✅ SÍ (publica announcement) |
+
+**Flujo**:
+1. GitHub Actions llama `/api/cron/process-round` cada 5 min
+2. El endpoint sincroniza datos y verifica si hay ronda por anunciar
+3. Si corresponde, calcula winners y publica en Nostr via `publishRoundResult()`
+
+**Archivos**: `src/hooks/useVictoryCelebration.tsx`, `src/components/ChampionModal.tsx`, `.github/workflows/cron.yml`
 
 ---
 
@@ -251,6 +279,8 @@ CREATE TABLE lotto_identities (
     lud16 TEXT,              -- Lightning address para pagos
     sats_earned INTEGER DEFAULT 0,
     last_celebrated_block INTEGER DEFAULT 0,
+    has_confirmed BOOLEAN DEFAULT FALSE,  -- Indica si el campeão confirmó su LN address
+    winner_block INTEGER DEFAULT 0,       -- Último bloque que ganó
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 ```
@@ -422,3 +452,58 @@ El sistema protege contra abuse:
 ### Frozen Betting
 - Si current_block >= target_block - 2
 - No se aceptan más apuestas
+
+---
+
+## 12. GitHub Actions Cron
+
+El sistema usa GitHub Actions para publicar announcements en Nostr sin las limitaciones del cron de Vercel (1 ejecución/día en free tier).
+
+### Configuración
+
+**Repository Variables** (Settings → Variables):
+- `APP_URL`: URL de producción (ej: `https://satlotto.vercel.app`)
+
+**Repository Secrets** (Settings → Secrets → Actions):
+- `VERCEL_SECRET`: Secret para autenticar el endpoint
+
+### Workflow
+
+```yaml
+# .github/workflows/cron.yml
+name: Round Announcer
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Cada 5 minutos
+  workflow_dispatch          # Trigger manual desde GitHub UI
+```
+
+### Endpoint `/api/cron/process-round`
+
+**Método**: GET
+
+**Headers**:
+```
+Authorization: Bearer {VERCEL_SECRET}
+```
+
+**Respuestas**:
+
+| Status | Significado |
+|--------|-------------|
+| 200 `{announced: true, block: X, winners: N}` | Ronda anunciada exitosamente |
+| 200 `{announced: false, reason: "not_due_yet"}` | Aún no hay ronda para anunciar |
+| 200 `{announced: false, reason: "already_announced"}` | Ronda ya была объявлена |
+| 401 | Secret incorrecto |
+| 500 | Error interno |
+
+### Flujo de Actualización de Bloques
+
+| Origen | Frecuencia | Actualiza cachedBlock |
+|--------|------------|---------------------|
+| Frontend (GameContext polling) | cada 21 seg | ✅ |
+| `/api/bet` | cuando usuario apuesta | ✅ |
+| `/api/state` | cuando usuario consulta | ✅ |
+| GitHub Actions cron | cada 5 min | ✅ |
+
+**Nota**: `cachedBlock` es una variable en memoria del servidor. En Vercel con múltiples instancias, cada una tiene su propia copia.

@@ -89,3 +89,30 @@ Browser automation tests with Playwright:
 Scripts para diagnóstico manual. **No son tests automatizados.**
 
 **Nota**: Para inicializar la estructura de la base de datos, utiliza el archivo `schema.sql` en la raíz del proyecto.
+
+---
+
+## Pending Tests (To Implement)
+
+These tests are identified as missing and should be implemented in the future.
+
+### Unit Tests Pendientes
+
+| Test | Descripción | Archivo |
+|------|-------------|---------|
+| `getWinners.test.ts` | Función `getWinners()` de champion-call.ts | `tests/unit/` |
+| `buildAnnouncement.test.ts` | Función `buildAnnouncement()` | `tests/unit/` |
+| `calculateResult.test.ts` | Función `calculateResult()` | `tests/unit/` |
+
+### Integration Tests Pendientes
+
+| Test | Descripción | Archivo |
+|------|-------------|---------|
+| `cron-process-round.test.ts` | Endpoint `/api/cron/process-round` completo (auth, sync, publish) | `tests/integration/` |
+| `processPayouts.test.ts` | Flujo completo de pagos (winners, retry, DM) | `tests/integration/` |
+
+### Security Tests Pendientes
+
+| Test | Descripción | Archivo |
+|------|-------------|---------|
+| `cron-endpoint-auth.test.ts` | Verifica que el endpoint rechace requests sin VERCEL_SECRET | `tests/security/` |

@@ -51,6 +51,10 @@ NWC_URL=nostr+walletconnect://...
 # Habilita para que el juego pueda usar NOSTR.
 NOSTR_PRIVKEY=nsec...
 NOSTR_ENABLED=true
+
+# Para cron de GitHub Actions
+VERCEL_SECRET=your-secret-here
+APP_URL=https://your-app.vercel.app
 ```
 
 ## Stack
@@ -60,6 +64,7 @@ NOSTR_ENABLED=true
 - **NWC** - Pagos Lightning (NIP-47)
 - **Neon** - Base de datos PostgreSQL serverless
 - **NDK** - Nostr Development Kit
+- **GitHub Actions** - Cron para announcements (cada 5 min)
 - **Vitest** - Testing (unit/integration/security)
 - **Playwright** - E2E testing
 - **TypeScript** - Tipado estático
