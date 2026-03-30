@@ -1,8 +1,0 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/process-round",
-      "schedule": "*/5 * * * *"
-    }
-  ]
-}
