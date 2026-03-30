@@ -9,6 +9,7 @@ import { NDKEvent, NDKSigner } from '@nostr-dev-kit/ndk';
 import { finalizeEvent } from 'nostr-tools';
 import { NIP07 } from '../lib/nip07';
 import { NWC } from '../lib/nwc';
+import { deserializeSession } from '@/src/lib/nip46';
 import type { Bet, SignedEvent } from '../types';
 
 export type PaymentStatus = 'idle' | 'generating' | 'signing' | 'paying' | 'success' | 'error';
@@ -82,6 +83,16 @@ export function usePayment(): UsePaymentReturn {
                 }
             } catch (e) {
                 console.error('[submitBet] NWC falló:', e);
+            }
+        }
+
+        if (!signed && authState.bunkerSession) {
+            try {
+                const session = deserializeSession(authState.bunkerSession);
+                const bytes = Uint8Array.from(session.localSignerPrivkey.match(/.{1,2}/g)!.map(b => parseInt(b, 16)));
+                signed = finalizeEvent(unsigned, bytes);
+            } catch (e) {
+                console.error('[submitBet] Bunker falló:', e);
             }
         }
 
