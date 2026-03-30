@@ -35,11 +35,11 @@ export const NWC = {
         });
     },
 
-    async lookupInvoice(hash: string, nwcUrl: string): Promise<{ settled: boolean; preimage?: string }> {
+    async lookupInvoice(hash: string, nwcUrl: string): Promise<{ settled: boolean; preimage?: string; amount?: number }> {
         return withSuppressedClientWarnings(nwcUrl, async (c) => {
             try {
                 const tx = await c.lookupInvoice({ payment_hash: hash });
-                return { settled: tx.state === 'settled', preimage: tx.preimage || undefined };
+                return { settled: tx.state === 'settled', preimage: tx.preimage || undefined, amount: tx.amount };
             } catch {
                 return { settled: false };
             }
@@ -103,11 +103,11 @@ export async function payNwcInvoice(nwcUrl: string, invoice: string): Promise<{ 
     }
 }
 
-export async function lookupNwcInvoice(nwcUrl: string, paymentHash: string): Promise<{ settled: boolean; preimage?: string }> {
+export async function lookupNwcInvoice(nwcUrl: string, paymentHash: string): Promise<{ settled: boolean; preimage?: string; amount?: number }> {
     const client = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
     try {
-        const result = await withSuppressedWarnings(() => client.lookupInvoice({ payment_hash: paymentHash })) as { settled_at?: number; preimage?: string };
-        return { settled: !!result.settled_at, preimage: result.preimage };
+        const result = await withSuppressedWarnings(() => client.lookupInvoice({ payment_hash: paymentHash })) as { settled_at?: number; preimage?: string; amount?: number };
+        return { settled: !!result.settled_at, preimage: result.preimage, amount: result.amount };
     } finally {
         client.close();
     }
