@@ -24,6 +24,17 @@ export function Clock({ onShowLogin, onShowFrozenHelp }: ClockProps) {
     const [showFreezeHelpModal, setShowFreezeHelpModal] = useState(false);
     const [showChangeModal, setShowChangeModal] = useState(false);
     const [existingBetNumber, setExistingBetNumber] = useState<number | null>(null);
+    const [invoiceData, setInvoiceData] = useState<{ paymentRequest: string; paymentHash: string } | null>(null);
+
+    const handleInvoiceGenerated = useCallback((invoice: { paymentRequest: string; paymentHash: string }) => {
+        setInvoiceData(invoice);
+        localStorage.setItem('satlotto_pending_payment', JSON.stringify(invoice));
+    }, []);
+
+    const handleInvoiceClear = useCallback(() => {
+        setInvoiceData(null);
+        localStorage.removeItem('satlotto_pending_payment');
+    }, []);
 
     // Update body classes based on game phase and auth
     useEffect(() => {
@@ -148,6 +159,10 @@ export function Clock({ onShowLogin, onShowFrozenHelp }: ClockProps) {
                 isResolving={isResolving}
                 selectedNumber={gameState.selectedNumber}
                 pubkey={authState.pubkey ?? undefined}
+                showChangeModal={showChangeModal}
+                invoiceData={invoiceData}
+                onInvoiceGenerated={handleInvoiceGenerated}
+                onInvoiceClear={handleInvoiceClear}
                 onShowLogin={onShowLogin}
                 onPaymentStart={handleCenterClick}
                 onReset={resetPaymentStatus}
@@ -164,9 +179,12 @@ export function Clock({ onShowLogin, onShowFrozenHelp }: ClockProps) {
                 isOpen={showChangeModal}
                 oldNumber={existingBetNumber ?? 0}
                 newNumber={gameState.selectedNumber ?? 0}
-                onConfirm={() => {
+                onConfirm={async () => {
                     setShowChangeModal(false);
-                    makePayment();
+                    const result = await makePayment();
+                    if (result?.paymentRequest && result?.paymentHash) {
+                        handleInvoiceGenerated(result);
+                    }
                 }}
                 onCancel={() => setShowChangeModal(false)}
             />

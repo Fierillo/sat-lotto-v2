@@ -6,7 +6,7 @@ interface ChangeNumberModalProps {
     isOpen: boolean;
     oldNumber: number;
     newNumber: number;
-    onConfirm: () => void;
+    onConfirm: () => Promise<void>;
     onCancel: () => void;
 }
 

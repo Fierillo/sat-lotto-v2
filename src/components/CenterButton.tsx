@@ -14,6 +14,10 @@ interface CenterButtonProps {
   isResolving: boolean;
   selectedNumber: number | null;
   pubkey?: string;
+  showChangeModal?: boolean;
+  invoiceData?: { paymentRequest: string; paymentHash: string } | null;
+  onInvoiceGenerated?: (invoice: { paymentRequest: string; paymentHash: string }) => void;
+  onInvoiceClear?: () => void;
   onShowLogin?: () => void;
   onPaymentStart: () => Promise<any>;
   onReset?: () => void;
@@ -28,6 +32,10 @@ export function CenterButton({
   isResolving,
   selectedNumber,
   pubkey,
+  showChangeModal,
+  invoiceData,
+  onInvoiceGenerated,
+  onInvoiceClear,
   onShowLogin,
   onPaymentStart,
   onReset,
@@ -37,7 +45,6 @@ export function CenterButton({
   const [keepGlow, setKeepGlow] = useState<'success' | 'error' | null>(null);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
-  const [invoiceData, setInvoiceData] = useState<{ paymentRequest: string; paymentHash: string } | null>(null);
 
   // Manage body.processing class
   useEffect(() => {
@@ -55,7 +62,7 @@ export function CenterButton({
       try {
         const data = JSON.parse(pending);
         if (data.paymentHash && data.paymentRequest) {
-          setInvoiceData(data);
+          onInvoiceGenerated?.(data);
           setShowInvoiceModal(true);
         }
       } catch {
@@ -63,6 +70,12 @@ export function CenterButton({
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (invoiceData && !showInvoiceModal) {
+      setShowInvoiceModal(true);
+    }
+  }, [invoiceData]);
 
   // Manage glow classes for success/error states
   useEffect(() => {
@@ -155,6 +168,7 @@ export function CenterButton({
 
   const handleClick = async () => {
     if (disabled) return;
+    if (showChangeModal) return;
     if (!pubkey) { onShowLogin?.(); return; }
     if (isFrozen || isResolving) return;
     if (paymentStatus === 'error') { setShowErrorModal(true); return; }
@@ -162,7 +176,7 @@ export function CenterButton({
     if (selectedNumber !== null) {
       const result = await onPaymentStart();
       if (result?.paymentRequest && result?.paymentHash) {
-        setInvoiceData(result);
+        onInvoiceGenerated?.(result);
         setShowInvoiceModal(true);
       }
     }
@@ -195,7 +209,7 @@ export function CenterButton({
           isOpen={showInvoiceModal}
           onClose={() => {
             setShowInvoiceModal(false);
-            setInvoiceData(null);
+            onInvoiceClear?.();
             onReset?.();
           }}
           paymentRequest={invoiceData.paymentRequest}
