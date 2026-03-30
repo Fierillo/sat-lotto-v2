@@ -1,23 +1,19 @@
 import { NextResponse } from 'next/server';
-import { queryNeon } from '@/src/lib/db';
+import { queryNeon, dbGet } from '@/src/lib/db';
 import { verifyEvent } from 'nostr-tools';
 import { checkRateLimit, getClientIP } from '@/src/lib/rate-limiter';
 
 export async function GET(request: Request, { params }: { params: Promise<{ pubkey: string }> }) {
     const { pubkey } = await params;
     try {
-        const rows = await queryNeon(`
-            SELECT nip05, sats_earned, lud16, winner_block, has_confirmed
-            FROM lotto_identities WHERE pubkey = $1
-            LIMIT 1
-        `, [pubkey]);
+        const identity = await dbGet<{ nip05: string | null; sats_earned: number; lud16: string | null; winner_block: number; has_confirmed: boolean }>('lotto_identities', { pubkey });
 
         return NextResponse.json({
-            nip05: rows[0]?.nip05 || null,
-            sats_earned: rows[0]?.sats_earned || 0,
-            lud16: rows[0]?.lud16 || null,
-            winner_block: rows[0]?.winner_block || 0,
-            has_confirmed: rows[0]?.has_confirmed || false
+            nip05: identity?.nip05 || null,
+            sats_earned: identity?.sats_earned || 0,
+            lud16: identity?.lud16 || null,
+            winner_block: identity?.winner_block || 0,
+            has_confirmed: identity?.has_confirmed || false
         });
     } catch (e: any) {
         console.error('[Identity GET] Error:', e.message);
