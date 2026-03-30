@@ -44,10 +44,6 @@ export async function POST(request: Request) {
             
             const tx = await lookupNwcInvoice(nwcUrl, paymentHash) as any;
             if (tx && (tx.settled || tx.preimage)) {
-                if (!tx.amount || tx.amount < 21000) {
-                    return NextResponse.json({ error: 'El monto debe ser 21 sats' }, { status: 400 });
-                }
-
                 const bet = await dbGet<{id: number, pubkey: string, target_block: number, selected_number: number, is_paid: boolean}>('lotto_bets', { payment_hash: paymentHash });
                 
                 if (bet?.is_paid) {
