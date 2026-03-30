@@ -90,14 +90,18 @@ export function usePayment(): UsePaymentReturn {
         return apiClient.post<{ paymentRequest: string; paymentHash: string }>('/api/bet', { signedEvent: signed });
     }, [authState]);
 
-    const confirmBetHandler = useCallback((paymentHash: string) => {
-        return apiClient.post('/api/bet', { paymentHash, action: 'confirm' });
-    }, []);
-
     const resetPaymentStatus = useCallback(() => {
         setPaymentStatus('idle');
         setPaymentError(null);
     }, []);
+
+    const confirmBetHandler = useCallback(async (paymentHash: string) => {
+        await apiClient.post('/api/bet', { paymentHash, action: 'confirm' });
+        await refreshGame();
+        setPaymentStatus('success');
+        selectNumber(null);
+        setTimeout(resetPaymentStatus, 4000);
+    }, [refreshGame, resetPaymentStatus]);
 
     const makePayment = useCallback(async () => {
         if (gameState.selectedNumber === null) return;
@@ -148,10 +152,6 @@ export function usePayment(): UsePaymentReturn {
 
             setPaymentStatus('paying');
             await confirmBetHandler(paymentHash);
-            await refreshGame();
-            setPaymentStatus('success');
-            selectNumber(null);
-            setTimeout(resetPaymentStatus, 4000);
         } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : 'Error interno';
             console.error('[makePayment] Error:', msg);

@@ -56,7 +56,11 @@ export function InvoiceModal({ isOpen, onClose, paymentRequest, paymentHash, onP
       if (data.confirmed || data.settled) {
         setPaid(true);
         clearPending();
-        onPaid?.();
+        try {
+          await onPaid?.();
+        } catch (e) {
+          console.error('[InvoiceModal] onPaid error:', e);
+        }
         onClose();
       }
     } catch (e) {
@@ -97,14 +101,9 @@ export function InvoiceModal({ isOpen, onClose, paymentRequest, paymentHash, onP
       className="invoice-modal"
       size="medium"
       footer={
-        <>
-          <button className="auth-btn" onClick={checkPayment} disabled={checking}>
-            {checking ? 'Verificando...' : 'Verificar pago'}
-          </button>
-          <button className="auth-btn" onClick={handleClose}>
-            Cerrar
-          </button>
-        </>
+        <button className="auth-btn" onClick={handleClose} style={{ background: '#e74c3c' }}>
+          Cancelar
+        </button>
       }
     >
       <h2 className="modal-title">Invoice para pago manual</h2>
@@ -122,14 +121,35 @@ export function InvoiceModal({ isOpen, onClose, paymentRequest, paymentHash, onP
         <CopyText text={paymentRequest} truncate={80} />
       </div>
 
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '16px' }}>
+        <div style={{ 
+          width: '20px', 
+          height: '20px', 
+          border: '3px solid var(--neon-green)', 
+          borderTop: '3px solid transparent', 
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }} />
+        <span style={{ color: 'var(--neon-green)', fontWeight: 'bold' }}>
+          Esperando pago...
+        </span>
+      </div>
+
       {paid && (
         <p style={{ fontSize: '0.85rem', color: 'var(--neon-green)', marginTop: '12px', textAlign: 'center', fontWeight: 'bold' }}>
-          ¡Pago detectado! Procesando...
+          ¡Pago confirmado! Cerrando...
         </p>
       )}
 
+      <style jsx>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
+
       <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '12px', lineHeight: '1.2', textAlign: 'center' }}>
-        Esta invoice expira en 10 minutos. Una vez pagada, la apuesta se confirmará automáticamente.
+        Esta invoice expira en 10 minutos. Una vez pagada, se cerrará automáticamente.
       </p>
     </Modal>
   );
