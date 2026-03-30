@@ -301,3 +301,32 @@ describe('featureName', () => {
     });
 });
 ```
+
+## CSS
+
+### Estructura de archivos
+
+Los estilos están organizados en `src/style/` para facilitar el mantenimiento:
+
+```
+src/style/
+├── base.css             - Variables :root, reset, header, text helpers
+├── layout.css           - Game container, panels, footer, responsive
+├── clock.css            - Clock, numbers, markers, game states
+├── animations.css       - Todos los @keyframes
+└── components/
+    ├── _auth.css        - auth-btn, tabs, sections, NWC, URI, verify-command
+    ├── _modal.css       - modal, modal-bg, titles, victory-text
+    ├── _qr.css          - qr-box, qr-wrapper, qr-hint, qr-container
+    ├── _pay-btn.css     - pay-btn y todos sus estados
+    ├── _user-panel.css  - user-panel, logout-menu, badges
+    └── _pin.css         - pin-digit, pin-input, pin-buttons
+```
+
+`src/globals.css` solo contiene imports a los archivos anteriores.
+
+### Reglas
+
+- **Un componente = Un archivo CSS**: Si creás un componente nuevo, creá su archivo CSS en `src/style/components/`
+- **No duplicar selectores**: Verificar que el selector no exista antes de agregar estilos
+- **Organización por funcionalidad**: Los estilos relacionados a un componente van juntos

@@ -8,7 +8,7 @@
 - **Wallet**: Nostr Wallet Connect (NWC) via Alby
 - **Auth**: NIP-46 (Bunker), NIP-07 (Extensions), NIP-55 (Amber), NWC Direct
 - **Nostr**: NDK, nostr-tools
-- **Styling**: CSS Modules + Plain CSS
+- **Styling**: Plain CSS modular (src/style/)
 - **Testing**: Vitest (unit/integration/security), Playwright (E2E)
 - **Cron**: GitHub Actions (sin límite de ejecuciones)
 
@@ -22,6 +22,18 @@ src/
 │   │   ├── cron/process-round/    # Endpoint para announcements Nostr
 │   │   └── identity/[pubkey]/     # Perfiles de usuarios
 │   └── page.tsx                   # Página principal
+├── style/
+│   ├── base.css                   # Variables, reset, header
+│   ├── layout.css                 # Game container, panels, footer
+│   ├── clock.css                  # Clock, numbers, markers
+│   ├── animations.css              # Keyframes
+│   └── components/
+│       ├── _auth.css              # Auth buttons, tabs, NWC
+│       ├── _modal.css             # Modals
+│       ├── _qr.css                # QR components
+│       ├── _pay-btn.css           # Pay button states
+│       ├── _user-panel.css        # User panel, logout
+│       └── _pin.css               # PIN input
 ├── components/
 │   ├── modals/
 │   │   ├── ChampionModal.tsx       # Modal de victoria
