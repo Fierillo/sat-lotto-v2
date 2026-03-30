@@ -19,21 +19,28 @@ const localStorageMock = {
     },
 };
 
+const cryptoMock = {
+    subtle: globalThis.crypto?.subtle,
+    getRandomValues: (arr: Uint8Array) => {
+        for (let i = 0; i < arr.length; i++) {
+            arr[i] = Math.floor(Math.random() * 256);
+        }
+        return arr;
+    },
+};
+
 Object.defineProperty(globalThis, 'localStorage', {
     value: localStorageMock,
     writable: true,
 });
 
 Object.defineProperty(globalThis, 'crypto', {
-    value: {
-        subtle: globalThis.crypto?.subtle,
-        getRandomValues: (arr: Uint8Array) => {
-            for (let i = 0; i < arr.length; i++) {
-                arr[i] = Math.floor(Math.random() * 256);
-            }
-            return arr;
-        },
-    },
+    value: cryptoMock,
+    writable: true,
+});
+
+Object.defineProperty(globalThis, 'window', {
+    value: { crypto: cryptoMock },
     writable: true,
 });
 

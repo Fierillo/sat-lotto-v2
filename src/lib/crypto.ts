@@ -3,10 +3,9 @@
  *
  * Used for encrypting/decrypting NWC URLs with a 4-digit PIN.
  * Uses Argon2id (via WASM) for key derivation with PBKDF2 fallback.
+ * Argon2 is lazy-loaded to avoid SSR issues.
  * Separated from NWC protocol logic (src/lib/nwc.ts).
  */
-
-import argon2, { ArgonType } from 'argon2-browser';
 
 const PIN_KEY = 'satlotto_pin_hash';
 const ATTEMPTS_KEY = 'satlotto_pin_attempts';
@@ -14,12 +13,31 @@ const NWC_ENCRYPTED_KEY = 'satlotto_nwc_encrypted';
 const MAX_ATTEMPTS = 3;
 const PBKDF2_ITERATIONS = 1000000;
 
+const isBrowser = typeof window !== 'undefined' && typeof window.crypto !== 'undefined';
+
 let argon2Available: boolean | null = null;
 
+async function loadArgon2() {
+    if (!isBrowser) return null;
+    try {
+        const argon2 = await import('argon2-browser');
+        return argon2.default || argon2;
+    } catch {
+        return null;
+    }
+}
+
 async function checkArgon2Available(): Promise<boolean> {
+    if (!isBrowser) return false;
     if (argon2Available !== null) return argon2Available;
     try {
-        await argon2.hash({ pass: 'test', salt: 'test', type: ArgonType.Argon2id });
+        const argon2 = await loadArgon2();
+        if (!argon2) {
+            argon2Available = false;
+            return false;
+        }
+        const ArgonType = (argon2 as any).ArgonType || { Argon2id: 2 };
+        await (argon2 as any).hash({ pass: 'test', salt: 'test', type: ArgonType.Argon2id });
         argon2Available = true;
     } catch {
         argon2Available = false;
@@ -27,18 +45,26 @@ async function checkArgon2Available(): Promise<boolean> {
     return argon2Available;
 }
 
-async function deriveKeyArgon2(pin: string, salt: Uint8Array): Promise<CryptoKey> {
-    const hash = await argon2.hash({
-        pass: pin,
-        salt: salt,
-        type: ArgonType.Argon2id,
-        mem: 65536,
-        time: 1,
-        parallelism: 1,
-        hashLen: 32,
-    });
-    const hashBuffer = hash.hash.buffer.slice(hash.hash.byteOffset, hash.hash.byteOffset + hash.hash.byteLength) as ArrayBuffer;
-    return crypto.subtle.importKey('raw', hashBuffer, 'AES-GCM', false, ['encrypt', 'decrypt']);
+async function deriveKeyArgon2(pin: string, salt: Uint8Array): Promise<CryptoKey | null> {
+    if (!isBrowser) return null;
+    try {
+        const argon2 = await loadArgon2();
+        if (!argon2) return null;
+        const ArgonType = (argon2 as any).ArgonType || { Argon2id: 2 };
+        const hash = await (argon2 as any).hash({
+            pass: pin,
+            salt: Array.from(salt),
+            type: ArgonType.Argon2id,
+            mem: 65536,
+            time: 1,
+            parallelism: 1,
+            hashLen: 32,
+        });
+        const hashBuffer = hash.hash.buffer.slice(hash.hash.byteOffset, hash.hash.byteOffset + hash.hash.byteLength) as ArrayBuffer;
+        return crypto.subtle.importKey('raw', hashBuffer, 'AES-GCM', false, ['encrypt', 'decrypt']);
+    } catch {
+        return null;
+    }
 }
 
 async function deriveKeyPBKDF2(pin: string, salt: Uint8Array): Promise<CryptoKey> {
@@ -54,14 +80,11 @@ async function deriveKeyPBKDF2(pin: string, salt: Uint8Array): Promise<CryptoKey
 }
 
 async function getKey(pin: string, salt: Uint8Array): Promise<CryptoKey | null> {
-    if (!crypto.subtle) return null;
+    if (!crypto.subtle || !isBrowser) return null;
     
     if (await checkArgon2Available()) {
-        try {
-            return await deriveKeyArgon2(pin, salt);
-        } catch (e) {
-            console.warn('[Crypto] Argon2 failed, falling back to PBKDF2:', e);
-        }
+        const key = await deriveKeyArgon2(pin, salt);
+        if (key) return key;
     }
     
     return deriveKeyPBKDF2(pin, salt);
@@ -87,10 +110,12 @@ async function hashPin(pin: string): Promise<string> {
 }
 
 export async function hasPin(): Promise<boolean> {
+    if (!isBrowser) return false;
     return !!localStorage.getItem(PIN_KEY);
 }
 
 export async function hasStoredNwc(): Promise<boolean> {
+    if (!isBrowser) return false;
     return !!localStorage.getItem(NWC_ENCRYPTED_KEY);
 }
 
@@ -104,6 +129,9 @@ export async function createPin(pin: string): Promise<void> {
 }
 
 export async function verifyPin(pin: string): Promise<{ success: boolean; locked: boolean; attemptsLeft: number }> {
+    if (!isBrowser) {
+        return { success: false, locked: true, attemptsLeft: 0 };
+    }
     const storedHash = localStorage.getItem(PIN_KEY);
     const attempts = parseInt(localStorage.getItem(ATTEMPTS_KEY) || '0');
 
@@ -130,7 +158,7 @@ export async function verifyPin(pin: string): Promise<{ success: boolean; locked
 }
 
 export async function encryptNwc(nwcUri: string, pin: string): Promise<void> {
-    if (!crypto.subtle) {
+    if (!crypto.subtle || !isBrowser) {
         throw new Error('Criptografía no disponible. Por seguridad, usá HTTPS o localhost para conectar tu wallet.');
     }
     const encoder = new TextEncoder();
@@ -152,7 +180,7 @@ export async function encryptNwc(nwcUri: string, pin: string): Promise<void> {
 }
 
 export async function decryptNwc(pin: string): Promise<string | null> {
-    if (!crypto.subtle) return null;
+    if (!crypto.subtle || !isBrowser) return null;
     const encryptedStr = localStorage.getItem(NWC_ENCRYPTED_KEY);
     if (!encryptedStr || !pin) return null;
 
@@ -171,6 +199,7 @@ export async function decryptNwc(pin: string): Promise<string | null> {
 }
 
 export function clearNwcStorage(): void {
+    if (!isBrowser) return;
     localStorage.removeItem(NWC_ENCRYPTED_KEY);
     localStorage.removeItem(PIN_KEY);
     localStorage.setItem(ATTEMPTS_KEY, '0');
@@ -179,11 +208,13 @@ export function clearNwcStorage(): void {
 }
 
 export function getAttemptsLeft(): number {
+    if (!isBrowser) return 0;
     const attempts = parseInt(localStorage.getItem(ATTEMPTS_KEY) || '0');
     return Math.max(0, MAX_ATTEMPTS - attempts);
 }
 
 export function isLocked(): boolean {
+    if (!isBrowser) return true;
     const attempts = parseInt(localStorage.getItem(ATTEMPTS_KEY) || '0');
     return attempts >= MAX_ATTEMPTS;
 }
