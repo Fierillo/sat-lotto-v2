@@ -71,6 +71,7 @@ export async function POST(request: Request) {
                             tx_hash: paymentHash,
                             bet_id: bet.id
                         });
+                        await queryNeon(`DELETE FROM lotto_payouts WHERE id NOT IN (SELECT id FROM lotto_payouts ORDER BY id DESC LIMIT 210)`);
                     }
                 }
 
@@ -163,6 +164,8 @@ export async function POST(request: Request) {
             nip05: finalNip05,
             nostr_event_id: eventId
         });
+
+        await queryNeon(`DELETE FROM lotto_bets WHERE id NOT IN (SELECT id FROM lotto_bets ORDER BY id DESC LIMIT 210)`);
 
         if (finalNip05) {
             await queryNeon('INSERT INTO lotto_identities (pubkey, nip05) VALUES ($1, $2) ON CONFLICT (pubkey) DO UPDATE SET nip05 = EXCLUDED.nip05', [finalPubkey, finalNip05]);
