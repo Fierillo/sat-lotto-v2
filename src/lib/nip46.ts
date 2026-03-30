@@ -53,9 +53,13 @@ export async function createBunkerSession(
         const bunkerSigner = new NDKNip46Signer(ndkInstance, bunkerPubkey, signer);
         (bunkerSigner as any).remotePubkey = bunkerPubkey;
 
+        const localPrivkeyHex = typeof localPrivkey === 'string'
+            ? localPrivkey
+            : Buffer.from(localPrivkey).toString('hex');
+
         const session: BunkerSession = {
             bunkerTarget: bunkerUrl,
-            localSignerPrivkey: localPrivkey,
+            localSignerPrivkey: localPrivkeyHex,
             remotePubkey: bunkerPubkey,
         };
 
@@ -88,9 +92,13 @@ export async function createBunkerSession(
                     const bunkerSigner = new NDKNip46Signer(ndkInstance, event.pubkey, signer);
                     (bunkerSigner as any).remotePubkey = event.pubkey;
 
+                    const localPrivkeyHex = typeof localPrivkey === 'string'
+                        ? localPrivkey
+                        : Buffer.from(localPrivkey).toString('hex');
+
                     const session: BunkerSession = {
                         bunkerTarget: bunkerUrl,
-                        localSignerPrivkey: localPrivkey,
+                        localSignerPrivkey: localPrivkeyHex,
                         remotePubkey: event.pubkey,
                     };
 
@@ -111,7 +119,9 @@ export async function createBunkerSession(
 export function restoreBunkerSession(session: BunkerSession): NDKNip46Signer {
     const ndkInstance = new NDK({ explicitRelayUrls: NIP46_RELAYS });
     const signer = new NDKPrivateKeySigner(session.localSignerPrivkey);
-    return new NDKNip46Signer(ndkInstance, session.remotePubkey, signer);
+    const bunkerSigner = new NDKNip46Signer(ndkInstance, session.remotePubkey, signer);
+    (bunkerSigner as any).remotePubkey = session.remotePubkey;
+    return bunkerSigner;
 }
 
 export function serializeSession(session: BunkerSession): string {
