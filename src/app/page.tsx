@@ -32,7 +32,7 @@ function GameContent() {
                 const currentBlock = gameState.currentBlock;
 
                 if (status.winner_block > 0) {
-                    if (status.winner_block + 2 < currentBlock && !status.has_confirmed) {
+                    if (status.winner_block + 2 < currentBlock && status.has_confirmed) {
                         triggerChampion({
                             satsWon: 0,
                             pubkey: auth.state.pubkey || undefined,
