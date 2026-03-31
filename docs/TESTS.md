@@ -69,7 +69,7 @@ Security tests verify protections against attacks:
 | Test | Descripción |
 |------|-------------|
 | `frozen-window-bypass.test.ts` | Frozen betting bypass attempts |
-| `identity-spoof.test.ts` | Identity spoofing protection |
+| `hacker-identity-claim.test.ts` | Identity/claim endpoint auth (firma, pubkey mismatch, expired) |
 | `invalid-signature.test.ts` | Signature validation |
 | `input-validation.test.ts` | Input sanitization |
 | `rate-limit.test.ts` | Rate limiting |
