@@ -34,40 +34,39 @@ export async function POST(request: Request, { params }: { params: Promise<{ pub
             return NextResponse.json({ error: 'Rate limit' }, { status: 429 });
         }
 
-        if (event) {
-            const parsedEvent = typeof event === 'string' ? JSON.parse(event) : event;
-            if (parsedEvent.kind !== 0 || !verifyEvent(parsedEvent)) {
-                return NextResponse.json({ error: 'Invalid event' }, { status: 400 });
-            }
-
-            const pubkey = parsedEvent.pubkey;
-            if (pubkey !== urlPubkey) return NextResponse.json({ error: 'Pubkey mismatch' }, { status: 400 });
-
-            const content = JSON.parse(parsedEvent.content);
-            const profileNip05 = content.nip05 || content.name || content.display_name;
-            const profileLud16 = lud16 || content.lud16 || content.lud06;
-
-            await queryNeon(`
-                INSERT INTO lotto_identities (pubkey, nip05, last_updated, lud16, winner_block, has_confirmed)
-                VALUES ($1, $2, TO_TIMESTAMP($3), $4, $5, $6)
-                ON CONFLICT (pubkey) DO UPDATE SET
-                    nip05 = COALESCE(EXCLUDED.nip05, lotto_identities.nip05),
-                    lud16 = COALESCE(EXCLUDED.lud16, lotto_identities.lud16),
-                    winner_block = COALESCE(EXCLUDED.winner_block, lotto_identities.winner_block),
-                    has_confirmed = COALESCE(EXCLUDED.has_confirmed, lotto_identities.has_confirmed),
-                    last_updated = GREATEST(lotto_identities.last_updated, EXCLUDED.last_updated)
-            `, [pubkey, profileNip05, parsedEvent.created_at, profileLud16, winner_block || 0, has_confirmed || false]);
-        } else {
-            await queryNeon(`
-                INSERT INTO lotto_identities (pubkey, lud16, nip05, winner_block, has_confirmed, last_updated)
-                VALUES ($1, $2, $3, $4, $5, NOW())
-                ON CONFLICT (pubkey) DO UPDATE SET
-                    lud16 = COALESCE($2, lotto_identities.lud16),
-                    nip05 = COALESCE($3, lotto_identities.nip05),
-                    winner_block = COALESCE(NULLIF($4, 0), lotto_identities.winner_block),
-                    has_confirmed = COALESCE($5, lotto_identities.has_confirmed)
-            `, [urlPubkey, lud16 || null, nip05 || null, winner_block || 0, has_confirmed || false]);
+        if (!event) {
+            return NextResponse.json({ error: 'Signature required' }, { status: 401 });
         }
+
+        const parsedEvent = typeof event === 'string' ? JSON.parse(event) : event;
+        if (parsedEvent.kind !== 0 || !verifyEvent(parsedEvent)) {
+            return NextResponse.json({ error: 'Invalid event' }, { status: 400 });
+        }
+
+        const pubkey = parsedEvent.pubkey;
+        if (pubkey !== urlPubkey) {
+            return NextResponse.json({ error: 'Pubkey mismatch' }, { status: 400 });
+        }
+
+        const now = Math.floor(Date.now() / 1000);
+        if (Math.abs(now - parsedEvent.created_at) > 900) {
+            return NextResponse.json({ error: 'Signature expired' }, { status: 400 });
+        }
+
+        const content = JSON.parse(parsedEvent.content);
+        const profileNip05 = content.nip05 || content.name || content.display_name;
+        const profileLud16 = lud16 || content.lud16 || content.lud06;
+
+        await queryNeon(`
+            INSERT INTO lotto_identities (pubkey, nip05, last_updated, lud16, winner_block, has_confirmed)
+            VALUES ($1, $2, TO_TIMESTAMP($3), $4, $5, $6)
+            ON CONFLICT (pubkey) DO UPDATE SET
+                nip05 = COALESCE(EXCLUDED.nip05, lotto_identities.nip05),
+                lud16 = COALESCE(EXCLUDED.lud16, lotto_identities.lud16),
+                winner_block = COALESCE(EXCLUDED.winner_block, lotto_identities.winner_block),
+                has_confirmed = COALESCE(EXCLUDED.has_confirmed, lotto_identities.has_confirmed),
+                last_updated = GREATEST(lotto_identities.last_updated, EXCLUDED.last_updated)
+        `, [pubkey, profileNip05, parsedEvent.created_at, profileLud16, winner_block || 0, has_confirmed || false]);
 
         return NextResponse.json({ ok: true });
     } catch (err: any) {
