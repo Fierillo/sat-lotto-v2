@@ -40,11 +40,23 @@ export async function dbInsert<T>(table: string, data: T): Promise<number> {
     const values = Object.values(data as Record<string, any>);
     const cols = keys.join(', ');
     const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-    const result = await queryNeon(
-        `INSERT INTO ${table} (${cols}) VALUES (${placeholders}) RETURNING id`,
-        values
-    );
-    return result[0]?.id ?? 0;
+
+    try {
+        const result = await queryNeon(
+            `INSERT INTO ${table} (${cols}) VALUES (${placeholders}) RETURNING id`,
+            values
+        );
+        return result[0]?.id ?? 0;
+    } catch (err: any) {
+        if (err.code === '42703') {
+            await queryNeon(
+                `INSERT INTO ${table} (${cols}) VALUES (${placeholders})`,
+                values
+            );
+            return 0;
+        }
+        throw err;
+    }
 }
 
 export async function dbUpdate(table: string, where: Record<string, any>, data: Record<string, any>): Promise<void> {
