@@ -51,10 +51,20 @@ Unit tests run in Node environment and test pure functions:
 
 ## Integration Tests (`tests/integration/`)
 
-Integration tests verify API endpoints and full flows:
+Integration tests verify API endpoints and full flows. **Requieren el servidor corriendo.**
+
+Para correr estos tests:
+```bash
+# Terminal 1: Servidor
+npm run dev
+
+# Terminal 2: Tests
+API_URL=http://localhost:3000 npx vitest run tests/integration/
+```
 
 | Test | Descripción |
 |------|-------------|
+| `add-user.test.ts` | Add user to lotto_identities via bet |
 | `bet-flow.test.ts` | Complete bet creation flow |
 | `duplicate-prevention.test.ts` | Replay attack protection |
 | `frozen-window.test.ts` | Betting window restrictions |
