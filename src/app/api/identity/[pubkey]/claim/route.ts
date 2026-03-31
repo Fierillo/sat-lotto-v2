@@ -96,7 +96,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ pub
 
                     await queryNeon(`
                         UPDATE lotto_identities
-                        SET sats_earned = sats_earned + $1, has_confirmed = true
+                        SET sats_earned = sats_earned + $1, has_confirmed = false
                         WHERE pubkey = $2
                     `, [payout.amount, pubkey]);
 
