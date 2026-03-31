@@ -20,7 +20,7 @@ function GameContent() {
     const { state: gameState } = useGame();
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [showDebug, setShowDebug] = useState(false);
-    const { triggerChampion, triggerPotentialWinner, ChampionModal, PotentialWinnerModal } = useChampion();
+    const { triggerChampion, triggerPotentialWinner, ChampionModal, PotentialWinnerModal } = useChampion(auth.state.signer);
 
     useEffect(() => {
         setShowDebug(process.env.NEXT_PUBLIC_TEST === 'on');
@@ -32,7 +32,7 @@ function GameContent() {
                 const currentBlock = gameState.currentBlock;
 
                 if (status.winner_block > 0) {
-                    if (status.winner_block + 2 < currentBlock && status.has_confirmed) {
+                    if (status.winner_block + 2 < currentBlock && !status.has_confirmed) {
                         triggerChampion({
                             satsWon: 0,
                             pubkey: auth.state.pubkey || undefined,

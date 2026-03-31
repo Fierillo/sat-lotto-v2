@@ -3,6 +3,8 @@
 import { useState, useCallback, ReactElement } from 'react';
 import { ChampionModal } from '../components/modals/ChampionModal';
 import { PotentialWinnerModal } from '../components/modals/PotentialWinnerModal';
+import ndk from '../lib/ndk';
+import { NDKEvent, NDKSigner } from '@nostr-dev-kit/ndk';
 
 interface ChampionParams {
     satsWon?: number;
@@ -18,7 +20,10 @@ interface ChampionData {
     pubkey?: string;
     blockHeight: number;
     winningNumber?: number;
+    pendingAmount?: number;
     onClose?: () => void;
+    onSaveLN?: (lud16: string) => Promise<{ error?: string }>;
+    onClaim?: () => Promise<{ claimed: number; error?: string }>;
 }
 
 interface UseChampionReturn {
@@ -29,28 +34,51 @@ interface UseChampionReturn {
     ChampionModal: ReactElement | null;
 }
 
-export function useChampion(): UseChampionReturn {
+export function useChampion(signer?: any): UseChampionReturn {
     const [showPotentialModal, setShowPotentialModal] = useState(false);
     const [showChampionModal, setShowChampionModal] = useState(false);
     const [potentialData, setPotentialData] = useState<ChampionData | null>(null);
     const [championData, setChampionData] = useState<ChampionData | null>(null);
     const [isAnimating, setIsAnimating] = useState(false);
 
-    const fetchLud16 = useCallback(async (pubkey: string): Promise<string | null> => {
+    const fetchIdentityData = useCallback(async (pubkey: string) => {
         const localLud16 = localStorage.getItem('satlotto_lud16');
-        if (localLud16) return localLud16;
-
-        const localAlias = localStorage.getItem('satlotto_alias');
-        if (localAlias) return localAlias;
 
         try {
             const res = await fetch(`/api/identity/${pubkey}`);
             const data = await res.json();
-            return data.lud16 || null;
+            return {
+                lud16: localLud16 || data.lud16 || null,
+                pendingAmount: data.pendingAmount || 0
+            };
+        } catch {
+            return { lud16: localLud16 || null, pendingAmount: 0 };
+        }
+    }, []);
+
+    const signEvent = useCallback(async (event: { kind: number; created_at: number; tags: string[][]; content: string; pubkey: string }): Promise<{ sig: string; id: string } | null> => {
+        if (!signer) return null;
+
+        if (signer === window.nostr) {
+            try {
+                return await (signer as any).signEvent(event);
+            } catch {
+                return null;
+            }
+        }
+
+        try {
+            const ndkEvent = new NDKEvent(ndk, event);
+            const signPromise = ndkEvent.sign(signer as NDKSigner);
+            const timeout = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('Timeout')), 15000)
+            );
+            await Promise.race([signPromise, timeout]);
+            return ndkEvent.rawEvent();
         } catch {
             return null;
         }
-    }, []);
+    }, [signer]);
 
     const cleanupAnimation = useCallback(() => {
         document.body.classList.remove('celebrating');
@@ -82,11 +110,11 @@ export function useChampion(): UseChampionReturn {
         setShowPotentialModal(true);
 
         if (params.pubkey) {
-            fetchLud16(params.pubkey).then(lud16 => {
+            fetchIdentityData(params.pubkey).then(({ lud16 }) => {
                 setPotentialData(prev => prev ? { ...prev, lud16 } : null);
             });
         }
-    }, [isAnimating, cleanupAnimation, fetchLud16]);
+    }, [isAnimating, cleanupAnimation, fetchIdentityData]);
 
     const triggerChampion = useCallback((params: ChampionParams) => {
         if (isAnimating) return;
@@ -122,13 +150,13 @@ export function useChampion(): UseChampionReturn {
 
         setTimeout(async () => {
             if (params.pubkey) {
-                const lud16 = await fetchLud16(params.pubkey);
-                setChampionData(prev => prev ? { ...prev, lud16 } : null);
+                const { lud16, pendingAmount } = await fetchIdentityData(params.pubkey);
+                setChampionData(prev => prev ? { ...prev, lud16, pendingAmount } : null);
             }
             setShowChampionModal(true);
             setIsAnimating(false);
         }, 5500);
-    }, [isAnimating, cleanupAnimation, fetchLud16]);
+    }, [isAnimating, cleanupAnimation, fetchIdentityData]);
 
     const handlePotentialClose = useCallback(() => {
         setShowPotentialModal(false);
@@ -145,7 +173,69 @@ export function useChampion(): UseChampionReturn {
         />
     ) : null;
 
-    const ChampionModalComponent = championData ? (
+    const handleClaim = useCallback(async (pubkey: string): Promise<{ claimed: number; error?: string }> => {
+        if (!pubkey) return { claimed: 0, error: 'No pubkey' };
+
+        try {
+            const signedEvent = await signEvent({
+                kind: 1,
+                created_at: Math.floor(Date.now() / 1000),
+                tags: [['p', pubkey]],
+                content: `Claim prize for ${pubkey}`,
+                pubkey
+            });
+
+            if (!signedEvent) {
+                return { claimed: 0, error: 'Firma requerida' };
+            }
+
+            const res = await fetch(`/api/identity/${pubkey}/claim`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ signedEvent })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                return { claimed: 0, error: data.error };
+            }
+            return { claimed: data.claimed };
+        } catch {
+            return { claimed: 0, error: 'Network error' };
+        }
+    }, [signEvent]);
+
+    const handleSaveLN = useCallback(async (pubkey: string, lud16: string): Promise<{ error?: string }> => {
+        if (!pubkey) return { error: 'No pubkey' };
+
+        try {
+            const signedEvent = await signEvent({
+                kind: 0,
+                created_at: Math.floor(Date.now() / 1000),
+                tags: [],
+                content: JSON.stringify({ lud16 }),
+                pubkey
+            });
+
+            if (!signedEvent) {
+                return { error: 'Firma requerida' };
+            }
+
+            const res = await fetch(`/api/identity/${pubkey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ event: signedEvent, lud16 })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                return { error: data.error };
+            }
+            return {};
+        } catch {
+            return { error: 'Network error' };
+        }
+    }, [signEvent]);
+
+    const ChampionModalComponent = championData && championData.pubkey ? (
         <ChampionModal
             isOpen={showChampionModal}
             onClose={handleChampionClose}
@@ -153,6 +243,9 @@ export function useChampion(): UseChampionReturn {
             lud16={championData.lud16}
             pubkey={championData.pubkey}
             blockHeight={championData.blockHeight}
+            pendingAmount={championData.pendingAmount}
+            onSaveLN={(lud16: string) => handleSaveLN(championData.pubkey!, lud16)}
+            onClaim={() => handleClaim(championData.pubkey!)}
         />
     ) : null;
 
