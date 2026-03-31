@@ -12,7 +12,7 @@ import {
 } from '../lib/crypto';
 import ndk from '../lib/ndk';
 import { createBunkerSession, BunkerSession } from '../lib/nip46';
-import { NDKPrivateKeySigner, NDKNip46Signer } from '@nostr-dev-kit/ndk';
+import { NDKEvent, NDKPrivateKeySigner, NDKNip46Signer, NDKSigner } from '@nostr-dev-kit/ndk';
 import type { Signer, NIP07Signer } from '../types/signer';
 
 export interface VictoryStatus {
@@ -39,31 +39,60 @@ export interface AuthActions {
     bunkerSession: string | null;
 }
 
-const fetchAndSaveProfile = async (pubkey: string): Promise<string | null> => {
+const fetchAndSaveProfile = async (pubkey: string, signer?: Signer | null): Promise<string | null> => {
     try {
         const user = ndk.getUser({ pubkey });
         const profile = await user.fetchProfile();
 
-        const alias = profile?.nip05 || profile?.name || profile?.displayName || null;
+        const nip05 = profile?.nip05 || profile?.name || profile?.displayName || null;
         const lud16 = profile?.lud16 || profile?.lud06 || null;
 
-        if (alias) localStorage.setItem('satlotto_alias', alias);
+        if (nip05) localStorage.setItem('satlotto_alias', nip05);
         if (lud16) localStorage.setItem('satlotto_lud16', lud16);
 
-        if (lud16 || alias) {
-            await fetch(`/api/identity/${pubkey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    lud16: lud16 || null,
-                    nip05: alias || null
-                })
-            });
+        const unsignedEvent = {
+            kind: 0,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [],
+            content: JSON.stringify({
+                name: profile?.name || null,
+                display_name: profile?.displayName || null,
+                nip05: profile?.nip05 || null,
+                lud16: profile?.lud16 || null,
+                lud06: profile?.lud06 || null,
+                about: profile?.about || null,
+                picture: profile?.picture || null,
+            }),
+            pubkey,
+        };
+
+        let signedEvent = null;
+
+        if (signer && signer === window.nostr) {
+            signedEvent = await NIP07.signEvent(unsignedEvent);
+        } else if (signer) {
+            const ev = new NDKEvent(ndk, unsignedEvent);
+            const signPromise = ev.sign(signer as NDKSigner);
+            const timeout = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('Timeout esperando firma')), 15000)
+            );
+            const sig = await Promise.race([signPromise, timeout]);
+            ev.sig = sig;
+            signedEvent = ev.rawEvent();
         }
 
-        return alias;
-    } catch (e) {
-        console.error('[fetchAndSaveProfile] Error:', e);
+        await fetch(`/api/identity/${pubkey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                event: signedEvent,
+                lud16: lud16 || null,
+                nip05: nip05 || null
+            })
+        });
+
+        return nip05;
+    } catch {
         return localStorage.getItem('satlotto_alias');
     }
 };
@@ -75,12 +104,13 @@ export const loginWithExtension = async (actions: AuthActions): Promise<VictoryS
             throw new Error('No se detectó ninguna extensión de Nostr. Instalá Alby o usá una URL de NWC/Bunker para continuar.');
         }
         const pubkey = await NIP07.getPublicKey();
-        const nip05 = await fetchAndSaveProfile(pubkey);
+        const signer = window.nostr as unknown as NIP07Signer;
+        const nip05 = await fetchAndSaveProfile(pubkey, signer);
         actions.setAuth({
             pubkey,
             nip05,
             loginMethod: 'extension',
-            signer: window.nostr as unknown as NIP07Signer,
+            signer,
         });
         return await getVictoryStatus(pubkey);
     } catch (e: any) {
@@ -155,7 +185,8 @@ export const verifyPinForNwc = async (
             return null;
         }
         const user = await signer.user();
-        const nip05 = await fetchAndSaveProfile(user.pubkey);
+        const nip05 = await fetchAndSaveProfile(user.pubkey, signer);
+        
         actions.setAuth({
             nwcUrl,
             pubkey: user.pubkey,
@@ -191,7 +222,8 @@ export const createPinForNwc = async (
             return null;
         }
         const user = await signer.user();
-        const nip05 = await fetchAndSaveProfile(user.pubkey);
+        const nip05 = await fetchAndSaveProfile(user.pubkey, signer);
+        
         actions.setAuth({
             nwcUrl,
             pubkey: user.pubkey,
@@ -243,7 +275,7 @@ export const loginWithBunker = async (
         }
 
         const pubkey = (bunkerSigner as unknown as { remotePubkey: string }).remotePubkey;
-        const nip05 = await fetchAndSaveProfile(pubkey);
+        const nip05 = await fetchAndSaveProfile(pubkey, bunkerSigner);
 
         actions.setAuth({
             pubkey,

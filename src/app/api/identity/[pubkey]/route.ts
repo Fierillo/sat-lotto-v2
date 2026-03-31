@@ -9,6 +9,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ pubk
         const identity = await dbGet<{ nip05: string | null; sats_earned: number; lud16: string | null; winner_block: number; has_confirmed: boolean }>('lotto_identities', { pubkey });
 
         return NextResponse.json({
+            pubkey,
             nip05: identity?.nip05 || null,
             sats_earned: identity?.sats_earned || 0,
             lud16: identity?.lud16 || null,
@@ -17,7 +18,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ pubk
         });
     } catch (e: any) {
         console.error('[Identity GET] Error:', e.message);
-        return NextResponse.json({ nip05: null, sats_earned: 0, lud16: null, winner_block: 0, has_confirmed: false });
+        return NextResponse.json({ pubkey, nip05: null, sats_earned: 0, lud16: null, winner_block: 0, has_confirmed: false });
     }
 }
 
