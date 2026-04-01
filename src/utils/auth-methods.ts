@@ -17,7 +17,7 @@ import type { Signer, NIP07Signer } from '../types/signer';
 
 export interface VictoryStatus {
     winner_block: number;
-    has_confirmed: boolean;
+    can_claim: boolean;
 }
 
 export interface AuthActions {
@@ -295,17 +295,17 @@ export const loginWithBunker = async (
 
 export const getVictoryStatus = async (pubkey: string | null): Promise<VictoryStatus> => {
     if (!pubkey) {
-        return { winner_block: 0, has_confirmed: false };
+        return { winner_block: 0, can_claim: false };
     }
     try {
         const res = await fetch(`/api/identity/${pubkey}`);
         const data = await res.json();
         return {
             winner_block: data.winner_block || 0,
-            has_confirmed: data.has_confirmed || false,
+            can_claim: data.can_claim || false,
         };
     } catch {
-        return { winner_block: 0, has_confirmed: false };
+        return { winner_block: 0, can_claim: false };
     }
 };
 
@@ -315,7 +315,7 @@ export const clearVictoryStatus = async (pubkey: string | null): Promise<void> =
         await fetch(`/api/identity/${pubkey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ has_confirmed: false })
+            body: JSON.stringify({ can_claim: false })
         });
     } catch (e) {
         console.error('[clearVictoryStatus] Error:', e);

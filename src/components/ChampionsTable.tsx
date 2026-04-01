@@ -31,7 +31,7 @@ export function ChampionsTable({ champions }: ChampionsTableProps) {
                         <tr key={champion.pubkey} className="table-row-hover">
                             <td>{champion.nip05 || `${champion.pubkey.slice(0, 8)}...`}</td>
                             <td className="table-sats">
-                                {champion.sats_earned.toLocaleString()} sats
+                                {champion.total_sats.toLocaleString()} sats
                             </td>
                         </tr>
                     ))}

@@ -3,6 +3,7 @@ import { queryNeon, dbGetAll } from '@/src/lib/db';
 import { cachedBlock, syncData } from '@/src/lib/cache';
 import { calculateResult } from '@/src/lib/champion-call';
 import { checkRateLimit, getClientIP } from '@/src/lib/rate-limiter';
+import type { Champion } from '@/src/types/game';
 
 export async function GET(request: Request) {
     const clientIP = await getClientIP(request);
@@ -31,13 +32,29 @@ export async function GET(request: Request) {
 
         const publicBets = activeBets.filter((b: any) => b.is_paid);
 
-        const champions = await queryNeon(`
-            SELECT pubkey, nip05, sats_earned 
+        const championsRaw = await queryNeon(`
+            SELECT pubkey, nip05, sats_earned, sats_pending, sats_earned + sats_pending as total_sats
             FROM lotto_identities 
-            WHERE sats_earned > 0
-            ORDER BY sats_earned DESC
+            WHERE sats_earned > 0 OR sats_pending > 0
+            ORDER BY (sats_earned + sats_pending) DESC
             LIMIT 50
         `);
+
+        const champions: Champion[] = championsRaw.map((c: any) => ({
+            pubkey: c.pubkey,
+            nip05: c.nip05,
+            sats_earned: c.sats_earned,
+            sats_pending: c.sats_pending,
+            total_sats: c.total_sats
+        }));
+
+        const pendingResult = await queryNeon(`
+            SELECT COALESCE(SUM(sats_pending), 0) as total_pending
+            FROM lotto_identities
+            WHERE sats_pending > 0
+        `);
+        const totalPending = pendingResult[0]?.total_pending || 0;
+        const displayedPoolBalance = Math.max(0, cachedBlock.poolBalance - totalPending);
 
         let lastResult = null;
         if (lastResolvedBlock > 0) {
@@ -66,7 +83,11 @@ export async function GET(request: Request) {
         }
 
         return NextResponse.json({
-            block: cachedBlock,
+            block: { 
+                height: cachedBlock.height, 
+                target: cachedBlock.target, 
+                poolBalance: displayedPoolBalance 
+            },
             activeBets: publicBets,
             champions,
             lastResult
