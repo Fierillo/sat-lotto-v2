@@ -17,6 +17,17 @@ export function withSuppressedWarnings<T>(fn: () => Promise<T>): Promise<T> {
     return fn().finally(() => { console.warn = originalWarn; });
 }
 
+function formatNwcError(err: any, context: string): string {
+    const msg = err.message || String(err);
+    if (msg.includes('Failed to connect') || msg.includes('network error')) {
+        return `${context} (relay offline)`;
+    }
+    if (msg.includes('timeout') || msg.includes('Timeout')) {
+        return `${context} (timeout)`;
+    }
+    return `${context} (${msg.slice(0, 30)})`;
+}
+
 function withSuppressedClientWarnings<T>(nwcUrl: string, fn: (c: nwc.NWCClient) => Promise<T>): Promise<T> {
     return withSuppressedWarnings(async () => {
         const c = getClient(nwcUrl);
@@ -40,8 +51,7 @@ export const NWC = {
             try {
                 const tx = await c.lookupInvoice({ payment_hash: hash });
                 return { settled: tx.state === 'settled', preimage: tx.preimage || undefined, amount: tx.amount };
-            } catch (err: any) {
-                console.error('[NWC] lookupInvoice error:', err.message);
+            } catch {
                 return { settled: false };
             }
         });
@@ -67,7 +77,7 @@ export async function getPoolBalance(): Promise<number> {
     try {
         nwcClient = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
     } catch (err: any) {
-        console.error('[NWC] Error creating client:', err.message);
+        console.error(formatNwcError(err, '[NWC] Pool balance unavailable'));
         return 0;
     }
 
@@ -75,14 +85,12 @@ export async function getPoolBalance(): Promise<number> {
         const balanceData = await withSuppressedWarnings(() => nwcClient.getBalance());
         return Math.floor(balanceData.balance / 1000);
     } catch (err: any) {
-        console.error('[NWC] Error getting balance:', err.message);
+        console.error(formatNwcError(err, '[NWC] Pool balance unavailable'));
         return 0;
     } finally {
         try {
             nwcClient.close();
-        } catch (e: any) {
-            console.error('[NWC] Error closing client:', e.message);
-        }
+        } catch {}
     }
 }
 
@@ -96,8 +104,8 @@ export async function createNwcInvoice(nwcUrl: string, amountSats: number, descr
             })
         ) as { invoice: string; payment_hash: string };
     } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Alby SDK makeInvoice failed';
-        console.error('[NWC] createNwcInvoice error:', message);
+        const message = err instanceof Error ? err.message : 'Invoice creation failed';
+        console.error(formatNwcError(err, '[NWC] Invoice creation failed'));
         throw new Error(message);
     } finally {
         try { client.close(); } catch {}
