@@ -15,7 +15,7 @@ interface ChampionModalProps {
     onSaveLN?: (lud16: string) => Promise<{ error?: string }>;
 }
 
-const LN_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const LN_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*\.[a-zA-Z]{2,}$/;
 
 async function checkLNReachability(address: string): Promise<boolean> {
     try {
