@@ -191,8 +191,9 @@ describe('hacker-identity-endpoint', () => {
             expect(data).toHaveProperty('lud16');
             expect(data).toHaveProperty('nip05');
             expect(data).toHaveProperty('sats_earned');
+            expect(data).toHaveProperty('sats_pending');
             expect(data).toHaveProperty('winner_block');
-            expect(data).toHaveProperty('has_confirmed');
+            expect(data).toHaveProperty('can_claim');
         });
     });
 });

@@ -15,6 +15,8 @@ export interface Champion {
     pubkey: string;
     nip05?: string;
     sats_earned: number;
+    sats_pending: number;
+    total_sats: number;
 }
 
 export interface SorteoResult {

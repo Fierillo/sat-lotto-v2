@@ -286,13 +286,13 @@ flowchart TD
 CREATE TABLE lotto_identities (
     id SERIAL PRIMARY KEY,
     pubkey TEXT NOT NULL UNIQUE,
-    alias TEXT,
     nip05 TEXT,
     lud16 TEXT,              -- Lightning address para pagos
     sats_earned INTEGER DEFAULT 0,
-    last_celebrated_block INTEGER DEFAULT 0,
-    has_confirmed BOOLEAN DEFAULT FALSE,  -- Indica si el campeão confirmó su LN address
+    sats_pending INTEGER DEFAULT 0,      -- Sats reservados para el ganador
     winner_block INTEGER DEFAULT 0,       -- Último bloque que ganó
+    can_claim BOOLEAN DEFAULT FALSE,      -- true = tiene premio pendiente para reclamar
+    last_updated TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 ```

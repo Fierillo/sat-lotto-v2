@@ -10,8 +10,9 @@ CREATE TABLE IF NOT EXISTS lotto_identities (
     last_updated TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     sats_earned INTEGER DEFAULT 0,
+    sats_pending INTEGER DEFAULT 0,
     winner_block INTEGER DEFAULT 0,
-    has_confirmed BOOLEAN DEFAULT FALSE
+    can_claim BOOLEAN DEFAULT FALSE
 );
 
 -- 2. Apuestas
