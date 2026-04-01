@@ -5,7 +5,6 @@ import { useGame } from '../contexts/GameContext';
 import { useAuth } from '../contexts/AuthContext';
 
 interface ChampionParams {
-    satsWon?: number;
     pubkey?: string;
     blockHeight: number;
     winningNumber?: number;
@@ -58,7 +57,6 @@ export function DebugButtons({ triggerChampion, triggerPotentialWinner }: DebugB
 
     const handleVictory = () => {
         triggerChampion({
-            satsWon: 0,
             pubkey: gameState.lastResult?.winners?.[0]?.pubkey || authState.pubkey || undefined,
             blockHeight: gameState.targetBlock
         });

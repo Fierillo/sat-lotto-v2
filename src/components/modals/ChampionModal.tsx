@@ -6,11 +6,10 @@ import { Modal } from './Modal';
 interface ChampionModalProps {
     isOpen: boolean;
     onClose: () => void;
-    satsWon: number;
     lud16?: string | null;
     pubkey?: string;
     blockHeight: number;
-    pendingAmount?: number;
+    sats_pending?: number;
     onClaim?: () => Promise<{ claimed: number; error?: string }>;
     onSaveLN?: (lud16: string) => Promise<{ error?: string }>;
 }
@@ -32,15 +31,14 @@ async function checkLNReachability(address: string): Promise<boolean> {
 export function ChampionModal({
     isOpen,
     onClose,
-    satsWon,
     lud16,
     pubkey,
     blockHeight,
-    pendingAmount = 0,
+    sats_pending = 0,
     onClaim,
     onSaveLN
 }: ChampionModalProps) {
-    const [LNAddress, setLNAddress] = useState(lud16 || '');
+    const [LNAddress, setLNAddress] = useState('');
     const [isValidFormat, setIsValidFormat] = useState(false);
     const [isReachable, setIsReachable] = useState(false);
     const [isChecking, setIsChecking] = useState(false);
@@ -48,10 +46,23 @@ export function ChampionModal({
     const [isClaiming, setIsClaiming] = useState(false);
     const [claimResult, setClaimResult] = useState<{ claimed?: number; error?: string } | null>(null);
     const [showClaimSuccess, setShowClaimSuccess] = useState(false);
+    const [savedLN, setSavedLN] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
 
     useEffect(() => {
-        if (lud16) setLNAddress(lud16);
-    }, [lud16]);
+        if (isOpen) {
+            if (lud16) {
+                setLNAddress(lud16);
+                setSavedLN(true);
+            } else {
+                setLNAddress('');
+                setSavedLN(false);
+            }
+            setIsEditing(false);
+            setClaimResult(null);
+            setShowClaimSuccess(false);
+        }
+    }, [isOpen, lud16]);
 
     useEffect(() => {
         setIsValidFormat(LN_REGEX.test(LNAddress.trim()));
@@ -77,7 +88,7 @@ export function ChampionModal({
     }, [LNAddress, isValidFormat]);
 
     const handleSaveLN = useCallback(async () => {
-        if (!LNAddress.trim() || !onSaveLN || !isValidFormat || !isReachable) return;
+        if (!LNAddress.trim() || !onSaveLN || !isValidFormat) return;
 
         setIsSaving(true);
         try {
@@ -86,13 +97,15 @@ export function ChampionModal({
                 setClaimResult({ error: result.error });
             } else {
                 setClaimResult(null);
+                setSavedLN(true);
+                setIsEditing(false);
             }
         } catch (e) {
             console.error('[ChampionModal] Failed to save LN address:', e);
         } finally {
             setIsSaving(false);
         }
-    }, [LNAddress, onSaveLN, isValidFormat, isReachable]);
+    }, [LNAddress, onSaveLN, isValidFormat]);
 
     const handleClaim = useCallback(async () => {
         if (!onClaim || isClaiming) return;
@@ -110,10 +123,18 @@ export function ChampionModal({
         }
     }, [onClaim, isClaiming]);
 
-    const canSave = isValidFormat && isReachable && !isChecking && !isSaving;
-    const hasLud16 = !!lud16;
-    const showPendingSection = hasLud16 && pendingAmount > 0 && !showClaimSuccess;
-    const showSavedSuccess = hasLud16 && !showPendingSection && !claimResult?.error;
+    const handleEdit = () => {
+        setIsEditing(true);
+        setClaimResult(null);
+    };
+
+    const canSave = isValidFormat && !isChecking && !isSaving && (isEditing || !savedLN);
+    const showClaimButton = savedLN && !isEditing && sats_pending > 0 && !showClaimSuccess;
+    const showEditButton = savedLN && !isEditing;
+    const showSaveButton = !savedLN || isEditing;
+    const showConfirmMessage = savedLN && !isEditing && !showClaimSuccess;
+    const showClaimSuccessMessage = showClaimSuccess && claimResult?.claimed;
+    const showErrorMessage = claimResult?.error && !showClaimSuccess;
 
     return (
         <Modal
@@ -121,7 +142,7 @@ export function ChampionModal({
             onClose={onClose}
             size="medium"
             footer={
-                <button className="auth-btn" onClick={onClose}>
+                <button className="auth-btn" onClick={onClose} style={{ background: '#ff6b6b', borderColor: '#ff6b6b' }}>
                     Cerrar
                 </button>
             }
@@ -132,7 +153,7 @@ export function ChampionModal({
                     ¡CAMPEÓN!
                 </h2>
                 <p className="modal-text" style={{ fontSize: '1.2rem', marginBottom: '10px' }}>
-                    Ganaste <strong style={{ color: '#00ff9d', fontSize: '1.5rem' }}>{satsWon.toLocaleString()}</strong> sats
+                    Ganaste <strong style={{ color: '#00ff9d', fontSize: '1.5rem' }}>{sats_pending.toLocaleString()}</strong> sats
                 </p>
                 <p className="modal-text" style={{ fontSize: '0.9rem', color: '#888', marginBottom: '20px' }}>
                     Ronda #{blockHeight}
@@ -142,7 +163,7 @@ export function ChampionModal({
                     <p className="modal-text" style={{ fontSize: '0.85rem', marginBottom: '8px' }}>
                         Lightning Address:
                     </p>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <input
                             type="text"
                             placeholder="tu@ejemplo.com"
@@ -150,68 +171,119 @@ export function ChampionModal({
                             onChange={(e) => {
                                 setLNAddress(e.target.value);
                                 setClaimResult(null);
-                                setShowClaimSuccess(false);
                             }}
+                            disabled={savedLN && !isEditing}
                             style={{
                                 flex: 1,
                                 padding: '10px',
                                 borderRadius: '6px',
-                                border: `1px solid ${!LNAddress.trim() ? '#333' : isValidFormat ? (isReachable ? '#00ff9d' : '#ff6b6b') : '#ff6b6b'}`,
+                                border: `1px solid ${!LNAddress.trim() ? '#333' : isValidFormat ? (isReachable || !isChecking ? '#00ff9d' : '#ffa500') : '#ff6b6b'}`,
                                 background: 'rgba(0,0,0,0.5)',
                                 color: '#fff',
                                 fontSize: '0.9rem',
-                                boxSizing: 'border-box'
+                                boxSizing: 'border-box',
+                                opacity: savedLN && !isEditing ? 0.7 : 1
                             }}
                         />
-                        <button
-                            className="auth-btn small"
-                            onClick={handleSaveLN}
-                            disabled={!canSave}
-                            style={{
-                                opacity: canSave ? 1 : 0.5,
-                                minWidth: '80px',
-                                padding: '10px 16px'
-                            }}
-                        >
-                            {isSaving ? '...' : isChecking ? '...' : 'Guardar'}
-                        </button>
+                        {showSaveButton && (
+                            <button
+                                className="auth-btn small"
+                                onClick={handleSaveLN}
+                                disabled={!canSave}
+                                style={{
+                                    opacity: canSave ? 1 : 0.5,
+                                    padding: '10px 16px',
+                                    whiteSpace: 'nowrap'
+                                }}
+                            >
+                                {isSaving ? '...' : isChecking ? '...' : 'Guardar'}
+                            </button>
+                        )}
+                        {showEditButton && (
+                            <button
+                                className="auth-btn small"
+                                onClick={handleEdit}
+                                style={{
+                                    padding: '10px 12px',
+                                    whiteSpace: 'nowrap'
+                                }}
+                            >
+                                ✏️
+                            </button>
+                        )}
                     </div>
                     {LNAddress.trim() && !isValidFormat && (
                         <p style={{ color: '#ff6b6b', fontSize: '0.75rem', marginTop: '4px' }}>
                             Formato inválido (ej: usuario@wallet.io)
                         </p>
                     )}
-                    {isValidFormat && !isReachable && !isChecking && (
-                        <p style={{ color: '#ff6b6b', fontSize: '0.75rem', marginTop: '4px' }}>
-                            Lightning address no encontrado
+                    {isValidFormat && !isReachable && !isChecking && !savedLN && (
+                        <p style={{ color: '#ffa500', fontSize: '0.75rem', marginTop: '4px' }}>
+                            ⚠️ No se pudo verificar la dirección. Posible problema de CORS.
                         </p>
                     )}
                 </div>
 
-                {showPendingSection && (
+                {showConfirmMessage && (
+                    <div style={{
+                        marginTop: '10px',
+                        marginBottom: '15px',
+                        padding: '10px',
+                        background: 'rgba(0, 255, 157, 0.1)',
+                        border: '1px solid #00ff9d',
+                        borderRadius: '6px'
+                    }}>
+                        <p style={{ color: '#00ff9d', fontSize: '0.85rem' }}>
+                            ✓ LN Address confirmada
+                        </p>
+                    </div>
+                )}
+
+                {isClaiming && (
+                    <div style={{
+                        marginTop: '15px',
+                        padding: '15px',
+                        background: 'rgba(255, 193, 7, 0.1)',
+                        border: '1px solid #ffc107',
+                        borderRadius: '8px'
+                    }}>
+                        <p style={{ color: '#ffc107', fontSize: '0.9rem' }}>
+                            ⏳ Enviando {sats_pending.toLocaleString()} sats...
+                        </p>
+                    </div>
+                )}
+
+                {showClaimButton && !isClaiming && (
                     <div style={{ marginTop: '15px' }}>
                         <button
                             className="auth-btn"
                             onClick={handleClaim}
                             disabled={isClaiming}
                             style={{
-                                background: isClaiming ? undefined : 'rgba(0, 255, 157, 0.2)',
+                                background: 'rgba(0, 255, 157, 0.2)',
                                 borderColor: '#00ff9d',
                                 opacity: isClaiming ? 0.7 : 1
                             }}
                         >
-                            {isClaiming ? 'Procesando...' : `Reclamar ${pendingAmount.toLocaleString()} sats`}
+                            {isClaiming ? 'Procesando...' : 'Reclamar premio'}
                         </button>
                     </div>
                 )}
 
-                {claimResult?.error && (
-                    <div style={{ marginTop: '10px', color: '#ff6b6b', fontSize: '0.85rem' }}>
-                        {claimResult.error}
+                {showErrorMessage && (
+                    <div style={{
+                        marginTop: '10px',
+                        color: '#ff6b6b',
+                        fontSize: '0.85rem',
+                        padding: '10px',
+                        background: 'rgba(255, 107, 107, 0.1)',
+                        borderRadius: '6px'
+                    }}>
+                        ✗ {claimResult.error}
                     </div>
                 )}
 
-                {showClaimSuccess && (
+                {showClaimSuccessMessage && (
                     <div style={{
                         marginTop: '15px',
                         background: 'rgba(0, 255, 157, 0.1)',
@@ -219,28 +291,11 @@ export function ChampionModal({
                         borderRadius: '8px',
                         padding: '15px'
                     }}>
-                        <p style={{ color: '#00ff9d', fontWeight: 'bold' }}>
-                            ¡{claimResult?.claimed?.toLocaleString()} sats enviadas!
+                        <p style={{ color: '#00ff9d', fontWeight: 'bold', fontSize: '1rem' }}>
+                            ✓ ¡{claimResult?.claimed?.toLocaleString()} sats enviadas!
                         </p>
                         <p style={{ color: '#888', fontSize: '0.85rem', marginTop: '5px' }}>
-                            a {lud16}
-                        </p>
-                    </div>
-                )}
-
-                {showSavedSuccess && !showClaimSuccess && (
-                    <div style={{
-                        marginTop: '15px',
-                        background: 'rgba(0, 255, 157, 0.1)',
-                        border: '1px solid #00ff9d',
-                        borderRadius: '8px',
-                        padding: '15px'
-                    }}>
-                        <p className="modal-text" style={{ marginBottom: '5px' }}>
-                            Fondos enviados a:
-                        </p>
-                        <p style={{ color: '#00ff9d', fontWeight: 'bold', wordBreak: 'break-all' }}>
-                            {lud16}
+                            a {LNAddress}
                         </p>
                     </div>
                 )}
