@@ -7,7 +7,6 @@ import ndk from '../lib/ndk';
 import { NDKEvent, NDKSigner } from '@nostr-dev-kit/ndk';
 
 interface ChampionParams {
-    satsWon?: number;
     pubkey?: string;
     blockHeight: number;
     winningNumber?: number;
@@ -15,12 +14,11 @@ interface ChampionParams {
 }
 
 interface ChampionData {
-    satsWon: number;
     lud16?: string | null;
     pubkey?: string;
     blockHeight: number;
     winningNumber?: number;
-    pendingAmount?: number;
+    sats_pending?: number;
     onClose?: () => void;
     onSaveLN?: (lud16: string) => Promise<{ error?: string }>;
     onClaim?: () => Promise<{ claimed: number; error?: string }>;
@@ -49,10 +47,10 @@ export function useChampion(signer?: any): UseChampionReturn {
             const data = await res.json();
             return {
                 lud16: localLud16 || data.lud16 || null,
-                pendingAmount: data.pendingAmount || 0
+                sats_pending: data.sats_pending || 0
             };
         } catch {
-            return { lud16: localLud16 || null, pendingAmount: 0 };
+            return { lud16: localLud16 || null, sats_pending: 0 };
         }
     }, []);
 
@@ -101,7 +99,6 @@ export function useChampion(signer?: any): UseChampionReturn {
         cleanupAnimation();
 
         const data: ChampionData = {
-            satsWon: 0,
             pubkey: params.pubkey,
             blockHeight: params.blockHeight,
             winningNumber: params.winningNumber,
@@ -123,7 +120,6 @@ export function useChampion(signer?: any): UseChampionReturn {
         cleanupAnimation();
 
         const data: ChampionData = {
-            satsWon: params.satsWon || 0,
             pubkey: params.pubkey,
             blockHeight: params.blockHeight,
             onClose: params.onClose,
@@ -150,8 +146,8 @@ export function useChampion(signer?: any): UseChampionReturn {
 
         setTimeout(async () => {
             if (params.pubkey) {
-                const { lud16, pendingAmount } = await fetchIdentityData(params.pubkey);
-                setChampionData(prev => prev ? { ...prev, lud16, pendingAmount } : null);
+                const { lud16, sats_pending } = await fetchIdentityData(params.pubkey);
+                setChampionData(prev => prev ? { ...prev, lud16, sats_pending } : null);
             }
             setShowChampionModal(true);
             setIsAnimating(false);
@@ -162,7 +158,7 @@ export function useChampion(signer?: any): UseChampionReturn {
         setShowPotentialModal(false);
     }, []);
 
-    const PotentialWinnerModalComponent = potentialData ? (
+    const PotentialWinnerModalComponent = potentialData && potentialData.pubkey ? (
         <PotentialWinnerModal
             isOpen={showPotentialModal}
             onClose={handlePotentialClose}
@@ -170,6 +166,7 @@ export function useChampion(signer?: any): UseChampionReturn {
             winningNumber={potentialData.winningNumber}
             lud16={potentialData.lud16}
             pubkey={potentialData.pubkey}
+            onSaveLN={(lud16: string) => handleSaveLN(potentialData.pubkey!, lud16)}
         />
     ) : null;
 
@@ -239,11 +236,10 @@ export function useChampion(signer?: any): UseChampionReturn {
         <ChampionModal
             isOpen={showChampionModal}
             onClose={handleChampionClose}
-            satsWon={championData.satsWon}
             lud16={championData.lud16}
             pubkey={championData.pubkey}
             blockHeight={championData.blockHeight}
-            pendingAmount={championData.pendingAmount}
+            sats_pending={championData.sats_pending}
             onSaveLN={(lud16: string) => handleSaveLN(championData.pubkey!, lud16)}
             onClaim={() => handleClaim(championData.pubkey!)}
         />

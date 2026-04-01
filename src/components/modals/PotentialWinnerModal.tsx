@@ -10,28 +10,37 @@ interface PotentialWinnerModalProps {
     winningNumber?: number;
     lud16?: string | null;
     pubkey?: string;
+    onSaveLN?: (lud16: string) => Promise<{ error?: string }>;
 }
 
-export function PotentialWinnerModal({ isOpen, onClose, blockHeight, winningNumber, lud16, pubkey }: PotentialWinnerModalProps) {
+export function PotentialWinnerModal({ isOpen, onClose, blockHeight, winningNumber, lud16, pubkey, onSaveLN }: PotentialWinnerModalProps) {
     const [LNAddress, setLNAddress] = useState(lud16 || '');
     const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState(false);
 
     useEffect(() => {
         if (lud16) setLNAddress(lud16);
-    }, [lud16]);
+        setError(null);
+        setSuccess(false);
+    }, [lud16, isOpen]);
 
     const handleSaveLN = async () => {
-        if (!LNAddress.trim() || !pubkey) return;
+        if (!LNAddress.trim() || !pubkey || !onSaveLN) return;
 
         setIsSaving(true);
+        setError(null);
+        setSuccess(false);
         try {
-            await fetch(`/api/identity/${pubkey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lud16: LNAddress.trim() })
-            });
+            const result = await onSaveLN(LNAddress.trim());
+            if (result.error) {
+                setError(result.error);
+            } else {
+                setSuccess(true);
+            }
         } catch (e) {
             console.error('[PotentialWinnerModal] Failed to save LN address:', e);
+            setError('Error al guardar');
         } finally {
             setIsSaving(false);
         }
@@ -79,12 +88,12 @@ export function PotentialWinnerModal({ isOpen, onClose, blockHeight, winningNumb
                     type="text"
                     placeholder="tu@ejemplo.com"
                     value={LNAddress}
-                    onChange={(e) => setLNAddress(e.target.value)}
+                    onChange={(e) => { setLNAddress(e.target.value); setError(null); setSuccess(false); }}
                     style={{
                         width: '100%',
                         padding: '10px',
                         borderRadius: '6px',
-                        border: '1px solid #333',
+                        border: `1px solid ${error ? '#ff6b6b' : success ? '#00ff9d' : '#333'}`,
                         background: 'rgba(0,0,0,0.5)',
                         color: '#fff',
                         fontSize: '1rem',
@@ -92,6 +101,16 @@ export function PotentialWinnerModal({ isOpen, onClose, blockHeight, winningNumb
                         boxSizing: 'border-box'
                     }}
                 />
+                {error && (
+                    <p style={{ color: '#ff6b6b', fontSize: '0.85rem', marginBottom: '10px' }}>
+                        ✗ {error}
+                    </p>
+                )}
+                {success && (
+                    <p style={{ color: '#00ff9d', fontSize: '0.85rem', marginBottom: '10px' }}>
+                        ✓ Lightning Address guardada
+                    </p>
+                )}
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <button 
                         className="auth-btn" 
