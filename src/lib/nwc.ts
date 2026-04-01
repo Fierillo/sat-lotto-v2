@@ -11,7 +11,7 @@ function getClient(nwcUrl: string): nwc.NWCClient {
     return client;
 }
 
-function withSuppressedWarnings<T>(fn: () => Promise<T>): Promise<T> {
+export function withSuppressedWarnings<T>(fn: () => Promise<T>): Promise<T> {
     const originalWarn = console.warn;
     console.warn = () => {};
     return fn().finally(() => { console.warn = originalWarn; });
@@ -40,7 +40,8 @@ export const NWC = {
             try {
                 const tx = await c.lookupInvoice({ payment_hash: hash });
                 return { settled: tx.state === 'settled', preimage: tx.preimage || undefined, amount: tx.amount };
-            } catch {
+            } catch (err: any) {
+                console.error('[NWC] lookupInvoice error:', err.message);
                 return { settled: false };
             }
         });
@@ -62,18 +63,27 @@ export async function getPoolBalance(): Promise<number> {
     const nwcUrl = process.env.NWC_URL;
     if (!nwcUrl) return 0;
 
-    return withSuppressedWarnings(async () => {
-        const client = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
+    let nwcClient;
+    try {
+        nwcClient = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
+    } catch (err: any) {
+        console.error('[NWC] Error creating client:', err.message);
+        return 0;
+    }
+
+    try {
+        const balanceData = await withSuppressedWarnings(() => nwcClient.getBalance());
+        return Math.floor(balanceData.balance / 1000);
+    } catch (err: any) {
+        console.error('[NWC] Error getting balance:', err.message);
+        return 0;
+    } finally {
         try {
-            const balanceData = await client.getBalance();
-            return Math.floor(balanceData.balance / 1000);
+            nwcClient.close();
         } catch (e: any) {
-            console.error('[NWC] Balance timeout');
-            throw new Error('NWC timeout');
-        } finally {
-            try { client.close(); } catch {}
+            console.error('[NWC] Error closing client:', e.message);
         }
-    });
+    }
 }
 
 export async function createNwcInvoice(nwcUrl: string, amountSats: number, description: string): Promise<{ invoice: string; payment_hash: string }> {
@@ -87,7 +97,7 @@ export async function createNwcInvoice(nwcUrl: string, amountSats: number, descr
         ) as { invoice: string; payment_hash: string };
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Alby SDK makeInvoice failed';
-        console.error('[createNwcInvoice] Alby SDK error:', message);
+        console.error('[NWC] createNwcInvoice error:', message);
         throw new Error(message);
     } finally {
         try { client.close(); } catch {}

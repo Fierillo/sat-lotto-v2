@@ -1,5 +1,6 @@
 import NDK, { NDKPrivateKeySigner, NDKEvent } from '@nostr-dev-kit/ndk';
 import { nip04 } from 'nostr-tools';
+import { withSuppressedWarnings } from './nwc';
 
 const nostrEnabled = process.env.NOSTR_ENABLED === 'true';
 const botPrivkey = process.env.NOSTR_PRIVKEY;
@@ -29,25 +30,23 @@ export async function ensureNdkConnected(): Promise<boolean> {
 }
 
 export async function sendDM(pubkey: string, message: string): Promise<void> {
-    if (!nostrEnabled || !botPrivkey) {
-        return;
-    }
+    if (!nostrEnabled || !botPrivkey) return;
     try {
         await ensureNdkConnected();
-        const dm = new NDKEvent(botNdk);
-        dm.kind = 4;
-        dm.tags = [['p', pubkey]];
-        dm.content = await nip04.encrypt(botPrivkey, pubkey, message);
-        await dm.publish();
+        await withSuppressedWarnings(async () => {
+            const dm = new NDKEvent(botNdk);
+            dm.kind = 4;
+            dm.tags = [['p', pubkey]];
+            dm.content = await nip04.encrypt(botPrivkey, pubkey, message);
+            await dm.publish();
+        });
     } catch (e: any) {
         console.error(`[Nostr] DM to ${pubkey.slice(0, 8)}... failed:`, e.message?.slice(0, 30));
     }
 }
 
 export async function publishRoundResult(content: string): Promise<void> {
-    if (!nostrEnabled || !botPrivkey) {
-        return;
-    }
+    if (!nostrEnabled || !botPrivkey) return;
     try {
         await ensureNdkConnected();
         const ev = new NDKEvent(botNdk);
