@@ -12,28 +12,25 @@ export async function syncData() {
             cachedBlock.height = height;
             cachedBlock.target = Math.ceil(height / 21) * 21;
         }
-    } catch (e) {
-        console.error('[Sync] Block height fetch failed');
+    } catch (err: any) {
+        console.error('[syncData] Error fetching block height:', err.message);
     }
 
     try {
         const bal = await getPoolBalance();
         if (bal !== cachedBlock.poolBalance) {
-            console.log(`[Sync] Pool balance updated: ${bal} sats`);
             cachedBlock.poolBalance = bal;
         }
-    } catch (e) {
-        console.error('[Sync] Pool balance fetch failed (keeping last known balance)');
+    } catch (err: any) {
+        console.error('[syncData] Error getting pool balance:', err.message);
     }
 
     try {
         const blocksUntilCelebration = (cachedBlock.target + 2) - cachedBlock.height;
         if (blocksUntilCelebration <= 0) {
             await processPayouts(cachedBlock.height);
-        } else {
-            console.log(`[Sync] Waiting for ${blocksUntilCelebration} blocks before celebrating/paying`);
         }
-    } catch (e: any) {
-        console.error('[PayoutWorker] Error:', e.message || 'unknown');
+    } catch (err: any) {
+        console.error('[syncData] Error processing payouts:', err.message);
     }
 }

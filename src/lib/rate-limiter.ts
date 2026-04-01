@@ -39,7 +39,6 @@ export async function checkRateLimit(
         }
 
         if (count >= maxRequests) {
-            console.error(`[RateLimit] Blocked: ${key} - ${count}/${maxRequests} in ${WINDOW_SECONDS}s`);
             return { allowed: false, remaining: 0 };
         }
 
@@ -47,10 +46,9 @@ export async function checkRateLimit(
             'UPDATE rate_limits SET count = count + 1 WHERE key = $1',
             [key]
         );
-
         return { allowed: true, remaining: maxRequests - count - 1 };
-    } catch (err) {
-        console.error('[RateLimit] Error:', err);
+    } catch (err: any) {
+        console.error('[RateLimit] Error:', err.message);
         return { allowed: true, remaining: maxRequests };
     }
 }
