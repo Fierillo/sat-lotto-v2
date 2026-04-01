@@ -13,7 +13,11 @@ export const queryNeon = async (queryText: string, params: any[] = []) => {
         console.error('[Neon DB Error]', err.message);
         throw err;
     } finally {
-        client.end();
+        try {
+            await client.end();
+        } catch (e: any) {
+            console.error('[Neon DB Error] closing connection:', e.message);
+        }
     }
 };
 
