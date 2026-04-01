@@ -5,6 +5,7 @@ import { queryNeon, dbGet } from '@/src/lib/db';
 import { getInvoiceFromLNAddress } from '@/src/lib/ln';
 import { sendDM, ensureNdkConnected } from '@/src/lib/nostr';
 import { checkRateLimit, getClientIP } from '@/src/lib/rate-limiter';
+import type { ClaimApiResponse } from '@/src/types/identity';
 
 export async function POST(request: Request, { params }: { params: Promise<{ pubkey: string }> }) {
     const { pubkey } = await params;
@@ -37,35 +38,30 @@ export async function POST(request: Request, { params }: { params: Promise<{ pub
             return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
         }
 
-        const identity = await dbGet<{ lud16: string | null }>('lotto_identities', { pubkey });
-        const lud16 = identity?.lud16;
+        const identity = await dbGet<{ 
+            lud16: string | null; 
+            can_claim: boolean; 
+            sats_pending: number 
+        }>('lotto_identities', { pubkey });
 
+        if (!identity?.can_claim || identity?.sats_pending <= 0) {
+            const response: ClaimApiResponse = {
+                claimed: 0,
+                error: 'No hay premio pendiente para reclamar'
+            };
+            return NextResponse.json(response, { status: 400 });
+        }
+
+        const lud16 = identity.lud16;
         if (!lud16) {
-            const pending = await queryNeon(`
-                SELECT COALESCE(SUM(amount), 0) as pending_amount
-                FROM lotto_payouts
-                WHERE pubkey = $1 AND type = 'winner' AND status = 'failed'
-            `, [pubkey]);
-            return NextResponse.json({
-                error: 'Lightning address not configured',
+            const response: ClaimApiResponse = {
                 claimed: 0,
-                pendingAmount: pending[0]?.pending_amount || 0
-            }, { status: 400 });
+                error: 'Lightning address no configurada'
+            };
+            return NextResponse.json(response, { status: 400 });
         }
 
-        const pendingPayouts = await queryNeon(`
-            SELECT id, block_height, amount
-            FROM lotto_payouts
-            WHERE pubkey = $1 AND type = 'winner' AND status = 'failed'
-            ORDER BY block_height ASC
-        `, [pubkey]);
-
-        if (pendingPayouts.length === 0) {
-            return NextResponse.json({
-                claimed: 0,
-                message: 'No pending payouts to claim'
-            });
-        }
+        const amount = identity.sats_pending;
 
         const nwcUrl = process.env.NWC_URL;
         if (!nwcUrl) {
@@ -73,64 +69,51 @@ export async function POST(request: Request, { params }: { params: Promise<{ pub
         }
 
         const nwcClient = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
-        let totalClaimed = 0;
-        let totalFailed = 0;
-        const failedBlocks: number[] = [];
 
         try {
-            for (const payout of pendingPayouts) {
-                try {
-                    const invoice = await getInvoiceFromLNAddress(lud16, payout.amount);
-                    if (!invoice) {
-                        failedBlocks.push(payout.block_height);
-                        totalFailed += payout.amount;
-                        continue;
-                    }
-
-                    await nwcClient.payInvoice({ invoice });
-
-                    await queryNeon(`
-                        UPDATE lotto_payouts SET status = 'paid'
-                        WHERE id = $1
-                    `, [payout.id]);
-
-                    await queryNeon(`
-                        UPDATE lotto_identities
-                        SET sats_earned = sats_earned + $1, has_confirmed = false
-                        WHERE pubkey = $2
-                    `, [payout.amount, pubkey]);
-
-                    totalClaimed += payout.amount;
-                } catch (e: any) {
-                    console.error(`[Claim] Payout failed for block ${payout.block_height}:`, e.message?.slice(0, 50));
-                    failedBlocks.push(payout.block_height);
-                    totalFailed += payout.amount;
-                }
+            const invoice = await getInvoiceFromLNAddress(lud16, amount);
+            if (!invoice) {
+                const response: ClaimApiResponse = {
+                    claimed: 0,
+                    error: 'No se pudo generar invoice'
+                };
+                return NextResponse.json(response, { status: 500 });
             }
+
+            await nwcClient.payInvoice({ invoice });
+
+            await queryNeon(`
+                UPDATE lotto_identities
+                SET sats_earned = sats_earned + $1,
+                    sats_pending = 0,
+                    can_claim = FALSE
+                WHERE pubkey = $2
+            `, [amount, pubkey]);
+
+            await queryNeon(`
+                UPDATE lotto_payouts
+                SET status = 'paid'
+                WHERE pubkey = $1 AND type = 'winner' AND status = 'failed'
+            `, [pubkey]);
+
+            await ensureNdkConnected();
+            await sendDM(pubkey, `¡Listo! Ya te envié tus ${amount} sats a ${lud16}. ¡Gracias por jugar! ⚡`);
+
+            const response: ClaimApiResponse = {
+                claimed: amount,
+                lud16: lud16
+            };
+            return NextResponse.json(response);
+
+        } catch (e: any) {
+            console.error('[Claim] Error:', e.message);
+            return NextResponse.json({ 
+                error: 'Error al procesar el pago',
+                claimed: 0 
+            }, { status: 500 });
         } finally {
             try { nwcClient.close(); } catch {}
         }
-
-        if (totalClaimed > 0) {
-            await ensureNdkConnected();
-            await sendDM(pubkey, `¡Listo! 🇦🇷 Ya te envié tus ${totalClaimed} sats a ${lud16}. ¡Gracias por jugar! ⚡`);
-        }
-
-        const remainingPending = await queryNeon(`
-            SELECT COALESCE(SUM(amount), 0) as pending_amount
-            FROM lotto_payouts
-            WHERE pubkey = $1 AND type = 'winner' AND status = 'failed'
-        `, [pubkey]);
-
-        return NextResponse.json({
-            claimed: totalClaimed,
-            failed: totalFailed,
-            pendingAmount: remainingPending[0]?.pending_amount || 0,
-            message: totalClaimed > 0
-                ? `${totalClaimed} sats enviadas a ${lud16}`
-                : 'No se pudieron procesar los pagos',
-            ...(failedBlocks.length > 0 && { failedBlocks })
-        });
     } catch (e: any) {
         console.error('[Claim] Error:', e.message);
         return NextResponse.json({ error: e.message }, { status: 500 });
