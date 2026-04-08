@@ -108,11 +108,17 @@ export function PinModal({ mode, error, attemptsLeft, onVerify, onCreate, onCanc
                         onClick={handleSubmit}
                         disabled={loading || pin.join('').length !== 4 || attemptsLeft === 0}
                     >
-                        {loading ? '...' : mode === 'create' ? 'Crear PIN' : 'Desbloquear'}
+                        {loading ? '⏳' : mode === 'create' ? 'Crear PIN' : 'Desbloquear'}
                     </button>
                 </div>
 
-                {mode === 'verify' && attemptsLeft < 3 && !error && (
+                {loading && (
+                    <p style={{ color: '#ffc107', fontSize: '0.85rem', marginTop: '10px' }}>
+                        Confirmando, por favor no cierre...
+                    </p>
+                )}
+
+                {mode === 'verify' && attemptsLeft < 3 && !error && !loading && (
                     <p className="pin-attempts">
                         Intentos restantes: {attemptsLeft}
                     </p>
