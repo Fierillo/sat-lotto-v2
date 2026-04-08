@@ -20,7 +20,7 @@ function GameContent() {
     const { state: gameState } = useGame();
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [showDebug, setShowDebug] = useState(false);
-    const { triggerChampion, triggerPotentialWinner, ChampionModal, PotentialWinnerModal } = useChampion(auth.state.signer);
+    const { triggerChampion, triggerPotentialWinner, ChampionModal, PotentialWinnerModal } = useChampion(auth.state.signer, auth.state.loginMethod);
 
     useEffect(() => {
         setShowDebug(process.env.NEXT_PUBLIC_TEST === 'on');
@@ -71,19 +71,26 @@ function GameContent() {
 
     return (
         <div id="app">
+            {ChampionModal}
+            {PotentialWinnerModal}
+
             {auth.state.pinModal.showPinModal && (
                 <PinModal
                     mode={auth.state.pinModal.pinModalMode}
                     error={auth.state.pinModal.pinError}
                     attemptsLeft={auth.state.pinModal.pinAttemptsLeft}
-                    onVerify={(pin) => auth.verifyPinForNwc(pin)}
-                    onCreate={(pin) => auth.createPinForNwc(pin)}
+                    onVerify={async (pin: string) => {
+                        const result = await auth.verifyPinForNwc(pin);
+                        if (result && auth.state.pinModal.pinCallback) {
+                            await auth.state.pinModal.pinCallback();
+                            auth.closePinModal();
+                        }
+                        return result;
+                    }}
+                    onCreate={(pin: string) => auth.createPinForNwc(pin)}
                     onCancel={handleClosePinModal}
                 />
             )}
-
-            {ChampionModal}
-            {PotentialWinnerModal}
 
             <UserPanel />
 
