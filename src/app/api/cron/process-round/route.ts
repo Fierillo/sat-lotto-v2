@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
-import { syncData } from '@/src/lib/cache';
+import { syncLottoState } from '@/src/lib/state';
 import { calculateResult, getWinners, buildAnnouncement } from '@/src/lib/champion-call';
 import { publishRoundResult } from '@/src/lib/nostr';
-import { dbGetAll, queryNeon } from '@/src/lib/db';
-import { getPoolBalance } from '@/src/lib/nwc';
+import { dbGet, dbInsert } from '@/src/lib/db';
 
 export async function GET(request: Request) {
     const authHeader = request.headers.get('authorization');
@@ -12,27 +11,33 @@ export async function GET(request: Request) {
     }
 
     try {
-        await syncData();
+        // Force sync state (mempool + NWC)
+        const state = await syncLottoState(true);
+        const lastResolvedTarget = Math.floor(state.current_block / 21) * 21;
 
-        const { cachedBlock } = await import('@/src/lib/cache');
-        const lastResolvedTarget = Math.floor(cachedBlock.height / 21) * 21;
+        if (state.current_block >= lastResolvedTarget + 2) {
+            // Check if already announced
+            const alreadyAnnounced = await dbGet('lotto_payouts', { 
+                block_height: lastResolvedTarget, 
+                type: 'cycle_announced' 
+            });
 
-        if (cachedBlock.height >= lastResolvedTarget + 2) {
-            const alreadyAnnounced = await dbGetAll('lotto_payouts', { block_height: lastResolvedTarget, type: 'cycle_resolved' });
-
-            if (alreadyAnnounced.length === 0) {
+            if (!alreadyAnnounced) {
                 const result = await calculateResult(lastResolvedTarget);
                 if (result) {
-                    const totalSats = await getPoolBalance();
                     const winners = await getWinners(lastResolvedTarget, result.winningNumber);
+                    
+                    // Publish to Nostr
+                    await publishRoundResult(buildAnnouncement(lastResolvedTarget, winners, state.pool_balance));
 
-                    await publishRoundResult(buildAnnouncement(lastResolvedTarget, winners, totalSats));
-
-                    await queryNeon(`
-                        INSERT INTO lotto_payouts (pubkey, block_height, amount, type, status)
-                        VALUES ('SYSTEM', $1, 0, 'cycle_resolved', 'paid')
-                        ON CONFLICT DO NOTHING
-                    `, [lastResolvedTarget]);
+                    // Mark as announced
+                    await dbInsert('lotto_payouts', {
+                        pubkey: 'SYSTEM',
+                        block_height: lastResolvedTarget,
+                        amount: 0,
+                        type: 'cycle_announced',
+                        status: 'paid'
+                    });
 
                     return NextResponse.json({ announced: true, block: lastResolvedTarget, winners: winners.length });
                 }
@@ -41,7 +46,11 @@ export async function GET(request: Request) {
             return NextResponse.json({ announced: false, reason: 'already_announced' });
         }
 
-        return NextResponse.json({ announced: false, reason: 'not_due_yet', blocksUntil: (lastResolvedTarget + 2) - cachedBlock.height });
+        return NextResponse.json({ 
+            announced: false, 
+            reason: 'not_due_yet', 
+            blocksUntil: (lastResolvedTarget + 2) - state.current_block 
+        });
     } catch (e: any) {
         console.error('[Cron] Error:', e.message);
         return NextResponse.json({ error: e.message }, { status: 500 });

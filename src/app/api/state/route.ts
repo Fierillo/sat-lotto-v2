@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { queryNeon, dbGetAll } from '@/src/lib/db';
-import { cachedBlock, syncData } from '@/src/lib/cache';
+import { queryNeon } from '@/src/lib/db';
+import { syncLottoState } from '@/src/lib/state';
 import { calculateResult } from '@/src/lib/champion-call';
 import { checkRateLimit, getClientIP } from '@/src/lib/rate-limiter';
 import type { Champion } from '@/src/types/game';
@@ -12,11 +12,12 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Rate limit' }, { status: 429 });
     }
     
-    await syncData();
+    // Sync state (throttled to 21s)
+    const state = await syncLottoState(false);
     
     try {
-        const targetBlock = cachedBlock.target;
-        const currentHeight = cachedBlock.height;
+        const targetBlock = state.target_block;
+        const currentHeight = state.current_block;
         const lastResolvedBlock = Math.floor(currentHeight / 21) * 21;
 
         const activeBets = await queryNeon(`
@@ -54,7 +55,7 @@ export async function GET(request: Request) {
             WHERE sats_pending > 0
         `);
         const totalPending = pendingResult[0]?.total_pending || 0;
-        const displayedPoolBalance = Math.max(0, cachedBlock.poolBalance - totalPending);
+        const displayedPoolBalance = Math.max(0, state.pool_balance - totalPending);
 
         let lastResult = null;
         if (lastResolvedBlock > 0) {
@@ -84,8 +85,8 @@ export async function GET(request: Request) {
 
         return NextResponse.json({
             block: { 
-                height: cachedBlock.height, 
-                target: cachedBlock.target, 
+                height: currentHeight, 
+                target: targetBlock, 
                 poolBalance: displayedPoolBalance 
             },
             activeBets: publicBets,

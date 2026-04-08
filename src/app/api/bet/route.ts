@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { queryNeon, dbGet, dbGetAll, dbInsert, dbUpdate } from '@/src/lib/db';
 import { createNwcInvoice, lookupNwcInvoice, payNwcInvoice } from '@/src/lib/nwc';
 import { verifyEvent } from 'nostr-tools';
-import { cachedBlock, syncData } from '@/src/lib/cache';
+import { syncLottoState } from '@/src/lib/state';
 import { checkRateLimit, getClientIP } from '@/src/lib/rate-limiter';
 
 async function getInvoiceFromLNAddress(address: string, amountSats: number): Promise<string | null> {
@@ -23,7 +23,7 @@ async function getInvoiceFromLNAddress(address: string, amountSats: number): Pro
 
 export async function POST(request: Request) {
     try {
-        await syncData();
+        const state = await syncLottoState(false);
         const body = await request.json();
         const { signedEvent, paymentHash, action } = body;
 
@@ -113,11 +113,10 @@ export async function POST(request: Request) {
 
         const now = Math.floor(Date.now() / 1000);
         if (Math.abs(now - createdAt) > 900) return NextResponse.json({ error: 'Firma desincronizada.' }, { status: 400 });
-        if (finalBloque !== cachedBlock.target) return NextResponse.json({ error: 'Invalid target block.' }, { status: 400 });
+        if (finalBloque !== state.target_block) return NextResponse.json({ error: 'Invalid target block.' }, { status: 400 });
 
-        const realTimeResp = await fetch('https://mempool.space/api/blocks/tip/height');
-        const realTimeHeight = parseInt(await realTimeResp.text(), 10);
-        if ((realTimeHeight || cachedBlock.height) >= finalBloque - 2) {
+        // Use synced state instead of direct mempool call
+        if (state.current_block >= finalBloque - 2) {
             return NextResponse.json({ error: 'Betting is closed (Frozen)' }, { status: 403 });
         }
 
@@ -164,7 +163,7 @@ export async function POST(request: Request) {
             payment_request: pr,
             payment_hash: hash,
             is_paid: false,
-            betting_block: cachedBlock.height,
+            betting_block: state.current_block,
             nip05: finalNip05,
             nostr_event_id: eventId
         });
@@ -214,7 +213,7 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Rate limit' }, { status: 429 });
         }
 
-        await syncData();
+        const state = await syncLottoState(false);
 
         if (isNaN(number) || number < 1 || number > 21) {
             return NextResponse.json({ error: 'Invalid number. Must be between 1 and 21.' }, { status: 400 });
@@ -258,7 +257,7 @@ export async function GET(request: Request) {
             payment_request: pr,
             payment_hash: hash,
             is_paid: false,
-            betting_block: cachedBlock.height,
+            betting_block: state.current_block,
             nip05: null,
             nostr_event_id: 'pending_amber_' + hash
         });
