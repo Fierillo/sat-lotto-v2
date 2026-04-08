@@ -12,30 +12,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ pub
 
     try {
         const body = await request.json();
-        const { signedEvent } = body;
-
-        if (!signedEvent) {
-            return NextResponse.json({ error: 'Signature required' }, { status: 401 });
-        }
-
-        const event = typeof signedEvent === 'string' ? JSON.parse(signedEvent) : signedEvent;
-        if (!verifyEvent(event)) {
-            return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
-        }
-
-        if (event.pubkey !== pubkey) {
-            return NextResponse.json({ error: 'Pubkey mismatch' }, { status: 400 });
-        }
-
-        const now = Math.floor(Date.now() / 1000);
-        if (Math.abs(now - event.created_at) > 300) {
-            return NextResponse.json({ error: 'Signature expired' }, { status: 400 });
-        }
+        const { signedEvent, invoice: providedInvoice } = body;
 
         const clientIP = await getClientIP(request);
         const rateCheck = await checkRateLimit('identity:ip', clientIP);
         if (!rateCheck.allowed) {
             return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+        }
+
+        if (!signedEvent && !providedInvoice) {
+            return NextResponse.json({ error: 'Firma o invoice requerida' }, { status: 401 });
+        }
+
+        if (signedEvent) {
+            const event = typeof signedEvent === 'string' ? JSON.parse(signedEvent) : signedEvent;
+            if (!verifyEvent(event)) {
+                return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
+            }
+            if (event.pubkey !== pubkey) {
+                return NextResponse.json({ error: 'Pubkey mismatch' }, { status: 400 });
+            }
         }
 
         const identity = await dbGet<{ 
@@ -52,8 +48,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ pub
             return NextResponse.json(response, { status: 400 });
         }
 
-        const lud16 = identity.lud16;
-        if (!lud16) {
+        const amount = identity.sats_pending;
+        const nwcUrl = process.env.NWC_URL;
+        if (!nwcUrl) {
+            return NextResponse.json({ error: 'NWC not configured' }, { status: 500 });
+        }
+
+        let invoice = providedInvoice;
+        let lud16 = identity.lud16;
+
+        if (!invoice && lud16) {
+            invoice = await getInvoiceFromLNAddress(lud16, amount);
+        }
+
+        if (!invoice) {
             const response: ClaimApiResponse = {
                 claimed: 0,
                 error: 'Lightning address no configurada'
@@ -61,25 +69,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ pub
             return NextResponse.json(response, { status: 400 });
         }
 
-        const amount = identity.sats_pending;
-
-        const nwcUrl = process.env.NWC_URL;
-        if (!nwcUrl) {
-            return NextResponse.json({ error: 'NWC not configured' }, { status: 500 });
-        }
-
         const nwcClient = new nwc.NWCClient({ nostrWalletConnectUrl: nwcUrl });
 
         try {
-            const invoice = await getInvoiceFromLNAddress(lud16, amount);
-            if (!invoice) {
-                const response: ClaimApiResponse = {
-                    claimed: 0,
-                    error: 'No se pudo generar invoice'
-                };
-                return NextResponse.json(response, { status: 500 });
-            }
-
             await nwcClient.payInvoice({ invoice });
 
             await queryNeon(`
@@ -93,15 +85,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ pub
             await queryNeon(`
                 UPDATE lotto_payouts
                 SET status = 'paid'
-                WHERE pubkey = $1 AND type = 'winner' AND status = 'failed'
+                WHERE pubkey = $1 AND type = 'winner' AND status IN ('pending', 'failed')
             `, [pubkey]);
 
             await ensureNdkConnected();
-            await sendDM(pubkey, `¡Listo! Ya te envié tus ${amount} sats a ${lud16}. ¡Gracias por jugar! ⚡`);
+            await sendDM(pubkey, `¡Listo! Ya te envié tus ${amount} sats a ${lud16 || 'tu wallet'}. ¡Gracias por jugar! ⚡`);
 
             const response: ClaimApiResponse = {
                 claimed: amount,
-                lud16: lud16
+                lud16: lud16 || undefined
             };
             return NextResponse.json(response);
 
