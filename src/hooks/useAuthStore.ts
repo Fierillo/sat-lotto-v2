@@ -46,7 +46,6 @@ export function useAuthStore(): AuthStore {
             pubkey: localStorage.getItem(STORAGE_KEYS.pubkey),
             nip05: localStorage.getItem(STORAGE_KEYS.nip05),
             loginMethod: localStorage.getItem(STORAGE_KEYS.loginMethod),
-            nwcUrl: localStorage.getItem(STORAGE_KEYS.nwcUrl),
             bunkerTarget: localStorage.getItem(STORAGE_KEYS.bunkerTarget),
             bunkerSession: localStorage.getItem(STORAGE_KEYS.bunkerSession),
         };
@@ -80,12 +79,6 @@ export function useAuthStore(): AuthStore {
 
         if (state.loginMethod) {
             localStorage.setItem(STORAGE_KEYS.loginMethod, state.loginMethod);
-        }
-
-        if (state.nwcUrl) {
-            localStorage.setItem(STORAGE_KEYS.nwcUrl, state.nwcUrl);
-        } else {
-            localStorage.removeItem(STORAGE_KEYS.nwcUrl);
         }
 
         if (state.bunkerTarget) {
