@@ -23,6 +23,7 @@ interface PinModalState {
     pinModalUrl: string | null;
     pinError: string | null;
     pinAttemptsLeft: number;
+    pinCallback?: () => Promise<{ claimed: number; error?: string }>;
 }
 
 interface AuthContextValue {
@@ -46,6 +47,7 @@ interface AuthContextValue {
     loginWithBunker: (url: string, signer: NDKPrivateKeySigner | NDKNip46Signer, secret: string, relays?: string[], skipHandshake?: boolean, existingSession?: any) => Promise<VictoryStatus | null>;
     verifyPinForNwc: (pin: string) => Promise<VictoryStatus | null>;
     createPinForNwc: (pin: string) => Promise<VictoryStatus | null>;
+    openPinModal: (payload: { mode: 'create' | 'verify'; nwcUrl?: string; callback?: () => Promise<{ claimed: number; error?: string }> }) => void;
     closePinModal: () => void;
     checkStoredNwcAndPrompt: () => Promise<boolean>;
     getVictoryStatus: () => Promise<VictoryStatus>;
@@ -73,13 +75,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         store.clearAuth();
     }, [store]);
 
-    const openPinModal = useCallback((payload: { mode: 'create' | 'verify'; nwcUrl?: string }) => {
+    const openPinModal = useCallback((payload: { mode: 'create' | 'verify'; nwcUrl?: string; callback?: () => Promise<{ claimed: number; error?: string }> }) => {
         setPinModal({
             showPinModal: true,
             pinModalMode: payload.mode,
             pinModalUrl: payload.nwcUrl ?? null,
             pinError: null,
             pinAttemptsLeft: getAttemptsLeft(),
+            pinCallback: payload.callback,
         });
     }, []);
 
@@ -98,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         closePinModal,
         setPinError,
         setError,
+        clearPinError: () => setPinModal(prev => ({ ...prev, pinError: null })),
         pinModalUrl: pinModal.pinModalUrl,
         bunkerSession: store.bunkerSession,
     };
@@ -166,6 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginWithBunker: handleLoginWithBunker,
         verifyPinForNwc: handleVerifyPin,
         createPinForNwc: handleCreatePin,
+        openPinModal,
         closePinModal,
         checkStoredNwcAndPrompt: handleCheckStoredNwc,
         getVictoryStatus: handleGetVictoryStatus,

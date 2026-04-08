@@ -194,7 +194,7 @@ export const verifyPinForNwc = async (
             signer,
             loginMethod: 'nwc',
         });
-        actions.closePinModal();
+        (window as any).__auth_nwcUrl = nwcUrl;
         return await getVictoryStatus(user.pubkey);
     } catch (e: any) {
         actions.setPinError({ error: 'Error al conectar: ' + e.message, attemptsLeft: result.attemptsLeft });
@@ -231,6 +231,7 @@ export const createPinForNwc = async (
             signer,
             loginMethod: 'nwc',
         });
+        (window as any).__auth_nwcUrl = nwcUrl;
         actions.closePinModal();
         return await getVictoryStatus(user.pubkey);
     } catch (e: any) {

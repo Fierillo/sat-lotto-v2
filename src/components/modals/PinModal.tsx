@@ -68,7 +68,7 @@ export function PinModal({ mode, error, attemptsLeft, onVerify, onCreate, onCanc
     };
 
     return (
-        <div className="modal-bg" onClick={onCancel}>
+        <div className="modal-bg" style={{ zIndex: 10001 }} onClick={onCancel}>
             <div className="modal pin-modal" onClick={(e) => e.stopPropagation()}>
                 <h2 id="pinTitle">
                     {mode === 'create' ? 'Creá tu PIN' : 'Seguridad de la Wallet'}

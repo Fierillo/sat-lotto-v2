@@ -5,6 +5,8 @@ import { ChampionModal } from '../components/modals/ChampionModal';
 import { PotentialWinnerModal } from '../components/modals/PotentialWinnerModal';
 import ndk from '../lib/ndk';
 import { NDKEvent, NDKSigner } from '@nostr-dev-kit/ndk';
+import { createNwcInvoice } from '../lib/nwc';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ChampionParams {
     pubkey?: string;
@@ -32,9 +34,14 @@ interface UseChampionReturn {
     ChampionModal: ReactElement | null;
 }
 
-export function useChampion(signer?: any): UseChampionReturn {
+export function useChampion(signer?: any, loginMethod?: string | null): UseChampionReturn {
+    const auth = useAuth();
     const [showPotentialModal, setShowPotentialModal] = useState(false);
     const [showChampionModal, setShowChampionModal] = useState(false);
+    const [showPinModal, setShowPinModal] = useState(false);
+    const [pinError, setPinError] = useState<string | null>(null);
+    const [pinAttemptsLeft, setPinAttemptsLeft] = useState<number>(3);
+    const [pendingClaimPubkey, setPendingClaimPubkey] = useState<string | null>(null);
     const [potentialData, setPotentialData] = useState<ChampionData | null>(null);
     const [championData, setChampionData] = useState<ChampionData | null>(null);
     const [isAnimating, setIsAnimating] = useState(false);
@@ -173,33 +180,81 @@ export function useChampion(signer?: any): UseChampionReturn {
     const handleClaim = useCallback(async (pubkey: string): Promise<{ claimed: number; error?: string }> => {
         if (!pubkey) return { claimed: 0, error: 'No pubkey' };
 
-        try {
-            const signedEvent = await signEvent({
-                kind: 1,
-                created_at: Math.floor(Date.now() / 1000),
-                tags: [['p', pubkey]],
-                content: `Claim prize for ${pubkey}`,
-                pubkey
-            });
+        const isNwcUser = loginMethod === 'nwc';
+        const isExtensionOrBunker = loginMethod === 'extension' || loginMethod === 'bunker';
 
-            if (!signedEvent) {
-                return { claimed: 0, error: 'Firma requerida' };
-            }
+        if (isExtensionOrBunker) {
+            try {
+                const signedEvent = await signEvent({
+                    kind: 1,
+                    created_at: Math.floor(Date.now() / 1000),
+                    tags: [['p', pubkey]],
+                    content: `Claim prize for ${pubkey}`,
+                    pubkey
+                });
 
-            const res = await fetch(`/api/identity/${pubkey}/claim`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ signedEvent })
-            });
-            const data = await res.json();
-            if (!res.ok) {
-                return { claimed: 0, error: data.error };
+                if (!signedEvent) {
+                    return { claimed: 0, error: 'Firma requerida' };
+                }
+
+                const res = await fetch(`/api/identity/${pubkey}/claim`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ signedEvent })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    return { claimed: 0, error: data.error };
+                }
+                return { claimed: data.claimed };
+            } catch {
+                return { claimed: 0, error: 'Network error' };
             }
-            return { claimed: data.claimed };
-        } catch {
-            return { claimed: 0, error: 'Network error' };
         }
-    }, [signEvent]);
+
+        if (isNwcUser) {
+            const claimCallback = async () => {
+                if (!pubkey) return { claimed: 0, error: 'No pubkey' };
+                
+                const nwcUrl = auth.state.nwcUrl;
+                if (!nwcUrl) {
+                    return { claimed: 0, error: 'No hay wallet conectada' };
+                }
+
+                try {
+                    const identityRes = await fetch(`/api/identity/${pubkey}`);
+                    const identityData = await identityRes.json();
+                    const satsPending = identityData.sats_pending || 0;
+
+                    if (satsPending <= 0) {
+                        return { claimed: 0, error: 'No hay premio pendiente' };
+                    }
+
+                    const invoiceData = await createNwcInvoice(nwcUrl, satsPending, `SatLotto Prize - Block ${identityData.winner_block}`);
+                    const invoice = invoiceData.invoice;
+
+                    const res = await fetch(`/api/identity/${pubkey}/claim`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ invoice })
+                    });
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        return { claimed: 0, error: data.error };
+                    }
+                    return { claimed: data.claimed };
+                } catch (err) {
+                    return { claimed: 0, error: 'Error al generar invoice' };
+                }
+            };
+            
+            auth.openPinModal({ mode: 'verify', callback: claimCallback });
+            return { claimed: 0, error: 'pending' };
+        }
+
+        return { claimed: 0, error: 'Método de autenticación no soportado' };
+    }, [loginMethod, signEvent, auth]);
 
     const handleSaveLN = useCallback(async (pubkey: string, lud16: string): Promise<{ error?: string }> => {
         if (!pubkey) return { error: 'No pubkey' };
@@ -242,6 +297,9 @@ export function useChampion(signer?: any): UseChampionReturn {
             sats_pending={championData.sats_pending}
             onSaveLN={(lud16: string) => handleSaveLN(championData.pubkey!, lud16)}
             onClaim={() => handleClaim(championData.pubkey!)}
+            openPinModal={auth.openPinModal}
+            showPinInput={loginMethod === 'nwc'}
+            isNwcUser={loginMethod === 'nwc'}
         />
     ) : null;
 

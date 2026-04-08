@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Modal } from './Modal';
+import { createNwcInvoice } from '../../lib/nwc';
 
 interface ChampionModalProps {
     isOpen: boolean;
@@ -12,6 +13,9 @@ interface ChampionModalProps {
     sats_pending?: number;
     onClaim?: () => Promise<{ claimed: number; error?: string }>;
     onSaveLN?: (lud16: string) => Promise<{ error?: string }>;
+    openPinModal?: (payload: { mode: 'create' | 'verify'; callback?: () => Promise<{ claimed: number; error?: string }> }) => void;
+    showPinInput?: boolean;
+    isNwcUser?: boolean;
 }
 
 const LN_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*\.[a-zA-Z]{2,}$/;
@@ -36,9 +40,13 @@ export function ChampionModal({
     blockHeight,
     sats_pending = 0,
     onClaim,
-    onSaveLN
+    onSaveLN,
+    openPinModal,
+    showPinInput,
+    isNwcUser
 }: ChampionModalProps) {
-    const [LNAddress, setLNAddress] = useState('');
+    const displayLNAddress = !lud16 || isNwcUser ? '' : lud16;
+    const [LNAddress, setLNAddress] = useState(displayLNAddress);
     const [isValidFormat, setIsValidFormat] = useState(false);
     const [isReachable, setIsReachable] = useState(false);
     const [isChecking, setIsChecking] = useState(false);
@@ -51,7 +59,10 @@ export function ChampionModal({
 
     useEffect(() => {
         if (isOpen) {
-            if (lud16) {
+            if (isNwcUser) {
+                setLNAddress('');
+                setSavedLN(false);
+            } else if (lud16) {
                 setLNAddress(lud16);
                 setSavedLN(true);
             } else {
@@ -62,7 +73,7 @@ export function ChampionModal({
             setClaimResult(null);
             setShowClaimSuccess(false);
         }
-    }, [isOpen, lud16]);
+    }, [isOpen, lud16, isNwcUser]);
 
     useEffect(() => {
         setIsValidFormat(LN_REGEX.test(LNAddress.trim()));
@@ -123,16 +134,71 @@ export function ChampionModal({
         }
     }, [onClaim, isClaiming]);
 
+    const handlePinClaim = useCallback(async () => {
+        if (!openPinModal || !pubkey || isClaiming) return;
+
+        const claimCallback = async () => {
+            const nwcUrl = (window as any).__auth_nwcUrl;
+            if (!nwcUrl) {
+                return { claimed: 0, error: 'No hay wallet conectada' };
+            }
+
+            setIsClaiming(true);
+            setClaimResult(null);
+            try {
+                const identityRes = await fetch(`/api/identity/${pubkey}`);
+                const identityData = await identityRes.json();
+                const satsPending = identityData.sats_pending || 0;
+
+                if (satsPending <= 0) {
+                    return { claimed: 0, error: 'No hay premio pendiente' };
+                }
+
+                const invoiceData = await createNwcInvoice(
+                    nwcUrl, 
+                    satsPending, 
+                    `SatLotto Prize - Block ${identityData.winner_block}`
+                );
+
+                const claimRes = await fetch(`/api/identity/${pubkey}/claim`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ invoice: invoiceData.invoice })
+                });
+                const claimData = await claimRes.json();
+
+                if (!claimRes.ok) {
+                    setClaimResult({ error: claimData.error });
+                    return { claimed: 0, error: claimData.error };
+                }
+                
+                setClaimResult({ claimed: claimData.claimed });
+                setShowClaimSuccess(true);
+                return { claimed: claimData.claimed };
+            } catch (err) {
+                const errorMsg = 'Error al reclamar premio';
+                setClaimResult({ error: errorMsg });
+                return { claimed: 0, error: errorMsg };
+            } finally {
+                setIsClaiming(false);
+            }
+        };
+
+        openPinModal({ mode: 'verify', callback: claimCallback });
+    }, [openPinModal, pubkey, isClaiming]);
+
     const handleEdit = () => {
         setIsEditing(true);
         setClaimResult(null);
     };
 
-    const canSave = isValidFormat && !isChecking && !isSaving && (isEditing || !savedLN);
-    const showClaimButton = savedLN && !isEditing && sats_pending > 0 && !showClaimSuccess;
-    const showEditButton = savedLN && !isEditing;
-    const showSaveButton = !savedLN || isEditing;
-    const showConfirmMessage = savedLN && !isEditing && !showClaimSuccess;
+    const canSave = isValidFormat && !isChecking && !isSaving && (isEditing || !savedLN) && !isNwcUser;
+    const showClaimButton = isNwcUser 
+        ? (sats_pending > 0 && !showClaimSuccess)
+        : (savedLN && !isEditing && sats_pending > 0 && !showClaimSuccess);
+    const showEditButton = savedLN && !isEditing && !isNwcUser;
+    const showSaveButton = (!savedLN || isEditing) && !isNwcUser;
+    const showConfirmMessage = savedLN && !isEditing && !showClaimSuccess && !isNwcUser;
     const showClaimSuccessMessage = showClaimSuccess && claimResult?.claimed;
     const showErrorMessage = claimResult?.error && !showClaimSuccess;
 
@@ -159,6 +225,16 @@ export function ChampionModal({
                     Ronda #{blockHeight}
                 </p>
 
+                {isNwcUser ? (
+                    <div style={{ marginBottom: '15px', padding: '10px', background: 'rgba(0,255,157,0.1)', borderRadius: '6px' }}>
+                        <p style={{ color: '#00ff9d', fontSize: '0.9rem' }}>
+                            💰 El premio se enviará a tu wallet (NWC)
+                        </p>
+                        <p style={{ color: '#888', fontSize: '0.75rem', marginTop: '5px' }}>
+                            Se te pedirà tu PIN para reclamar
+                        </p>
+                    </div>
+                ) : (
                 <div style={{ marginBottom: '15px' }}>
                     <p className="modal-text" style={{ fontSize: '0.85rem', marginBottom: '8px' }}>
                         Lightning Address:
@@ -223,6 +299,7 @@ export function ChampionModal({
                         </p>
                     )}
                 </div>
+                )}
 
                 {showConfirmMessage && (
                     <div style={{
@@ -257,7 +334,7 @@ export function ChampionModal({
                     <div style={{ marginTop: '15px' }}>
                         <button
                             className="auth-btn"
-                            onClick={handleClaim}
+                            onClick={showPinInput ? handlePinClaim : handleClaim}
                             disabled={isClaiming}
                             style={{
                                 background: 'rgba(0, 255, 157, 0.2)',
@@ -292,11 +369,13 @@ export function ChampionModal({
                         padding: '15px'
                     }}>
                         <p style={{ color: '#00ff9d', fontWeight: 'bold', fontSize: '1rem' }}>
-                            ✓ ¡{claimResult?.claimed?.toLocaleString()} sats enviadas!
+                            ✓ ¡{claimResult?.claimed?.toLocaleString()} sats enviados!
                         </p>
-                        <p style={{ color: '#888', fontSize: '0.85rem', marginTop: '5px' }}>
-                            a {LNAddress}
-                        </p>
+                        {LNAddress && !isNwcUser && (
+                            <p style={{ color: '#888', fontSize: '0.85rem', marginTop: '5px' }}>
+                                a {LNAddress}
+                            </p>
+                        )}
                     </div>
                 )}
 
